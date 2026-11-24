@@ -1,7 +1,6 @@
 defmodule DirmoonWeb.Layouts do
   @moduledoc """
-  This module holds layouts and related functionality
-  used by your application.
+  The embedded root template plus the app layout and the flash group it renders.
   """
   use DirmoonWeb, :html
 

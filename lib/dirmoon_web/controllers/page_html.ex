@@ -1,6 +1,6 @@
 defmodule DirmoonWeb.PageHTML do
   @moduledoc """
-  This module contains pages rendered by PageController.
+  Pages rendered by `DirmoonWeb.PageController`.
 
   See the `page_html` directory for all templates available.
   """

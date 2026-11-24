@@ -1,7 +1,6 @@
 defmodule DirmoonWeb.ConnCase do
   @moduledoc """
-  This module defines the test case to be used by
-  tests that require setting up a connection.
+  Test case for tests that require setting up a connection.
 
   Such tests rely on `Phoenix.ConnTest` and also
   import other functionality to make it easier
@@ -19,15 +18,16 @@ defmodule DirmoonWeb.ConnCase do
 
   using do
     quote do
-      # The default endpoint for testing
-      @endpoint DirmoonWeb.Endpoint
-
       use DirmoonWeb, :verified_routes
+
+      import DirmoonWeb.ConnCase
+      import Phoenix.ConnTest
 
       # Import conveniences for testing with connections
       import Plug.Conn
-      import Phoenix.ConnTest
-      import DirmoonWeb.ConnCase
+
+      # The default endpoint for testing
+      @endpoint DirmoonWeb.Endpoint
     end
   end
 
