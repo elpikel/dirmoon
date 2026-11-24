@@ -43,8 +43,7 @@ defmodule Dirmoon.Hosting.Netlify do
   @impl Hosting
   def deploy(%{site_id: site_id, html: html}) when is_binary(site_id) and site_id != "" and is_binary(html) do
     with_netlify(fn netlify ->
-      with {:ok, zip} <- zip(html),
-           {:ok, deploy} <- create_deploy(netlify.client, %{site_id: site_id, zip: zip}),
+      with {:ok, deploy} <- create_deploy(netlify.client, %{site_id: site_id, zip: zip(html)}),
            {:ok, url} <- await_ready(netlify, deploy, netlify.poll_attempts) do
         {:ok, %{url: url}}
       end
@@ -94,10 +93,8 @@ defmodule Dirmoon.Hosting.Netlify do
   defp created_site({:error, response}), do: failure(response)
 
   defp zip(html) do
-    case :zip.create(~c"site.zip", [{~c"index.html", html}], [:memory]) do
-      {:ok, {_filename, zip}} -> {:ok, zip}
-      {:error, reason} -> failure("nie udało się spakować strony (#{inspect(reason)})")
-    end
+    {:ok, {_filename, zip}} = :zip.create(~c"site.zip", [{~c"index.html", html}], [:memory])
+    zip
   end
 
   defp create_deploy(client, %{site_id: site_id, zip: zip}) do

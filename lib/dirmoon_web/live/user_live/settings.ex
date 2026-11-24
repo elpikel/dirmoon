@@ -12,21 +12,19 @@ defmodule DirmoonWeb.UserLive.Settings do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div id="settings" class="flex w-full max-w-[640px] flex-col gap-7">
-        <div class="flex flex-col gap-2">
-          <h1 id="settings-title" class="text-[30px] font-extrabold tracking-[-0.03em]">
-            Ustawienia
-          </h1>
-          <p class="text-[15px] text-body">Adres e-mail, na który wysyłamy linki logowania.</p>
-        </div>
+    <Layouts.app flash={@flash} current_scope={@current_scope} context="ustawienia">
+      <:status>Tu zmienisz adres e-mail, na który wysyłam linki logowania.</:status>
+      <div id="settings" class="flex w-full max-w-[640px] flex-col gap-6 px-7 pt-6 pb-8 max-sm:px-4">
+        <h1 id="settings-title" class="m-0 text-2xl leading-tight font-bold tracking-[-0.02em]">
+          Ustawienia
+        </h1>
 
         <.form
           for={@email_form}
           id="email-form"
           phx-submit="update_email"
           phx-change="validate_email"
-          class="flex flex-col items-start gap-4 [&>div]:w-full"
+          class="flex flex-col gap-4"
         >
           <.input
             field={@email_form[:email]}
@@ -35,8 +33,15 @@ defmodule DirmoonWeb.UserLive.Settings do
             autocomplete="username"
             spellcheck="false"
             required
+            surface="slate"
           />
-          <.button id="email-submit" variant="dark" type="submit" phx-disable-with="Zapisuję…">
+          <.button
+            id="email-submit"
+            variant="lime"
+            type="submit"
+            phx-disable-with="Zapisuję…"
+            class="self-start"
+          >
             Zmień e-mail
           </.button>
         </.form>

@@ -34,6 +34,7 @@ defmodule DirmoonWeb.ResultsLive do
   @missing "—"
   @phrase_forms %{one: "fraza", few: "frazy", many: "fraz"}
   @niche_forms %{one: "nisza", few: "nisze", many: "nisz"}
+  @quick_win_forms %{one: "szybka wygrana", few: "szybkie wygrane", many: "szybkich wygranych"}
 
   @reject_errors %{
     not_found: "Nie znaleziono niszy",
@@ -43,117 +44,111 @@ defmodule DirmoonWeb.ResultsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} active={:runs}>
-      <section id="results" class="flex flex-col items-center gap-6 text-center">
-        <.eyebrow id="results-context">{@context_line}</.eyebrow>
-        <.headline id="results-headline">
-          {@headline.lead}
-          <:underline>{@headline.underline}</:underline>
-        </.headline>
-
-        <.dark_panel
-          id="results-panel"
-          context={String.downcase(@short_description)}
-          note={RunDisplay.mode_label(@run.mode)}
-          class="mt-5"
-        >
-          <:status><span id="results-status-line">{@status_line}</span></:status>
-          <div class="flex flex-wrap">
-            <div class="box-border flex flex-[1_1_190px] flex-col gap-5 border-slate-line px-3 py-4 min-[860px]:border-r max-[859px]:border-b">
-              <nav id="results-views" aria-label="Widoki" class="flex flex-col gap-0.5">
-                <.view_link
-                  id="view-niches"
-                  label="Nisze"
-                  count={@counts.niches}
-                  active={@view == :niches}
-                  patch={@ready? && view_path(@run, %{view: "niches", niche: @selected_id})}
-                />
-                <.view_link
-                  id="view-phrases"
-                  label="Wszystkie frazy"
-                  count={@counts.kept}
-                  active={@view == :phrases}
-                  patch={view_path(@run, %{view: "phrases", niche: @selected_id})}
-                />
-                <.view_link
-                  id="view-rejected"
-                  label="Odrzucone"
-                  count={@counts.rejected}
-                  active={@view == :rejected}
-                  patch={@ready? && view_path(@run, %{view: "rejected", niche: @selected_id})}
-                />
-              </nav>
-              <div id="run-parameters" class="flex flex-col gap-2.5 px-3 font-mono text-xs">
-                <span class="text-[10px] uppercase tracking-[0.1em] text-on-slate-muted">
-                  Research
-                </span>
-                <span class="text-on-slate-2">{@short_description}</span>
-                <span class="text-on-slate-2">{RunDisplay.country_and_language(@run)}</span>
-                <span :if={@run.city} class="text-on-slate-2">{@run.city}</span>
-                <span :if={@run.mode == :existing_site} class="text-on-slate-2">{@run.domain}</span>
-              </div>
-              <.link
-                id="export-csv"
-                href={~p"/app/runs/#{@run}/export.csv"}
-                class="mt-auto inline-flex min-h-target-min items-center justify-center rounded-control border border-slate-line-strong px-3 text-sm font-medium text-on-slate no-underline transition-colors duration-150 hover:bg-slate-raised"
-              >
-                Eksport CSV
-              </.link>
-            </div>
-
-            <div class="flex min-w-0 flex-[3_1_250px] flex-col border-slate-line min-[860px]:border-r max-[859px]:border-b">
-              <.niche_list
-                :if={@view == :niches}
-                niches={@streams.niches}
-                low_count={@low_count}
-                show_low_niches={@show_low_niches}
-              />
-              <.phrase_list
-                :if={@view == :phrases}
-                id="phrases"
-                rows={@streams.phrases}
-                shown={min(@counts.kept, @list_limit)}
-                total={@counts.kept}
-                empty="Nie mam jeszcze żadnych fraz."
-              />
-              <.phrase_list
-                :if={@view == :rejected}
-                id="rejected-phrases"
-                rows={@streams.rejected_phrases}
-                shown={min(@counts.rejected, @list_limit)}
-                total={@counts.rejected}
-                empty="Żadna fraza nie została odrzucona."
-              />
-            </div>
-
-            <div class="flex min-w-0 flex-[6_1_400px] flex-col gap-5 px-7 pt-6 pb-7 max-sm:px-5">
-              <.not_ready :if={not @ready?} run={@run} />
-              <div
-                :if={@ready? and is_nil(@selected)}
-                id="niche-detail-empty"
-                class="flex flex-col gap-2"
-              >
-                <span class="text-[22px] leading-snug font-bold">Brak nisz do wyboru.</span>
-                <p class="m-0 text-[15px] leading-normal text-on-slate-muted">
-                  Wszystkie frazy i powody odrzucenia są w widokach po lewej i w eksporcie CSV.
-                </p>
-              </div>
-              <.niche_detail
-                :if={@ready? and @selected}
-                run={@run}
-                selected={@selected}
-                choosable?={@choosable?}
-                detail={@detail}
-                niche_phrases={@streams.niche_phrases}
-                phrase_total={length(@detail.phrases)}
-                show_all_niche_phrases={@show_all_niche_phrases}
-              />
-            </div>
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      active={:runs}
+      context={@context_line}
+      note={RunDisplay.mode_label(@run.mode)}
+    >
+      <:status><span id="results-status-line">{@status_line}</span></:status>
+      <section id="results" class="flex grow flex-col min-[860px]:flex-row min-[860px]:flex-wrap">
+        <div class="box-border flex flex-[1_1_190px] flex-col gap-5 border-slate-line px-3 py-4 min-[860px]:border-r max-[859px]:border-b">
+          <nav id="results-views" aria-label="Widoki" class="flex flex-col gap-0.5">
+            <.view_link
+              id="view-niches"
+              label="Nisze"
+              count={@counts.niches}
+              active={@view == :niches}
+              patch={@ready? && view_path(@run, %{view: "niches", niche: @selected_id})}
+            />
+            <.view_link
+              id="view-phrases"
+              label="Wszystkie frazy"
+              count={@counts.kept}
+              active={@view == :phrases}
+              patch={view_path(@run, %{view: "phrases", niche: @selected_id})}
+            />
+            <.view_link
+              id="view-rejected"
+              label="Odrzucone"
+              count={@counts.rejected}
+              active={@view == :rejected}
+              patch={@ready? && view_path(@run, %{view: "rejected", niche: @selected_id})}
+            />
+          </nav>
+          <div id="run-parameters" class="flex flex-col gap-2.5 px-3 font-mono text-xs">
+            <span class="text-[10px] uppercase tracking-[0.1em] text-on-slate-muted">
+              Research
+            </span>
+            <span class="text-on-slate-2">{@short_description}</span>
+            <span class="text-on-slate-2">{RunDisplay.country_and_language(@run)}</span>
+            <span :if={@run.city} class="text-on-slate-2">{@run.city}</span>
+            <span :if={@run.mode == :existing_site} class="text-on-slate-2">{@run.domain}</span>
           </div>
-        </.dark_panel>
-        <p class="m-0 font-mono text-xs text-body-muted">
-          Ryc. 3 · Nisze po lewej, frazy i konkurencja wybranej niszy po prawej.
-        </p>
+          <.link
+            id="export-csv"
+            href={~p"/app/runs/#{@run}/export.csv"}
+            class="mt-auto inline-flex min-h-target-min items-center justify-center rounded-control border border-slate-line-strong px-3 text-sm font-medium text-on-slate no-underline transition-colors duration-150 hover:bg-slate-raised"
+          >
+            Eksport CSV
+          </.link>
+        </div>
+
+        <div class="flex min-w-0 flex-[3_1_250px] flex-col border-slate-line min-[860px]:border-r max-[859px]:border-b">
+          <h1
+            id="results-headline"
+            class="m-0 border-b border-slate-line px-[18px] py-3.5 text-[15px] leading-snug font-bold"
+          >
+            {@headline}
+          </h1>
+          <.niche_list
+            :if={@view == :niches}
+            niches={@streams.niches}
+            low_count={@low_count}
+            show_low_niches={@show_low_niches}
+          />
+          <.phrase_list
+            :if={@view == :phrases}
+            id="phrases"
+            rows={@streams.phrases}
+            shown={min(@counts.kept, @list_limit)}
+            total={@counts.kept}
+            empty="Nie mam jeszcze żadnych fraz."
+          />
+          <.phrase_list
+            :if={@view == :rejected}
+            id="rejected-phrases"
+            rows={@streams.rejected_phrases}
+            shown={min(@counts.rejected, @list_limit)}
+            total={@counts.rejected}
+            empty="Żadna fraza nie została odrzucona."
+          />
+        </div>
+
+        <div class="flex min-w-0 flex-[6_1_400px] flex-col gap-5 px-7 pt-6 pb-7 max-sm:px-5">
+          <.not_ready :if={not @ready?} run={@run} />
+          <div
+            :if={@ready? and is_nil(@selected)}
+            id="niche-detail-empty"
+            class="flex flex-col gap-2"
+          >
+            <span class="text-[22px] leading-snug font-bold">Brak nisz do wyboru.</span>
+            <p class="m-0 text-[15px] leading-normal text-on-slate-muted">
+              Wszystkie frazy i powody odrzucenia są w widokach po lewej i w eksporcie CSV.
+            </p>
+          </div>
+          <.niche_detail
+            :if={@ready? and @selected}
+            run={@run}
+            selected={@selected}
+            choosable?={@choosable?}
+            detail={@detail}
+            niche_phrases={@streams.niche_phrases}
+            phrase_total={length(@detail.phrases)}
+            show_all_niche_phrases={@show_all_niche_phrases}
+          />
+        </div>
       </section>
     </Layouts.app>
     """
@@ -349,13 +344,29 @@ defmodule DirmoonWeb.ResultsLive do
         class="flex flex-col gap-1.5 border-b border-slate-line px-[18px] py-3.5"
       >
         <span class="text-sm leading-snug font-medium text-on-slate">{row.phrase}</span>
-        <span class="font-mono text-[11px] text-on-slate-muted">{row.figures}</span>
+        <span class="flex flex-wrap items-center gap-2 font-mono text-[11px] text-on-slate-muted">
+          {row.figures}<.quick_win_pill :if={row.quick_win?} id={"#{dom_id}-quick-win"} />
+        </span>
         <span :if={row.note} class="text-xs text-on-slate-2">{row.note}</span>
       </li>
     </ul>
     <p :if={@total > @shown} class="m-0 px-[18px] py-3.5 font-mono text-[11px] text-on-slate-muted">
       Pokazuję {@shown} z {@total}. Wszystkie są w eksporcie CSV.
     </p>
+    """
+  end
+
+  attr :id, :string, required: true
+
+  defp quick_win_pill(assigns) do
+    ~H"""
+    <span
+      id={@id}
+      data-part="quick-win"
+      class="rounded-pill border border-accent px-[7px] py-px font-mono text-[10px] leading-4 whitespace-nowrap text-accent"
+    >
+      szybka wygrana
+    </span>
     """
   end
 
@@ -394,7 +405,10 @@ defmodule DirmoonWeb.ResultsLive do
     <article id="niche-detail" data-niche-id={@selected.niche.id} class="flex flex-col gap-5">
       <div class="flex flex-col gap-2">
         <span class="font-mono text-[11px] text-on-slate-muted">
-          nisza · {@phrase_total} {@phrase_noun} · {@score_label}
+          nisza · {@phrase_total} {@phrase_noun} · {@score_label}<span
+            :if={@detail.quick_win_count > 0}
+            id="niche-quick-win-count"
+          > · {@detail.quick_win_count} {quick_win_noun(@detail.quick_win_count)}</span>
         </span>
         <h2 class="m-0 text-[22px] leading-snug font-bold tracking-[-0.01em]">
           {@selected.niche.name}
@@ -498,9 +512,11 @@ defmodule DirmoonWeb.ResultsLive do
                 </td>
                 <td
                   :if={@run.mode == :existing_site}
-                  class="border-t border-slate-line-strong px-4 py-3 text-right font-mono"
+                  class="border-t border-slate-line-strong px-4 py-3 text-right font-mono whitespace-nowrap"
                 >
-                  {row.position}
+                  <span class="inline-flex items-center justify-end gap-2">
+                    <.quick_win_pill :if={row.quick_win?} id={"#{dom_id}-quick-win"} />{row.position}
+                  </span>
                 </td>
               </tr>
             </tbody>
@@ -610,7 +626,7 @@ defmodule DirmoonWeb.ResultsLive do
     rows =
       socket.assigns.run
       |> Phrases.list_for_run(%{status: :kept, limit: @list_limit})
-      |> Enum.map(&kept_phrase_row(&1, names))
+      |> Enum.map(&kept_phrase_row(&1, %{names: names, mode: socket.assigns.run.mode}))
 
     socket
     |> stream(:phrases, rows, reset: true)
@@ -694,11 +710,14 @@ defmodule DirmoonWeb.ResultsLive do
     }
   end
 
-  defp kept_phrase_row(run_phrase, names) do
+  defp kept_phrase_row(run_phrase, %{names: names, mode: mode}) do
     %{
       id: run_phrase.id,
       phrase: run_phrase.phrase.phrase,
-      figures: "#{volume_or_missing(run_phrase.volume)} / mies. · CPC #{cpc_or_missing(run_phrase.volume)}",
+      figures:
+        "#{volume_or_missing(run_phrase.metrics)} / mies. · CPC #{cpc_or_missing(run_phrase.metrics)}" <>
+          position_figure(mode, run_phrase.current_position),
+      quick_win?: Phrases.quick_win?(run_phrase.current_position),
       note: Map.get(names, run_phrase.cluster_id)
     }
   end
@@ -707,7 +726,8 @@ defmodule DirmoonWeb.ResultsLive do
     %{
       id: run_phrase.id,
       phrase: run_phrase.phrase.phrase,
-      figures: "#{volume_or_missing(run_phrase.volume)} / mies.",
+      figures: "#{volume_or_missing(run_phrase.metrics)} / mies.",
+      quick_win?: false,
       note: run_phrase.rejection_reason
     }
   end
@@ -720,7 +740,8 @@ defmodule DirmoonWeb.ResultsLive do
       city_volume: integer_or_missing(phrase.city_volume),
       cpc: money_or_missing(phrase.cpc, phrase.currency),
       holders: phrase.holders || @missing,
-      position: position_or_missing(phrase.current_position)
+      position: position_or_missing(phrase.current_position),
+      quick_win?: phrase.quick_win?
     }
   end
 
@@ -765,10 +786,10 @@ defmodule DirmoonWeb.ResultsLive do
   end
 
   defp volume_or_missing(nil), do: @missing
-  defp volume_or_missing(volume), do: integer_or_missing(volume.search_volume)
+  defp volume_or_missing(metrics), do: integer_or_missing(metrics.search_volume)
 
   defp cpc_or_missing(nil), do: @missing
-  defp cpc_or_missing(volume), do: money_or_missing(volume.cpc, volume.currency)
+  defp cpc_or_missing(metrics), do: money_or_missing(metrics.cpc, metrics.currency)
 
   defp integer_or_missing(nil), do: @missing
   defp integer_or_missing(number), do: Polish.integer(number)
@@ -781,6 +802,11 @@ defmodule DirmoonWeb.ResultsLive do
 
   defp count_or_missing(nil), do: @missing
   defp count_or_missing(count), do: Integer.to_string(count)
+
+  defp position_figure(:existing_site, position), do: " · pozycja #{position_or_missing(position)}"
+  defp position_figure(_mode, _position), do: ""
+
+  defp quick_win_noun(count), do: Polish.plural(count, @quick_win_forms)
 
   defp position_or_missing(nil), do: @missing
   defp position_or_missing(position), do: Polish.decimal(position, 1)

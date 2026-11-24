@@ -2,6 +2,9 @@ defmodule Dirmoon.LLM.DemoTest do
   use ExUnit.Case, async: true
 
   alias Dirmoon.LLM.Demo
+  alias Dirmoon.Pages.Brief
+  alias Dirmoon.Pages.Placeholders
+  alias Dirmoon.Pages.Template
 
   test "seeds are twelve lowercase phrases from the description with city variants, plus six questions" do
     input = %{description: "Hotel dla Psów i opieka nad kotami", city: "Gdańsk", priority_services: ["Strzyżenie psów"]}
@@ -14,7 +17,7 @@ defmodule Dirmoon.LLM.DemoTest do
     assert "hotel" in seeds
     assert "hotel gdańsk" in seeds
     assert Enum.count(questions) == 6
-    assert Enum.all?(questions, &(String.starts_with?(&1, "[DEMO]") and String.ends_with?(&1, "?")))
+    assert Enum.all?(questions, &(String.starts_with?(&1, Dirmoon.demo_marker()) and String.ends_with?(&1, "?")))
     assert Decimal.equal?(cost, 0)
   end
 
@@ -36,14 +39,14 @@ defmodule Dirmoon.LLM.DemoTest do
 
     assert Enum.count(niches) == 4
     assert Enum.map(rejected, & &1["phrase_id"]) == [77, 154]
-    assert Enum.all?(rejected, &(&1["reason"] == "[DEMO] poza ofertą"))
+    assert Enum.all?(rejected, &(&1["reason"] == "(demo) poza ofertą"))
 
     grouped_ids = Enum.flat_map(niches, & &1["phrase_ids"])
     assert Enum.sort(grouped_ids ++ [77, 154]) == Enum.map(phrases, & &1.id)
 
     assert Enum.all?(niches, fn niche ->
-             String.starts_with?(niche["name"], "[DEMO]") and is_binary(niche["intent"]) and
-               String.starts_with?(niche["reading"], "[DEMO]") and niche["phrase_ids"] != []
+             String.starts_with?(niche["name"], Dirmoon.demo_marker()) and is_binary(niche["intent"]) and
+               String.starts_with?(niche["reading"], Dirmoon.demo_marker()) and niche["phrase_ids"] != []
            end)
 
     assert Decimal.equal?(cost, 0)
@@ -70,7 +73,7 @@ defmodule Dirmoon.LLM.DemoTest do
     assert Decimal.equal?(cost, 0)
   end
 
-  test "the brief is visibly synthetic, uses the given phrases and keeps facts as placeholders" do
+  test "the brief is visibly synthetic, uses the given phrases and keeps Fact Tiles as placeholders" do
     input = %{
       niche_name: "Hotel dla psów",
       phrases: ["hotel dla psów gdańsk", "hotel dla psa", "opieka nad psem"],
@@ -86,21 +89,21 @@ defmodule Dirmoon.LLM.DemoTest do
     assert Enum.all?(brief["phrases"], &(&1 in input.phrases))
     assert brief["business_name"] == "[NAZWA FIRMY]"
     assert brief["slug"] =~ ~r/\A[a-z0-9]+(-[a-z0-9]+)*\z/
-    assert String.starts_with?(brief["title"], "[DEMO]")
-    assert String.starts_with?(brief["h1"], "[DEMO]")
-    assert String.starts_with?(brief["intro"], "[DEMO]")
-    assert String.starts_with?(brief["short_answer"], "[DEMO]")
+    assert String.starts_with?(brief["title"], Dirmoon.demo_marker())
+    assert String.starts_with?(brief["h1"], Dirmoon.demo_marker())
+    assert String.starts_with?(brief["intro"], Dirmoon.demo_marker())
+    assert String.starts_with?(brief["short_answer"], Dirmoon.demo_marker())
     assert is_binary(brief["breadcrumb"]) and is_binary(brief["cta_label"])
 
-    assert Enum.count(brief["facts"]) == 3
-    assert Enum.all?(brief["facts"], &(is_binary(&1["label"]) and &1["value"] =~ ~r/\A\[[^\]]+\]\z/))
+    assert Enum.count(brief["fact_tiles"]) == 3
+    assert Enum.all?(brief["fact_tiles"], &(is_binary(&1["label"]) and &1["value"] =~ ~r/\A\[[^\]]+\]\z/))
 
     assert Enum.count(brief["sections"]) == 4
     assert hd(brief["sections"])["question"] == "Czy pies może mieszkać z innymi psami?"
 
     assert Enum.all?(
              brief["sections"],
-             &(String.ends_with?(&1["question"], "?") and String.starts_with?(&1["answer"], "[DEMO]"))
+             &(String.ends_with?(&1["question"], "?") and String.starts_with?(&1["answer"], Dirmoon.demo_marker()))
            )
 
     assert Decimal.equal?(cost, 0)
@@ -130,6 +133,36 @@ defmodule Dirmoon.LLM.DemoTest do
 
   test "an unknown task is an error" do
     assert Demo.structured(request(:poem, %{})) == {:error, {:unknown_llm_task, :poem}}
+  end
+
+  test "the demo marker is not a Placeholder" do
+    refute Placeholders.placeholder?(Dirmoon.demo_marker())
+    assert (Dirmoon.demo_marker() <> " Ile kosztuje hotel?") |> Placeholders.split() |> Enum.all?(&(not &1.placeholder))
+  end
+
+  test "a page from the demo brief shows the demo marker as text and never as a placeholder pill" do
+    input = %{
+      niche_name: "#{Dirmoon.demo_marker()} Nisza: hotel dla psów",
+      phrases: ["hotel dla psów gdańsk"],
+      questions: ["#{Dirmoon.demo_marker()} Ile kosztuje hotel?"],
+      business_description: "Hotel dla psów",
+      city: "Gdańsk"
+    }
+
+    {:ok, brief_params, _cost} = Demo.structured(request(:brief, input))
+
+    document =
+      %Brief{}
+      |> Brief.changeset(brief_params)
+      |> Ecto.Changeset.apply_action!(:insert)
+      |> Template.render(%{mode: :new_idea})
+      |> LazyHTML.from_document()
+
+    placeholder_texts = document |> LazyHTML.query("span.placeholder") |> Enum.map(&LazyHTML.text/1)
+
+    assert "[NAZWA FIRMY]" in placeholder_texts
+    refute Enum.any?(placeholder_texts, &String.contains?(&1, "demo"))
+    assert document |> LazyHTML.query("h1") |> LazyHTML.text() =~ Dirmoon.demo_marker()
   end
 
   defp request(task, input) do

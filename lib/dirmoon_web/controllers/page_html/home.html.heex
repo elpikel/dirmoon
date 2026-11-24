@@ -1,9 +1,6 @@
 <Layouts.landing flash={@flash}>
   <:nav>
-    <.button :if={@current_scope} id="go-to-app" variant="dark" href={~p"/app"}>
-      Przejdź do aplikacji
-    </.button>
-    <.nav_link :if={!@current_scope} id="sign-in-link" href={~p"/users/log-in"}>
+    <.nav_link id="sign-in-link" href={~p"/users/log-in"}>
       Zaloguj się
     </.nav_link>
   </:nav>

@@ -54,6 +54,21 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
     assert Decimal.equal?(current_position(top_phrase), Decimal.new("3.2"))
   end
 
+  test "a decimal click-through rate and the date window are stored as strings in the step output" do
+    run = existing_site_run()
+    connect(run)
+    phrase = run_phrase(run, "adwokat rozwód")
+
+    stub_query(fn _request -> rows([%{row(phrase.phrase.phrase, 12.0) | ctr: Decimal.new("0.025")}]) end)
+
+    assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
+
+    assert [%{"rows" => [%{"ctr" => "0.025", "position" => 12.0}], "start_date" => start_date}] =
+             stored_json(%{table: "run_steps", column: "output", where: "run_id = $1 AND number = 6", value: run.id})
+
+    assert start_date == today_minus(90)
+  end
+
   test "the result counts phrases in positions 8–20 in Polish" do
     run = existing_site_run()
     connect(run)
@@ -186,6 +201,56 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
     refute_enqueued(worker: ScoreNiches)
   end
 
+  test "a failed token refresh other than an invalid grant fails the attempt so the job retries" do
+    run = existing_site_run()
+    connect(run)
+
+    stub(Dirmoon.SearchConsoleMock, :refresh_access_token, fn _request -> {:error, "Google OAuth: HTTP 503"} end)
+    stub_query(fn _request -> flunk("no query without an access token") end)
+
+    assert {:error, "Google OAuth: HTTP 503"} = perform_job(FetchCurrentPositions, %{run_id: run.id})
+
+    assert %RunStep{status: :running} = step(run, 6)
+    refute_enqueued(worker: ScoreNiches)
+  end
+
+  test "a failed query other than forbidden or unauthorized fails the attempt so the job retries" do
+    run = existing_site_run()
+    connect(run)
+
+    stub_query(fn _request -> {:error, "Google Search Console: HTTP 500"} end)
+
+    assert {:error, "Google Search Console: HTTP 500"} = perform_job(FetchCurrentPositions, %{run_id: run.id})
+
+    assert %RunStep{status: :running} = step(run, 6)
+    refute_enqueued(worker: ScoreNiches)
+  end
+
+  test "a query answered as not configured skips the step" do
+    run = existing_site_run()
+    connect(run)
+
+    stub_query(fn _request -> {:error, :search_console_not_configured} end)
+
+    assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
+
+    assert %RunStep{status: :skipped, result: "Search Console nie jest skonfigurowane"} = step(run, 6)
+  end
+
+  test "the query asks for at most 5000 rows and keeps no more than that" do
+    run = existing_site_run()
+    connect(run)
+    returned_rows = Enum.map(1..5001, &row("zapytanie #{&1}", 30.0))
+
+    expect(Dirmoon.SearchConsoleMock, :query, 1, fn %{row_limit: 5000} -> rows(returned_rows) end)
+
+    assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
+
+    assert %RunStep{status: :done, output: %{"rows" => stored_rows}} = step(run, 6)
+    assert Enum.count(stored_rows) == 5000
+    refute Enum.any?(stored_rows, &(&1["query"] == "zapytanie 5001"))
+  end
+
   test "Search Console without credentials skips the step" do
     run = existing_site_run()
     connect(run)
@@ -261,6 +326,8 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
   defp row(query, position), do: %{query: query, clicks: 3, impressions: 120, ctr: 0.025, position: position}
 
   defp rows(rows), do: {:ok, %{rows: rows, raw: %{"rows" => []}}}
+
+  defp today_minus(days), do: Date.utc_today() |> Date.add(-days) |> Date.to_iso8601()
 
   defp current_position(run_phrase), do: Repo.get!(RunPhrase, run_phrase.id).current_position
 

@@ -2,7 +2,7 @@ defmodule DirmoonWeb.Controllers.PageFile.ShowTest do
   use DirmoonWeb.ConnCase, async: true
 
   test "the content file downloads as one html file named after the slug", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, status: :done)
     page = insert(:page, run: run, brief: build(:brief, slug: "hotel-dla-psa", h1: "Hotel dla psa"))
 
@@ -15,7 +15,7 @@ defmodule DirmoonWeb.Controllers.PageFile.ShowTest do
   end
 
   test "the downloaded page is self-contained, without an external stylesheet or script", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: insert(:run, account: scope.account))
 
     body = conn |> get(~p"/app/pages/#{page.id}/file") |> response(200)
@@ -27,14 +27,14 @@ defmodule DirmoonWeb.Controllers.PageFile.ShowTest do
   end
 
   test "a published page can still be downloaded", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: insert(:run, account: scope.account), status: :published)
 
     assert conn |> get(~p"/app/pages/#{page.id}/file") |> response(200) =~ "<!DOCTYPE html>"
   end
 
   test "another Account's page is not found", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: insert(:run))
 
     conn = get(conn, ~p"/app/pages/#{page.id}/file")
@@ -43,13 +43,13 @@ defmodule DirmoonWeb.Controllers.PageFile.ShowTest do
   end
 
   test "a malformed page id is not found", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     assert conn |> get(~p"/app/pages/not-an-id/file") |> response(404) == "Not Found"
   end
 
   test "a page whose brief is still being written is not found", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: insert(:run, account: scope.account), status: :writing, brief: nil)
 
     assert conn |> get(~p"/app/pages/#{page.id}/file") |> response(404) == "Not Found"

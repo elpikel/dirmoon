@@ -2,7 +2,7 @@ defmodule DirmoonWeb.Controllers.UserSession.DeleteTest do
   use DirmoonWeb.ConnCase, async: true
 
   test "logging out ends the session and returns to the landing page", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     conn = delete(conn, ~p"/users/log-out")
 

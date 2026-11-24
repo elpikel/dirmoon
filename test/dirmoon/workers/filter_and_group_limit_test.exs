@@ -34,7 +34,7 @@ defmodule Dirmoon.Workers.FilterAndGroupLimitTest do
 
   defp phrase_in_run(run, text, search_volume) do
     phrase = insert(:phrase, phrase: unique_phrase_text(text))
-    insert(:volume, phrase: phrase, location_code: run.location_code, search_volume: search_volume)
+    insert(:metrics, phrase: phrase, location_code: run.location_code, search_volume: search_volume)
     insert(:run_phrase, run: run, phrase: phrase)
   end
 

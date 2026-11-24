@@ -23,20 +23,21 @@ defmodule Dirmoon.Accounts do
   end
 
   @doc """
-  Registers a user with a new Account and their Membership, in one transaction.
+  Creates a user with a new Account and their Membership, in one transaction.
+  `opts` are `Dirmoon.Accounts.User.email_changeset/3`'s.
 
   ## Examples
 
-      iex> register_user(%{email: "new@example.com"})
+      iex> create_user_with_account(%{email: "new@example.com"})
       {:ok, %User{}}
 
-      iex> register_user(%{email: "not an email"})
+      iex> create_user_with_account(%{email: "not an email"})
       {:error, %Ecto.Changeset{}}
 
   """
-  def register_user(attrs) do
+  def create_user_with_account(attrs, opts \\ []) do
     Multi.new()
-    |> Multi.insert(:user, User.email_changeset(%User{}, attrs))
+    |> Multi.insert(:user, User.email_changeset(%User{}, attrs, opts))
     |> Multi.insert(:account, %Account{})
     |> Multi.insert(:membership, fn %{user: user, account: account} ->
       Membership.changeset(%Membership{user_id: user.id, account_id: account.id})
@@ -67,7 +68,7 @@ defmodule Dirmoon.Accounts do
   """
   def sign_up(email_params, login_url_fun) when is_function(login_url_fun, 1) do
     with {:ok, %User{email: email}} <- validate_sign_up_email(email_params),
-         {:ok, user} <- find_or_register_user(email),
+         {:ok, user} <- find_or_create_user(email),
          {:ok, _sent_email} <- deliver_login_instructions(user, login_url_fun) do
       :ok
     end
@@ -230,34 +231,14 @@ defmodule Dirmoon.Accounts do
     |> Ecto.Changeset.apply_action(:insert)
   end
 
-  defp find_or_register_user(email) do
-    case get_user_by_email(email) do
-      %User{} = user -> {:ok, user}
-      nil -> register_or_find_concurrently_registered_user(email)
-    end
-  end
+  defp find_or_create_user(email) do
+    case create_user_with_account(%{email: email}, validate_unique: false) do
+      {:ok, user} ->
+        {:ok, user}
 
-  defp register_or_find_concurrently_registered_user(email) do
-    case register_user(%{email: email}) do
-      {:ok, user} -> {:ok, user}
-      {:error, changeset} -> find_user_when_email_taken(changeset, email)
+      {:error, %Ecto.Changeset{errors: [email: {_message, [constraint: :unique, constraint_name: _index]}]}} ->
+        {:ok, Repo.get_by!(User, email: email)}
     end
-  end
-
-  defp find_user_when_email_taken(changeset, email) do
-    with true <- email_taken?(changeset),
-         %User{} = user <- get_user_by_email(email) do
-      {:ok, user}
-    else
-      _not_taken_or_missing -> {:error, changeset}
-    end
-  end
-
-  defp email_taken?(changeset) do
-    Enum.any?(changeset.errors, fn
-      {:email, {_message, opts}} -> opts[:validation] == :unsafe_unique or opts[:constraint] == :unique
-      _other_error -> false
-    end)
   end
 
   defp update_user_and_delete_all_tokens(changeset) do

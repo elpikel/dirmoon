@@ -1,7 +1,7 @@
 defmodule DirmoonWeb.UserLive.Login do
   @moduledoc """
   The sign-in page: an email gets a magic link, without revealing whether
-  the email is registered. Signed-in users land here to re-authenticate.
+  the email has a User. Signed-in users land here to re-authenticate.
   """
   use DirmoonWeb, :live_view
 

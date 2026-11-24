@@ -7,7 +7,7 @@ defmodule Dirmoon.DataForSEO.NotConfigured do
   @behaviour Dirmoon.DataForSEO
 
   @impl Dirmoon.DataForSEO
-  def keyword_ideas(_request), do: not_configured()
+  def phrase_ideas(_request), do: not_configured()
 
   @impl Dirmoon.DataForSEO
   def search_volumes(_request), do: not_configured()

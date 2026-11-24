@@ -13,6 +13,7 @@ defmodule Dirmoon.DataForSEO.Demo do
 
   alias Dirmoon.DataForSEO
 
+  @marker Dirmoon.demo_marker()
   @ideas_per_seed 15
   @trend_months 12
   @city_location_code 9_990_001
@@ -38,12 +39,12 @@ defmodule Dirmoon.DataForSEO.Demo do
   )
 
   @impl DataForSEO
-  def keyword_ideas(%{seeds: seeds, location_code: location_code}) do
+  def phrase_ideas(%{seeds: seeds, location_code: location_code}) do
     with :ok <- DataForSEO.ensure_within_limit(seeds, DataForSEO.max_seeds()) do
       seeds
       |> Enum.flat_map(&[&1 | Enum.map(1..@ideas_per_seed, fn number -> "#{&1} demo #{number}" end)])
       |> Enum.uniq()
-      |> Enum.map(&keyword_row(&1, location_code))
+      |> Enum.map(&phrase_row(&1, location_code))
       |> answer()
     end
   end
@@ -52,7 +53,7 @@ defmodule Dirmoon.DataForSEO.Demo do
   def search_volumes(%{phrases: phrases, location_code: location_code}) do
     with :ok <- DataForSEO.ensure_within_limit(phrases, DataForSEO.max_phrases()) do
       phrases
-      |> Enum.map(&keyword_row(&1, location_code))
+      |> Enum.map(&phrase_row(&1, location_code))
       |> answer()
     end
   end
@@ -70,7 +71,7 @@ defmodule Dirmoon.DataForSEO.Demo do
         position: position,
         url: "https://#{domain}/demo-#{:erlang.phash2({phrase, domain})}",
         domain: domain,
-        title: "[DEMO] #{phrase} – #{domain}"
+        title: "#{@marker} #{phrase} – #{domain}"
       }
     end)
     |> answer()
@@ -78,12 +79,12 @@ defmodule Dirmoon.DataForSEO.Demo do
 
   @impl DataForSEO
   def find_location(%{city: city}) do
-    {:ok, %{location_code: @city_location_code, name: "[DEMO] #{city}", raw: @raw, cost: Decimal.new(0)}}
+    {:ok, %{location_code: @city_location_code, name: "#{@marker} #{city}", raw: @raw, cost: Decimal.new(0)}}
   end
 
   defp answer(rows), do: {:ok, %{rows: rows, raw: @raw, cost: Decimal.new(0)}}
 
-  defp keyword_row(phrase, location_code) do
+  defp phrase_row(phrase, location_code) do
     volume = volume(phrase, location_code)
 
     %{
@@ -91,7 +92,7 @@ defmodule Dirmoon.DataForSEO.Demo do
       search_volume: volume,
       cpc: Decimal.new(1, 1 + :erlang.phash2({phrase, :cpc}, @cpc_cents_range), -2),
       currency: @currency,
-      monthly_searches: monthly_searches(%{phrase: phrase, location_code: location_code, volume: volume})
+      trend: trend(%{phrase: phrase, location_code: location_code, volume: volume})
     }
   end
 
@@ -99,7 +100,7 @@ defmodule Dirmoon.DataForSEO.Demo do
 
   defp volume(phrase, _location_code), do: @minimum_volume + :erlang.phash2({phrase, :volume}, @volume_range)
 
-  defp monthly_searches(%{phrase: phrase, location_code: location_code, volume: volume}) do
+  defp trend(%{phrase: phrase, location_code: location_code, volume: volume}) do
     today = Date.utc_today()
 
     Enum.map(1..@trend_months, fn months_back ->

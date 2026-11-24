@@ -3,7 +3,7 @@ defmodule DirmoonWeb.CoreComponents do
   Provides core UI components.
 
   At first glance, this module may seem daunting, but its goal is to provide
-  core building blocks for your application, such as tables, forms, and
+  core building blocks for your application, such as flashes, forms, and
   inputs. The components consist mostly of markup and are well-documented
   with doc strings and declarative assigns. You may customize and style
   them in any way you want, based on your application growth and needs.
@@ -31,7 +31,8 @@ defmodule DirmoonWeb.CoreComponents do
   alias Phoenix.LiveView.JS
 
   @doc """
-  Renders flash notices.
+  Renders flash notices. An info notice closes itself after five seconds; an
+  error notice stays until it is closed.
 
   ## Examples
 
@@ -61,14 +62,15 @@ defmodule DirmoonWeb.CoreComponents do
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
+      phx-hook={@kind == :info && ".AutoDismissFlash"}
       role="alert"
-      class="fixed top-4 right-4 z-50 max-sm:left-4"
+      class="pointer-events-auto"
       {@rest}
     >
       <div
         data-kind={@kind}
         class={[
-          "flex w-full items-start gap-3 rounded-tile border bg-white py-3 pr-1 pl-4 text-sm text-ink shadow-nav sm:w-96",
+          "flex w-full items-start gap-3 rounded-tile border bg-white py-3 pr-1 pl-4 text-sm text-ink shadow-nav",
           @kind == :info && "border-line",
           @kind == :error && "border-warn"
         ]}
@@ -96,6 +98,16 @@ defmodule DirmoonWeb.CoreComponents do
         </button>
       </div>
     </div>
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".AutoDismissFlash">
+      export default {
+        mounted() {
+          this.timer = setTimeout(() => this.js().exec(this.el.getAttribute("phx-click")), 5000)
+        },
+        destroyed() {
+          clearTimeout(this.timer)
+        }
+      }
+    </script>
     """
   end
 
@@ -127,6 +139,16 @@ defmodule DirmoonWeb.CoreComponents do
   <.input name="my-input" errors={["oh no!"]} />
   ```
 
+  ## Surface
+
+  On the app's dark slate shell pass `surface="slate"`: the label, the field
+  and its errors switch to the slate tokens and the field drops its bottom
+  margin, so the form lays fields out with a gap.
+
+  ```heex
+  <.input field={@form[:title]} label="Tytuł strony" surface="slate" />
+  ```
+
   ## Select type
 
   When using `type="select"`, you must pass the `options` and optionally
@@ -147,9 +169,14 @@ defmodule DirmoonWeb.CoreComponents do
   attr :type, :string,
     default: "text",
     values: ~w(checkbox color date datetime-local email file month number password
-               search select tel text textarea time url week hidden)
+               search select tel text textarea time url week)
 
   attr :field, FormField, doc: "a form field struct retrieved from the form, for example: @form[:email]"
+
+  attr :surface, :string,
+    default: "light",
+    values: ~w(light slate),
+    doc: "the background the field sits on: light pages and cards, or the app's dark slate shell"
 
   attr :errors, :list, default: []
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
@@ -173,12 +200,6 @@ defmodule DirmoonWeb.CoreComponents do
     |> input()
   end
 
-  def input(%{type: "hidden"} = assigns) do
-    ~H"""
-    <input type="hidden" id={@id} name={@name} value={@value} {@rest} />
-    """
-  end
-
   def input(%{type: "checkbox"} = assigns) do
     assigns =
       assign_new(assigns, :checked, fn ->
@@ -186,10 +207,13 @@ defmodule DirmoonWeb.CoreComponents do
       end)
 
     ~H"""
-    <div class="mb-4 flex flex-col gap-1.5">
+    <div class={field_class(@surface)}>
       <label
         for={@id}
-        class="inline-flex min-h-target-min cursor-pointer items-center gap-3 text-sm text-ink"
+        class={[
+          "inline-flex min-h-target-min cursor-pointer items-center gap-3 text-sm",
+          text_class(@surface)
+        ]}
       >
         <input
           type="hidden"
@@ -211,22 +235,21 @@ defmodule DirmoonWeb.CoreComponents do
           {@rest}
         />{@label}
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.error :for={msg <- @errors} surface={@surface}>{msg}</.error>
     </div>
     """
   end
 
   def input(%{type: "select"} = assigns) do
     ~H"""
-    <div class="mb-4 flex flex-col gap-1.5">
+    <div class={field_class(@surface)}>
       <label for={@id} class="flex flex-col gap-1.5">
-        <span :if={@label} class="text-sm font-medium text-ink">{@label}</span>
+        <span :if={@label} class={label_class(@surface)}>{@label}</span>
         <select
           id={@id}
           name={@name}
           class={[
-            @class ||
-              "min-h-target-min w-full rounded-control border border-line bg-white px-3.5 text-[15px] text-ink transition-colors duration-150 placeholder:text-body-muted hover:border-line-strong focus:border-ink cursor-pointer",
+            @class || [control_class(@surface), "cursor-pointer"],
             @errors != [] && (@error_class || "border-warn")
           ]}
           multiple={@multiple}
@@ -236,189 +259,55 @@ defmodule DirmoonWeb.CoreComponents do
           {Phoenix.HTML.Form.options_for_select(@options, @value)}
         </select>
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.error :for={msg <- @errors} surface={@surface}>{msg}</.error>
     </div>
     """
   end
 
   def input(%{type: "textarea"} = assigns) do
     ~H"""
-    <div class="mb-4 flex flex-col gap-1.5">
+    <div class={field_class(@surface)}>
       <label for={@id} class="flex flex-col gap-1.5">
-        <span :if={@label} class="text-sm font-medium text-ink">{@label}</span>
+        <span :if={@label} class={label_class(@surface)}>{@label}</span>
         <textarea
           id={@id}
           name={@name}
           class={[
             @class ||
-              "min-h-target-min w-full rounded-control border border-line bg-white px-3.5 text-[15px] text-ink transition-colors duration-150 placeholder:text-body-muted hover:border-line-strong focus:border-ink min-h-[120px] py-3 leading-normal",
+              [control_class(@surface), textarea_height_class(@surface), "py-3 leading-normal"],
             @errors != [] && (@error_class || "border-warn")
           ]}
           {@rest}
         >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.error :for={msg <- @errors} surface={@surface}>{msg}</.error>
     </div>
     """
   end
 
-  # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div class="mb-4 flex flex-col gap-1.5">
+    <div class={field_class(@surface)}>
       <label for={@id} class="flex flex-col gap-1.5">
-        <span :if={@label} class="text-sm font-medium text-ink">{@label}</span>
+        <span :if={@label} class={label_class(@surface)}>{@label}</span>
         <input
           type={@type}
           name={@name}
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
           class={[
-            @class ||
-              "min-h-target-min w-full rounded-control border border-line bg-white px-3.5 text-[15px] text-ink transition-colors duration-150 placeholder:text-body-muted hover:border-line-strong focus:border-ink",
+            @class || control_class(@surface),
             @errors != [] && (@error_class || "border-warn")
           ]}
           {@rest}
         />
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
-    </div>
-    """
-  end
-
-  # Helper used by inputs to generate form errors
-  defp error(assigns) do
-    ~H"""
-    <p class="flex items-center gap-2 text-sm text-ink">
-      <.icon name="hero-exclamation-circle" class="size-5 shrink-0 text-warn" />
-      {render_slot(@inner_block)}
-    </p>
-    """
-  end
-
-  @doc """
-  Renders a header with title.
-  """
-  slot :inner_block, required: true
-  slot :subtitle
-  slot :actions
-
-  def header(assigns) do
-    ~H"""
-    <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
-      <div>
-        <h1 class="text-lg font-semibold leading-8 text-ink">
-          {render_slot(@inner_block)}
-        </h1>
-        <p :if={@subtitle != []} class="text-sm text-body-muted">
-          {render_slot(@subtitle)}
-        </p>
-      </div>
-      <div class="flex-none">{render_slot(@actions)}</div>
-    </header>
-    """
-  end
-
-  @doc """
-  Renders a table with generic styling.
-
-  ## Examples
-
-      <.table id="users" rows={@users}>
-        <:col :let={user} label="id">{user.id}</:col>
-        <:col :let={user} label="username">{user.username}</:col>
-      </.table>
-  """
-  attr :id, :string, required: true
-  attr :rows, :list, required: true
-  attr :row_id, :any, default: nil, doc: "the function for generating the row id"
-  attr :row_click, :any, default: nil, doc: "the function for handling phx-click on each row"
-
-  attr :row_item, :any,
-    default: &Function.identity/1,
-    doc: "the function for mapping each row before calling the :col and :action slots"
-
-  slot :col, required: true do
-    attr :label, :string
-  end
-
-  slot :action, doc: "the slot for showing user actions in the last table column"
-
-  def table(assigns) do
-    assigns =
-      with %{rows: %Phoenix.LiveView.LiveStream{}} <- assigns do
-        assign(assigns, row_id: assigns.row_id || fn {id, _item} -> id end)
-      end
-
-    ~H"""
-    <div class="w-full overflow-x-auto rounded-tile border border-line bg-white">
-      <table class="w-full border-collapse text-left text-sm text-ink">
-        <thead>
-          <tr class="border-b border-line">
-            <th
-              :for={col <- @col}
-              class="px-4 py-3 font-mono text-xs font-medium tracking-[0.1em] text-body-muted uppercase"
-            >
-              {col[:label]}
-            </th>
-            <th :if={@action != []} class="px-4 py-3">
-              <span class="sr-only">{gettext("Actions")}</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody id={@id} phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}>
-          <tr
-            :for={row <- @rows}
-            id={@row_id && @row_id.(row)}
-            class="border-b border-line transition-colors duration-150 last:border-b-0 hover:bg-page-alt"
-          >
-            <td
-              :for={col <- @col}
-              phx-click={@row_click && @row_click.(row)}
-              class={["px-4 py-3", @row_click && "hover:cursor-pointer"]}
-            >
-              {render_slot(col, @row_item.(row))}
-            </td>
-            <td :if={@action != []} class="w-0 px-4 py-3 font-semibold">
-              <div class="flex gap-4">
-                <%= for action <- @action do %>
-                  {render_slot(action, @row_item.(row))}
-                <% end %>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <.error :for={msg <- @errors} surface={@surface}>{msg}</.error>
     </div>
     """
   end
 
   ## JS Commands
-
-  @doc """
-  Renders a data list.
-
-  ## Examples
-
-      <.list>
-        <:item title="Title">{@post.title}</:item>
-        <:item title="Views">{@post.views}</:item>
-      </.list>
-  """
-  slot :item, required: true do
-    attr :title, :string, required: true
-  end
-
-  def list(assigns) do
-    ~H"""
-    <ul class="divide-y divide-line">
-      <li :for={item <- @item} class="flex flex-col gap-1 py-3">
-        <div class="text-sm font-semibold text-ink">{item.title}</div>
-        <div class="text-body">{render_slot(item)}</div>
-      </li>
-    </ul>
-    """
-  end
 
   @doc """
   Renders a [Heroicon](https://heroicons.com).
@@ -488,10 +377,35 @@ defmodule DirmoonWeb.CoreComponents do
     end
   end
 
-  @doc """
-  Translates the errors for a field from a keyword list of errors.
-  """
-  def translate_errors(errors, field) when is_list(errors) do
-    for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
+  attr :surface, :string, required: true
+  slot :inner_block, required: true
+
+  defp error(assigns) do
+    ~H"""
+    <p class={["flex items-center gap-2 text-sm", text_class(@surface)]}>
+      <.icon name="hero-exclamation-circle" class="size-5 shrink-0 text-warn" />
+      {render_slot(@inner_block)}
+    </p>
+    """
   end
+
+  defp field_class("light"), do: "mb-4 flex flex-col gap-1.5"
+  defp field_class("slate"), do: "flex flex-col gap-1.5"
+
+  defp label_class("light"), do: "text-sm font-medium text-ink"
+  defp label_class("slate"), do: "text-[13px] font-medium text-on-slate-2"
+
+  defp text_class("light"), do: "text-ink"
+  defp text_class("slate"), do: "text-on-slate"
+
+  defp control_class("light"),
+    do:
+      "min-h-target-min w-full rounded-control border border-line bg-white px-3.5 text-[15px] text-ink transition-colors duration-150 placeholder:text-body-muted hover:border-line-strong focus:border-ink"
+
+  defp control_class("slate"),
+    do:
+      "min-h-target-min w-full rounded-control border border-slate-line bg-slate-raised px-3.5 text-sm text-on-slate transition-colors duration-150 placeholder:text-on-slate-muted hover:border-slate-line-strong focus:border-on-slate-2 focus:outline-none"
+
+  defp textarea_height_class("light"), do: "min-h-[120px]"
+  defp textarea_height_class("slate"), do: "min-h-[96px]"
 end

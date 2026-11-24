@@ -4,8 +4,8 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
   import Mox
 
+  alias Dirmoon.Phrases.Metrics
   alias Dirmoon.Phrases.Phrase
-  alias Dirmoon.Phrases.Volume
   alias Dirmoon.Research.ApiRequest
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
@@ -17,7 +17,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
   test "with a city that resolves, the city volume and cpc are stored for the run's phrases" do
     run = volumes_run(%{city: "Gdańsk"})
     phrase = kept_phrase(run, "hotel dla psów gdańsk")
-    insert(:volume, phrase: phrase, location_code: run.location_code)
+    insert(:metrics, phrase: phrase, location_code: run.location_code)
 
     Dirmoon.DataForSEOMock
     |> expect(:find_location, 1, fn %{city: "Gdańsk", country_code: "PL"} -> city_found() end)
@@ -28,19 +28,51 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert %Volume{search_volume: 40, cpc: cpc} =
-             Repo.get_by!(Volume, keyword_id: phrase.id, location_code: @city_location_code)
+    assert %Metrics{search_volume: 40, cpc: cpc} =
+             Repo.get_by!(Metrics, keyword_id: phrase.id, location_code: @city_location_code)
 
     assert Decimal.equal?(cpc, Decimal.new("1.75"))
     assert %Run{city_location_code: @city_location_code} = Repo.get!(Run, run.id)
     assert %RunStep{status: :done, result: "Polska i Gdańsk, trend 12 miesięcy"} = step(run, 3)
   end
 
-  test "a phrase whose volume for the location was fetched less than 30 days ago is not requested again" do
+  test "decimals in the city volume rows and raw answer are stored as decimal strings in every jsonb column" do
+    run = volumes_run(%{city: "Gdańsk"})
+    phrase = kept_phrase(run, "hotel dla psów gdańsk")
+    insert(:metrics, phrase: phrase, location_code: run.location_code)
+
+    Dirmoon.DataForSEOMock
+    |> expect(:find_location, 1, fn _request -> city_found() end)
+    |> expect(:search_volumes, 1, fn _request ->
+      volumes([%{row(phrase.phrase, 40) | cpc: Decimal.new("0.66")}], %{
+        raw: %{"tasks" => [%{"cost" => Decimal.new("0.075")}]}
+      })
+    end)
+
+    assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
+
+    assert [%{"cpc" => "0.66", "search_volume" => 40}] =
+             stored_json(%{
+               table: "keyword_metrics",
+               column: "raw",
+               where: "location_code = #{@city_location_code} AND keyword_id = $1",
+               value: phrase.id
+             })
+
+    assert [%{"location_code" => @city_location_code}, %{"rows" => [%{"cpc" => "0.66"}], "raw" => raw}] =
+             stored_json(%{table: "api_requests", column: "response", where: "run_id = $1", value: run.id})
+
+    assert raw == %{"tasks" => [%{"cost" => "0.075"}]}
+
+    assert [%{"city_location_code" => @city_location_code, "country" => _country, "city" => _city}] =
+             stored_json(%{table: "run_steps", column: "output", where: "run_id = $1 AND number = 3", value: run.id})
+  end
+
+  test "a phrase whose metrics for the location were fetched less than 30 days ago is not requested again" do
     run = volumes_run()
     fresh_phrase = kept_phrase(run, "świeża fraza")
     stale_phrase = kept_phrase(run, "nieznana fraza")
-    insert(:volume, phrase: fresh_phrase, location_code: run.location_code, fetched_at: days_ago(29))
+    insert(:metrics, phrase: fresh_phrase, location_code: run.location_code, fetched_at: days_ago(29))
 
     expect(Dirmoon.DataForSEOMock, :search_volumes, 1, fn %{phrases: [asked], location_code: 2616} ->
       assert asked == stale_phrase.phrase
@@ -49,27 +81,27 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert %Volume{search_volume: 70} = Repo.get_by!(Volume, keyword_id: stale_phrase.id)
+    assert %Metrics{search_volume: 70} = Repo.get_by!(Metrics, keyword_id: stale_phrase.id)
 
     assert %RunStep{status: :done, output: %{"country" => %{"requested" => 1, "reused" => 1}}} = step(run, 3)
   end
 
-  test "a volume another account's run fetched recently is reused" do
+  test "metrics another account's run fetched recently are reused" do
     run = volumes_run()
     other_run = insert(:run)
     phrase = kept_phrase(run, "wspólna fraza")
     insert(:run_phrase, run: other_run, phrase: phrase)
-    insert(:volume, phrase: phrase, location_code: run.location_code, fetched_at: days_ago(3))
+    insert(:metrics, phrase: phrase, location_code: run.location_code, fetched_at: days_ago(3))
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
     assert %RunStep{status: :done} = step(run, 3)
   end
 
-  test "a volume fetched more than 30 days ago is requested again and replaced" do
+  test "metrics fetched more than 30 days ago are requested again and replaced" do
     run = volumes_run()
     phrase = kept_phrase(run, "stara fraza")
-    insert(:volume, phrase: phrase, location_code: run.location_code, search_volume: 5, fetched_at: days_ago(31))
+    insert(:metrics, phrase: phrase, location_code: run.location_code, search_volume: 5, fetched_at: days_ago(31))
 
     expect(Dirmoon.DataForSEOMock, :search_volumes, 1, fn %{phrases: [asked]} ->
       assert asked == phrase.phrase
@@ -78,13 +110,13 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert [%Volume{search_volume: 120}] = Repo.all(Volume)
+    assert [%Metrics{search_volume: 120}] = Repo.all(Metrics)
   end
 
   test "a city that doesn't resolve finishes the step with the country volume and makes no city request" do
     run = volumes_run(%{city: "Nibylandia"})
     phrase = kept_phrase(run, "hotel dla psów")
-    insert(:volume, phrase: phrase, location_code: run.location_code)
+    insert(:metrics, phrase: phrase, location_code: run.location_code)
 
     expect(Dirmoon.DataForSEOMock, :find_location, 1, fn _request -> {:error, :not_found} end)
 
@@ -92,6 +124,21 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert %RunStep{status: :done, result: "Brak danych dla miasta, używam wolumenu krajowego"} = step(run, 3)
     assert %Run{city_location_code: nil} = Repo.get!(Run, run.id)
+  end
+
+  test "a failed city lookup fails the attempt, records nothing and asks for no volumes" do
+    run = volumes_run(%{city: "Gdańsk"})
+    kept_phrase(run, "hotel dla psów")
+
+    Dirmoon.DataForSEOMock
+    |> expect(:find_location, 1, fn _request -> {:error, "DataForSEO: Internal Error."} end)
+    |> expect(:search_volumes, 0, fn _request -> flunk("no volumes before the city is resolved") end)
+
+    assert {:error, "DataForSEO: Internal Error."} = perform_job(FetchVolumes, %{run_id: run.id}, attempt: 1)
+
+    assert Repo.all_by(ApiRequest, run_id: run.id) == []
+    assert %Run{city_location_code: nil} = Repo.get!(Run, run.id)
+    assert %RunStep{status: :running} = step(run, 3)
   end
 
   test "a city that didn't resolve is not looked up again when the step runs again" do
@@ -108,8 +155,8 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
   test "a run without a city whose country volumes are all stored finishes without an API call" do
     run = volumes_run()
-    insert(:volume, phrase: kept_phrase(run, "hotel dla psów"), location_code: run.location_code)
-    insert(:volume, phrase: kept_phrase(run, "hotel dla kota"), location_code: run.location_code)
+    insert(:metrics, phrase: kept_phrase(run, "hotel dla psów"), location_code: run.location_code)
+    insert(:metrics, phrase: kept_phrase(run, "hotel dla kota"), location_code: run.location_code)
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
@@ -135,7 +182,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert Repo.aggregate(Volume, :count) == 1001
+    assert Repo.aggregate(Metrics, :count) == 1001
   end
 
   test "phrases the API returns without being asked are ignored" do
@@ -149,7 +196,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert [%Volume{search_volume: 80}] = Repo.all(Volume)
+    assert [%Metrics{search_volume: 80}] = Repo.all(Metrics)
     refute Repo.get_by(Phrase, phrase: unasked_text)
   end
 
@@ -164,18 +211,18 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert %Volume{search_volume: 10} = Repo.get_by!(Volume, keyword_id: first.id)
-    assert %Volume{search_volume: 20} = Repo.get_by!(Volume, keyword_id: second.id)
+    assert %Metrics{search_volume: 10} = Repo.get_by!(Metrics, keyword_id: first.id)
+    assert %Metrics{search_volume: 20} = Repo.get_by!(Metrics, keyword_id: second.id)
   end
 
-  test "a phrase asked but not returned gets an empty volume and is not requested again" do
+  test "a phrase asked but not returned gets empty metrics and is not requested again" do
     run = volumes_run()
     phrase = kept_phrase(run, "fraza bez danych")
     expect(Dirmoon.DataForSEOMock, :search_volumes, 1, fn _request -> volumes([]) end)
 
     :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert %Volume{search_volume: nil, cpc: nil, fetched_at: %DateTime{}} = Repo.get_by!(Volume, keyword_id: phrase.id)
+    assert %Metrics{search_volume: nil, cpc: nil, fetched_at: %DateTime{}} = Repo.get_by!(Metrics, keyword_id: phrase.id)
 
     other_run = volumes_run()
     insert(:run_phrase, run: other_run, phrase: phrase)
@@ -285,7 +332,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
       Dirmoon.Phrases.RunPhrase,
       Enum.map(
         phrases,
-        &%{run_id: run.id, keyword_id: &1.id, origin: :expansion, status: :kept, inserted_at: now, updated_at: now}
+        &%{run_id: run.id, keyword_id: &1.id, status: :kept, inserted_at: now, updated_at: now}
       )
     )
   end
@@ -296,7 +343,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
   end
 
   defp row(phrase, search_volume) do
-    %{phrase: phrase, search_volume: search_volume, cpc: Decimal.new("0.40"), currency: "USD", monthly_searches: []}
+    %{phrase: phrase, search_volume: search_volume, cpc: Decimal.new("0.40"), currency: "USD", trend: []}
   end
 
   defp volumes(rows, overrides \\ %{}) do

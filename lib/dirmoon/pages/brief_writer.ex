@@ -26,7 +26,7 @@ defmodule Dirmoon.Pages.BriefWriter do
   @invalid_brief_error "Model zwrócił niepoprawny brief"
   @phrase_limit 40
   @seeds_step Steps.number!(:seeds)
-  @written_keys ~w(title h1 slug breadcrumb intro cta_label facts sections short_answer phrases primary_phrase)
+  @written_keys ~w(title h1 slug breadcrumb intro cta_label fact_tiles sections short_answer phrases primary_phrase)
 
   @system """
   Jesteś copywriterem SEO. Piszesz plan i treść jednej strony dla wybranej niszy. \
@@ -44,7 +44,7 @@ defmodule Dirmoon.Pages.BriefWriter do
       breadcrumb: %{type: "string"},
       intro: %{type: "string"},
       cta_label: %{type: "string"},
-      facts: %{
+      fact_tiles: %{
         type: "array",
         items: %{
           type: "object",
@@ -64,7 +64,7 @@ defmodule Dirmoon.Pages.BriefWriter do
       phrases: %{type: "array", items: %{type: "string"}},
       primary_phrase: %{type: "string"}
     },
-    required: ~w(title h1 slug breadcrumb intro cta_label facts sections short_answer phrases primary_phrase)
+    required: ~w(title h1 slug breadcrumb intro cta_label fact_tiles sections short_answer phrases primary_phrase)
   }
 
   @doc """

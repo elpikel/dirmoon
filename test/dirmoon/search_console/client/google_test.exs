@@ -198,6 +198,65 @@ defmodule Dirmoon.SearchConsole.Client.GoogleTest do
     refute reason =~ "ya29.access-token"
   end
 
+  test "the authorization url without a configured client id reports Search Console as not configured" do
+    configured = Application.fetch_env!(:dirmoon, Google)
+    Application.put_env(:dirmoon, Google, Keyword.delete(configured, :client_id))
+    on_exit(fn -> Application.put_env(:dirmoon, Google, configured) end)
+
+    assert Google.authorize_url(%{state: "stan", redirect_uri: @redirect_uri}) ==
+             {:error, :search_console_not_configured}
+  end
+
+  test "an exchange answered without a scope list still connects" do
+    stub_json(Map.delete(exchange_body(), "scope"))
+
+    assert {:ok, %{email: "jsmith@example.com"}} = Google.exchange_code(%{code: "4/kod", redirect_uri: @redirect_uri})
+  end
+
+  test "an exchange answered without an id token fails as having no Google email" do
+    stub_json(Map.delete(exchange_body(), "id_token"))
+
+    assert Google.exchange_code(%{code: "4/kod", redirect_uri: @redirect_uri}) == {:error, :no_google_email}
+  end
+
+  test "an exchange whose id token is not a JWT fails as having no Google email" do
+    stub_json(Map.put(exchange_body(), "id_token", "not-a-jwt"))
+
+    assert Google.exchange_code(%{code: "4/kod", redirect_uri: @redirect_uri}) == {:error, :no_google_email}
+  end
+
+  test "an exchange whose id token payload is not base64 json fails as having no Google email" do
+    stub_json(Map.put(exchange_body(), "id_token", "header.!!!not-base64!!!.signature"))
+
+    assert Google.exchange_code(%{code: "4/kod", redirect_uri: @redirect_uri}) == {:error, :no_google_email}
+  end
+
+  test "an OAuth answer that is not JSON carries the HTTP status" do
+    Req.Test.stub(Google, &Plug.Conn.send_resp(&1, 502, "Bad Gateway"))
+
+    assert Google.exchange_code(%{code: "4/kod", redirect_uri: @redirect_uri}) == {:error, "Google OAuth: HTTP 502"}
+  end
+
+  test "a transport failure while exchanging a code carries the transport reason" do
+    Req.Test.stub(Google, &Req.Test.transport_error(&1, :timeout))
+
+    assert Google.exchange_code(%{code: "4/kod", redirect_uri: @redirect_uri}) == {:error, "Google OAuth: timeout"}
+  end
+
+  test "a query error without Google's message carries the HTTP status" do
+    Req.Test.stub(Google, &Plug.Conn.send_resp(&1, 500, "Internal Server Error"))
+
+    assert Google.query(query_request()) == {:error, "Google Search Console: HTTP 500"}
+  end
+
+  test "a transport failure during a query carries the transport reason but never the access token" do
+    Req.Test.stub(Google, &Req.Test.transport_error(&1, :econnrefused))
+
+    assert {:error, reason} = Google.query(query_request())
+    assert reason == "Google Search Console: connection refused"
+    refute reason =~ "ya29.access-token"
+  end
+
   test "Google credentials in env vars switch to the Google client with those credentials" do
     previous_env = Map.new(["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"], &{&1, System.get_env(&1)})
     System.put_env("GOOGLE_CLIENT_ID", "env-client-id")

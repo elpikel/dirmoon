@@ -1,12 +1,12 @@
 defmodule Dirmoon.Phrases.LedgerRows do
   @moduledoc """
-  A keyword API request that answers with keyword rows (keyword ideas, search
+  A keyword API request that answers with phrase rows (phrase ideas, search
   volumes), made through the run's ledger so a run never buys it twice.
 
   The ledger stores `%{"rows" => [row], "raw" => raw_body, "fetched_at" => iso8601_utc}`,
   where `"fetched_at"` is when the request was really bought (a replay keeps
   it) and a row is `%{"phrase", "search_volume", "cpc" (decimal string or nil),
-  "currency", "monthly_searches" => [%{"year", "month", "search_volume"}]}`.
+  "currency", "trend" => [%{"year", "month", "search_volume"}]}`.
   """
 
   alias Dirmoon.Research.Ledger
@@ -18,7 +18,7 @@ defmodule Dirmoon.Phrases.LedgerRows do
   `operation`.
 
   Returns `{:ok, %{rows: rows, fetched_at: fetched_at}}`, each row typed
-  (`%{phrase:, search_volume:, cpc: Decimal | nil, currency:, monthly_searches:, fetched_at:}`)
+  (`%{phrase:, search_volume:, cpc: Decimal | nil, currency:, trend:, fetched_at:}`)
   and stamped with the time it was bought, or the API's `{:error, reason}`.
   """
   def fetch(%Run{} = run, %{operation: operation, request: request}, api_function) when is_function(api_function, 1) do
@@ -43,8 +43,7 @@ defmodule Dirmoon.Phrases.LedgerRows do
       "search_volume" => row.search_volume,
       "cpc" => row.cpc && Decimal.to_string(row.cpc),
       "currency" => row.currency,
-      "monthly_searches" =>
-        Enum.map(row.monthly_searches, &%{"year" => &1.year, "month" => &1.month, "search_volume" => &1.search_volume})
+      "trend" => Enum.map(row.trend, &%{"year" => &1.year, "month" => &1.month, "search_volume" => &1.search_volume})
     }
   end
 
@@ -59,8 +58,7 @@ defmodule Dirmoon.Phrases.LedgerRows do
       search_volume: row["search_volume"],
       cpc: row["cpc"] && Decimal.new(row["cpc"]),
       currency: row["currency"],
-      monthly_searches:
-        Enum.map(row["monthly_searches"], &%{year: &1["year"], month: &1["month"], search_volume: &1["search_volume"]}),
+      trend: Enum.map(row["trend"], &%{year: &1["year"], month: &1["month"], search_volume: &1["search_volume"]}),
       fetched_at: fetched_at
     }
   end

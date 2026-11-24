@@ -1,6 +1,6 @@
 defmodule Dirmoon.Pages.Template do
   @moduledoc """
-  Renders a Brief into the fixed Produced Page template (design handover
+  Renders a Brief into the fixed Page template (design handover
   section 8.4) as one self-contained HTML document: the stylesheet is inlined
   and the only external resource is the Plausible script when the Brief has a
   domain. Brief content is always escaped; a missing value is shown as a
@@ -58,7 +58,7 @@ defmodule Dirmoon.Pages.Template do
       email: brief.email,
       email_href: email_href(brief.email),
       address: brief.address,
-      facts: padded_facts(brief.facts),
+      fact_tiles: padded_fact_tiles(brief.fact_tiles),
       sections: sections,
       short_answer: brief.short_answer
     }
@@ -137,11 +137,11 @@ defmodule Dirmoon.Pages.Template do
             <.phone_icon /><.content text={@page.phone} missing={:phone} />
           </span>
         </div>
-        <div class="facts">
-          <div :for={fact <- @page.facts} class="fact">
-            <span class="fact-label"><.content text={fact.label} missing={:fact_label} /></span>
-            <span class="fact-value">
-              <.content text={fact.value} missing={Placeholders.for_fact(fact.label)} />
+        <div class="fact-tiles">
+          <div :for={fact_tile <- @page.fact_tiles} class="fact-tile">
+            <span class="fact-tile-label"><.content text={fact_tile.label} missing={:fact_tile_label} /></span>
+            <span class="fact-tile-value">
+              <.content text={fact_tile.value} missing={Placeholders.for_fact_tile(fact_tile.label)} />
             </span>
           </div>
         </div>
@@ -217,18 +217,18 @@ defmodule Dirmoon.Pages.Template do
   attr :missing, :any, required: true
 
   defp content(assigns) do
-    assigns = assign(assigns, :segments, segments(assigns.text, assigns.missing))
+    assigns = assign(assigns, :text_parts, text_parts(assigns.text, assigns.missing))
 
     ~H"""
-    <.segment :for={segment <- @segments} segment={segment} />
+    <.text_part :for={text_part <- @text_parts} text_part={text_part} />
     """
   end
 
-  attr :segment, :map, required: true
+  attr :text_part, :map, required: true
 
-  defp segment(%{segment: %{placeholder: true}} = assigns), do: ~H|<span class="placeholder">{@segment.text}</span>|
+  defp text_part(%{text_part: %{placeholder: true}} = assigns), do: ~H|<span class="placeholder">{@text_part.text}</span>|
 
-  defp segment(assigns), do: ~H"{@segment.text}"
+  defp text_part(assigns), do: ~H"{@text_part.text}"
 
   defp arrow_icon(assigns) do
     ~H"""
@@ -263,7 +263,7 @@ defmodule Dirmoon.Pages.Template do
     """
   end
 
-  defp segments(text, missing) do
+  defp text_parts(text, missing) do
     case present(text) do
       nil -> [%{text: missing_placeholder(missing), placeholder: true}]
       present_text -> Placeholders.split(present_text)
@@ -280,10 +280,10 @@ defmodule Dirmoon.Pages.Template do
   defp nav_href(index, section_count) when index <= section_count, do: "#" <> section_anchor(index)
   defp nav_href(_index, _section_count), do: "#kontakt"
 
-  defp padded_facts(facts) do
-    missing = max(Brief.fact_count() - length(facts), 0)
+  defp padded_fact_tiles(fact_tiles) do
+    missing = max(Brief.fact_tile_count() - length(fact_tiles), 0)
 
-    Enum.take(facts ++ List.duplicate(%Brief.Fact{}, missing), Brief.fact_count())
+    Enum.take(fact_tiles ++ List.duplicate(%Brief.FactTile{}, missing), Brief.fact_tile_count())
   end
 
   defp phone_href(phone) when is_binary(phone) do

@@ -2,7 +2,7 @@ defmodule Dirmoon.Competition do
   @moduledoc """
   Who holds Google's top 10 for a Phrase. SERP Snapshots
   (`serp_snapshots`) are shared market data (ADR-0002), reused across runs
-  while younger than `config :dirmoon, serp_max_age_days:`. A run's reading
+  while younger than `config :dirmoon, serp_max_age_days:`. A run's judgement
   of a snapshot, the Page Type of each result and the verdict, is a
   SERP Assessment (`serp_assessments`), stored per run.
 
@@ -92,12 +92,12 @@ defmodule Dirmoon.Competition do
   end
 
   @doc """
-  The run's reading of each assessed Phrase, by Phrase id (`keyword_id`):
-  its verdict and labels, without the snapshots. One query.
+  A summary of each of the run's SERP Assessments, by Phrase id
+  (`keyword_id`): its verdict and labels, without the snapshots. One query.
 
   Returns `%{keyword_id => %{verdict: atom, labels: [map]}}`.
   """
-  def readings_for_run(%Run{id: run_id}) do
+  def assessment_summaries_for_run(%Run{id: run_id}) do
     SerpAssessment
     |> from(as: :serp_assessment)
     |> where([serp_assessment: serp_assessment], serp_assessment.run_id == ^run_id)

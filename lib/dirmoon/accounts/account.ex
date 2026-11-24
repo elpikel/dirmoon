@@ -1,7 +1,7 @@
 defmodule Dirmoon.Accounts.Account do
   @moduledoc """
-  The tenant: every Research Run, Niche, Page and Search Console Connection
-  belongs to one Account (ADR-0001).
+  The business that uses dirmoon and owns its data: every Research Run,
+  Niche, Page and Search Console Connection belongs to one Account (ADR-0001).
   """
   use Ecto.Schema
 

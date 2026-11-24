@@ -1,10 +1,10 @@
 defmodule DirmoonWeb.PagesLive do
   @moduledoc """
-  The pages list, "Strony" (`/app/pages`): the Account's Produced Pages,
+  The pages list, "Strony" (`/app/pages`): the Account's Pages,
   newest first, each with its title, Niche, Mode, status, published URL and
   date, linking to its page screen. With no pages it invites the User to pick
-  a Niche in the results. Same look as the runs list (`RunsLive`): hero and
-  one dark panel.
+  a Niche in the results. Same look as the runs list (`RunsLive`): rows
+  filling the app shell's working area.
   """
   use DirmoonWeb, :live_view
 
@@ -20,69 +20,65 @@ defmodule DirmoonWeb.PagesLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} active={:pages}>
-      <section id="pages-screen" class="flex flex-col items-center gap-6 text-center">
-        <.eyebrow>Strony</.eyebrow>
-        <.headline id="pages-headline">
-          Twoje
-          <:underline>strony.</:underline>
-        </.headline>
-        <p class="m-0 max-w-[620px] text-[clamp(16px,1.4vw,18px)] leading-normal text-pretty text-body">
-          Każda nisza, którą wybrałeś, z briefem, stanem strony i adresem po publikacji.
-        </p>
-
-        <.dark_panel id="pages-panel" context="strony" note={@count_note} class="mt-5">
-          <:status><span id="pages-status-line">{@status_line}</span></:status>
-          <ul id="pages" phx-update="stream" class="m-0 flex list-none flex-col p-0">
-            <li id="pages-empty" class="hidden px-5 py-12 only:block">
-              <div class="flex flex-col items-center gap-4 text-center">
-                <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">
-                  Tu pojawią się Twoje strony.
-                </span>
-                <p class="m-0 max-w-[460px] text-[15px] leading-normal text-on-slate-2">
-                  Wybierz niszę w wynikach researchu, a napiszę dla niej brief i stronę.
-                </p>
-                <.button id="go-to-results" variant="lime" size="large" navigate={~p"/app/runs"}>
-                  Przejdź do wyników <.icon name="hero-arrow-right" class="size-[18px]" />
-                </.button>
-              </div>
-            </li>
-            <li
-              :for={{dom_id, row} <- @streams.pages}
-              id={dom_id}
-              data-status={row.status}
-              class="border-b border-slate-line last:border-b-0"
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      active={:pages}
+      context="strony"
+      note={@count_note}
+    >
+      <:status><span id="pages-status-line">{@status_line}</span></:status>
+      <section id="pages-screen" class="flex grow flex-col">
+        <h1 class="sr-only">Strony</h1>
+        <ul id="pages" phx-update="stream" class="m-0 flex list-none flex-col p-0">
+          <li id="pages-empty" class="hidden px-5 py-12 only:block">
+            <div class="flex flex-col items-center gap-4 text-center">
+              <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">
+                Tu pojawią się Twoje strony.
+              </span>
+              <p class="m-0 max-w-[460px] text-[15px] leading-normal text-on-slate-2">
+                Wybierz niszę w wynikach researchu, a napiszę dla niej brief i stronę.
+              </p>
+              <.button id="go-to-results" variant="lime" size="large" navigate={~p"/app/runs"}>
+                Przejdź do wyników <.icon name="hero-arrow-right" class="size-[18px]" />
+              </.button>
+            </div>
+          </li>
+          <li
+            :for={{dom_id, row} <- @streams.pages}
+            id={dom_id}
+            data-status={row.status}
+            class="border-b border-slate-line last:border-b-0"
+          >
+            <.link
+              navigate={row.path}
+              class="flex min-h-target-min flex-wrap items-center gap-x-6 gap-y-2.5 px-5 py-4 text-on-slate no-underline transition-colors duration-150 hover:bg-slate-raised focus-visible:bg-slate-raised focus-visible:outline-none"
             >
-              <.link
-                navigate={row.path}
-                class="flex min-h-target-min flex-wrap items-center gap-x-6 gap-y-2.5 px-5 py-4 text-on-slate no-underline transition-colors duration-150 hover:bg-slate-raised focus-visible:bg-slate-raised focus-visible:outline-none"
-              >
-                <span class="flex min-w-0 flex-[1_1_320px] flex-col gap-1">
-                  <span id={"#{dom_id}-title"} class="text-[15px] font-semibold">{row.title}</span>
-                  <span class="text-[13px] text-on-slate-2">
-                    <span id={"#{dom_id}-niche"}>{row.niche}</span>
-                    · <span id={"#{dom_id}-mode"}>{row.mode}</span>
-                  </span>
-                  <span
-                    :if={row.published_url}
-                    id={"#{dom_id}-url"}
-                    class="font-mono text-xs break-all text-accent"
-                  >
-                    {row.published_url}
-                  </span>
+              <span class="flex min-w-0 flex-[1_1_320px] flex-col gap-1">
+                <span id={"#{dom_id}-title"} class="text-[15px] font-semibold">{row.title}</span>
+                <span class="text-[13px] text-on-slate-2">
+                  <span id={"#{dom_id}-niche"}>{row.niche}</span>
+                  · <span id={"#{dom_id}-mode"}>{row.mode}</span>
                 </span>
-                <span class="flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-[11px] text-on-slate-muted">
-                  <.page_status id={"#{dom_id}-status"} status={row.status} label={row.status_label} />
-                  <span id={"#{dom_id}-date"}>{row.date}</span>
+                <span
+                  :if={row.published_url}
+                  id={"#{dom_id}-url"}
+                  class="font-mono text-xs break-all text-accent"
+                >
+                  {row.published_url}
                 </span>
-                <.icon
-                  name="hero-chevron-right-mini"
-                  class="size-4 flex-none text-on-slate-muted max-sm:hidden"
-                />
-              </.link>
-            </li>
-          </ul>
-        </.dark_panel>
+              </span>
+              <span class="flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-[11px] text-on-slate-muted">
+                <.page_status id={"#{dom_id}-status"} status={row.status} label={row.status_label} />
+                <span id={"#{dom_id}-date"}>{row.date}</span>
+              </span>
+              <.icon
+                name="hero-chevron-right-mini"
+                class="size-4 flex-none text-on-slate-muted max-sm:hidden"
+              />
+            </.link>
+          </li>
+        </ul>
       </section>
     </Layouts.app>
     """

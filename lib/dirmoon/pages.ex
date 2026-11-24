@@ -1,6 +1,6 @@
 defmodule Dirmoon.Pages do
   @moduledoc """
-  Produced Pages: one per chosen Niche, with the Brief Step 8 writes and the
+  Pages: one per chosen Niche, with the Brief Step 8 writes and the
   User edits.
 
   Every function that reads or changes a page by id takes the `Scope` and
@@ -246,7 +246,7 @@ defmodule Dirmoon.Pages do
   end
 
   @doc """
-  The Produced Page HTML for a page with a Brief and its run preloaded
+  The Page HTML for a page with a Brief and its run preloaded
   (`get_page/2`), or nil while the Brief isn't written.
   """
   def render(%Page{brief: %Brief{} = brief, run: %Run{mode: mode}}), do: Template.render(brief, %{mode: mode})

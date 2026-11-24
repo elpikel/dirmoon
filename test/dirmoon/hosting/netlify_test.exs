@@ -128,6 +128,91 @@ defmodule Dirmoon.Hosting.NetlifyTest do
     refute message =~ @token
   end
 
+  test "a connection failure while creating a site carries the transport reason" do
+    Req.Test.expect(Netlify, &Req.Test.transport_error(&1, :timeout))
+
+    assert Netlify.create_site(%{site_name: "dirmoon-strona"}) == {:error, "Netlify: timeout"}
+  end
+
+  test "a site name with no usable characters falls back to dirmoon" do
+    respond_site_created()
+
+    {:ok, _site} = Netlify.create_site(%{site_name: "!!! ???"})
+
+    assert_received {:request, %{method: "POST", path: "/api/v1/sites", body: body}}
+    assert Jason.decode!(body) == %{"name" => "dirmoon"}
+  end
+
+  test "a 422 answer that does not mention the subdomain is not retried" do
+    expect_response(fn _conn -> {422, %{"errors" => %{"name" => ["is invalid"]}}} end)
+
+    assert Netlify.create_site(%{site_name: "dirmoon-strona"}) == {:error, "Netlify: HTTP 422"}
+
+    assert_received {:request, %{method: "POST", path: "/api/v1/sites"}}
+    refute_received {:request, _second_request}
+  end
+
+  test "a 422 plain-text answer mentioning the subdomain is tried once more with a suffix" do
+    expect_response(fn _conn -> {422, "subdomain must be unique"} end)
+    respond_site_created()
+
+    assert {:ok, %{site_id: @site_id}} = Netlify.create_site(%{site_name: "dirmoon-strona"})
+
+    assert_received {:request, %{method: "POST", path: "/api/v1/sites"}}
+    assert_received {:request, %{method: "POST", path: "/api/v1/sites", body: second_body}}
+    assert %{"name" => "dirmoon-strona-" <> _suffix} = Jason.decode!(second_body)
+  end
+
+  test "a 422 answer whose body is a JSON list is not retried" do
+    expect_response(fn _conn -> {422, ["subdomain"]} end)
+
+    assert Netlify.create_site(%{site_name: "dirmoon-strona"}) == {:error, "Netlify: HTTP 422"}
+
+    assert_received {:request, %{method: "POST", path: "/api/v1/sites"}}
+    refute_received {:request, _second_request}
+  end
+
+  test "a deploy answer without an id fails" do
+    expect_response(fn _conn -> {200, Map.delete(deploy_body("uploaded"), "id")} end)
+
+    assert Netlify.deploy(%{site_id: @site_id, html: html()}) == {:error, "Netlify: odpowiedź bez id deployu"}
+  end
+
+  test "a rejected deploy without an error message fails with a generic message" do
+    respond_deploy_created("uploaded")
+    respond_deploy_polled("rejected")
+
+    assert Netlify.deploy(%{site_id: @site_id, html: html()}) == {:error, "Netlify: deploy zakończył się błędem"}
+  end
+
+  test "a poll answer that is not a deploy object fails" do
+    respond_deploy_created("uploaded")
+    expect_response(fn _conn -> {200, "processing"} end)
+
+    assert Netlify.deploy(%{site_id: @site_id, html: html()}) ==
+             {:error, "Netlify: niepoprawna odpowiedź o stanie deployu"}
+  end
+
+  test "a failed poll answer carries the HTTP status" do
+    respond_deploy_created("uploaded")
+    expect_response(fn _conn -> {502, ""} end)
+
+    assert Netlify.deploy(%{site_id: @site_id, html: html()}) == {:error, "Netlify: HTTP 502"}
+  end
+
+  test "a ready deploy without any url fails" do
+    expect_response(fn _conn -> {200, Map.merge(deploy_body("ready"), %{"ssl_url" => nil, "url" => ""})} end)
+
+    assert Netlify.deploy(%{site_id: @site_id, html: html()}) == {:error, "Netlify: odpowiedź bez adresu strony"}
+  end
+
+  test "a ready deploy without an https url answers its plain url" do
+    expect_response(fn _conn -> {200, Map.put(deploy_body("ready"), "ssl_url", nil)} end)
+
+    assert Netlify.deploy(%{site_id: @site_id, html: html()}) ==
+             {:ok, %{url: "http://dirmoon-buty-do-biegania.netlify.app"}}
+  end
+
   defp html, do: "<!DOCTYPE html><html><body><h1>Buty do biegania</h1></body></html>"
 
   defp respond_site_created, do: expect_response(fn _conn -> {201, site_body()} end)
@@ -156,7 +241,7 @@ defmodule Dirmoon.Hosting.NetlifyTest do
       })
 
       case respond.(conn) do
-        {status, body} when is_map(body) -> conn |> Plug.Conn.put_status(status) |> Req.Test.json(body)
+        {status, body} when is_map(body) or is_list(body) -> conn |> Plug.Conn.put_status(status) |> Req.Test.json(body)
         {status, body} -> Plug.Conn.send_resp(conn, status, body)
       end
     end)

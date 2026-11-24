@@ -146,6 +146,30 @@ defmodule Dirmoon.Research.StatusLineTest do
     assert %{number: 7} = StatusLine.current_step(run)
   end
 
+  test "a running run with no Step at work or left to chain says it works on the research" do
+    run = build(:run, status: :running, steps: build_run_steps(done_through(7)))
+
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "Pracuję nad researchem."
+  end
+
+  test "a run stopped with no Step left to chain says it stopped and can be resumed" do
+    run = build(:run, status: :stopped, steps: build_run_steps(done_through(7)))
+
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "Zatrzymałem research. Możesz go wznowić."
+  end
+
+  test "a failed run without a failed Step says the research failed" do
+    run = build(:run, status: :failed, steps: build_run_steps(done_through(7)))
+
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "Research się nie udał."
+  end
+
+  test "a failed Step without a stored reason reads as an unknown error" do
+    run = build(:run, status: :failed, steps: build_run_steps(%{1 => :failed}))
+
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "Krok 1 się nie udał: nieznany błąd."
+  end
+
   defp done_through(last_number, overrides \\ %{}) do
     1..last_number
     |> Map.new(&{&1, :done})

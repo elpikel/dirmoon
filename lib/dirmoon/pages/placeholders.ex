@@ -62,8 +62,8 @@ defmodule Dirmoon.Pages.Placeholders do
 
   @scrubbed_text_fields [:business_name, :title, :h1, :breadcrumb, :intro, :cta_label, :closing_prompt, :short_answer]
   @scrubbed_list_items [
-    %{list: :facts, field: :label},
-    %{list: :facts, field: :value},
+    %{list: :fact_tiles, field: :label},
+    %{list: :fact_tiles, field: :value},
     %{list: :sections, field: :question},
     %{list: :sections, field: :answer}
   ]
@@ -118,14 +118,14 @@ defmodule Dirmoon.Pages.Placeholders do
   The Placeholder for a blank Fact Tile, chosen from its label: a price label
   gets `[CENA]`, a phone label `[TELEFON]`, and so on.
   """
-  def for_fact(label) when is_binary(label) do
+  def for_fact_tile(label) when is_binary(label) do
     label
     |> String.downcase()
-    |> fact_field()
+    |> fact_tile_field()
     |> for_field()
   end
 
-  def for_fact(_label), do: @fallback_placeholder
+  def for_fact_tile(_label), do: @fallback_placeholder
 
   @doc """
   Splits `text` into plain and Placeholder parts, in order, so each Placeholder
@@ -239,13 +239,13 @@ defmodule Dirmoon.Pages.Placeholders do
 
   defp normalise(value), do: value |> to_string() |> normalise()
 
-  defp fact_field(label) do
+  defp fact_tile_field(label) do
     cond do
       String.contains?(label, ["cen", "koszt", "opłat", "stawk"]) -> :price
       String.contains?(label, ["telefon", "tel."]) -> :phone
       String.contains?(label, ["mail"]) -> :email
       String.contains?(label, ["adres"]) -> :address
-      true -> :fact
+      true -> :fact_tile
     end
   end
 

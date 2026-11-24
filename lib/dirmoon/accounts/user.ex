@@ -19,15 +19,16 @@ defmodule Dirmoon.Accounts.User do
   end
 
   @doc """
-  A user changeset for registering or changing the email.
+  A user changeset for signing up or changing the email.
 
   It requires the email to change, otherwise an error is added.
 
   ## Options
 
-    * `:validate_unique` - Set to false to skip the uniqueness check, useful
+    * `:validate_unique` - Set to false to skip the uniqueness query, useful
       for live validations and for sign-up, which never reveals whether an
-      email is registered. Defaults to `true`.
+      email already has a User. A taken email still fails on insert through
+      the unique constraint. Defaults to `true`.
   """
   def email_changeset(user, attrs, opts \\ []) do
     user
@@ -50,10 +51,10 @@ defmodule Dirmoon.Accounts.User do
       |> validate_length(:email, max: 160)
       |> validate_email_changed()
 
+    changeset = unique_constraint(changeset, :email)
+
     if Keyword.get(opts, :validate_unique, true) do
-      changeset
-      |> unsafe_validate_unique(:email, Dirmoon.Repo)
-      |> unique_constraint(:email)
+      unsafe_validate_unique(changeset, :email, Dirmoon.Repo)
     else
       changeset
     end

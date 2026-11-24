@@ -313,6 +313,20 @@ defmodule Dirmoon.ResearchTest do
     assert account |> scope_for() |> Research.list_runs() |> Enum.map(& &1.id) == [newer.id, older.id]
   end
 
+  test "listing runs with a count returns only that many of the Account's newest runs" do
+    account = insert(:account)
+    older = insert(:run, account: account, inserted_at: ~U[2026-11-01 10:00:00Z])
+    newer = insert(:run, account: account, inserted_at: ~U[2026-11-20 10:00:00Z])
+    newest = insert(:run, account: account, inserted_at: ~U[2026-11-21 10:00:00Z])
+    insert(:run, inserted_at: ~U[2026-11-22 10:00:00Z])
+
+    listed = account |> scope_for() |> Research.list_runs(2)
+
+    assert Enum.map(listed, & &1.id) == [newest.id, newer.id]
+    refute older.id in Enum.map(listed, & &1.id)
+    assert Enum.all?(listed, &is_list(&1.steps))
+  end
+
   test "subscribers to a run are told about progress" do
     run = insert(:run)
     :ok = Research.subscribe(run)
@@ -321,6 +335,51 @@ defmodule Dirmoon.ResearchTest do
 
     assert_receive {:run_progress, run_id, %{checked: 3, total: 30}}
     assert run_id == run.id
+  end
+
+  test "progress broadcast by run id reaches the run's subscribers" do
+    run = insert(:run)
+    :ok = Research.subscribe(run)
+
+    :ok = Research.broadcast_progress(run.id, %{checked: 1, total: 2})
+
+    assert_receive {:run_progress, run_id, %{checked: 1, total: 2}}
+    assert run_id == run.id
+  end
+
+  test "the form's changeset of a new run starts empty, with the Account set" do
+    scope = scope_for(insert(:account))
+
+    changeset = Research.change_run(scope)
+
+    assert changeset.changes == %{}
+    assert Ecto.Changeset.get_field(changeset, :account_id) == scope.account.id
+  end
+
+  test "an Existing Site run whose domain is only a scheme is rejected with an error on the domain" do
+    scope = scope_for(insert(:account))
+    attrs = Map.merge(valid_run_attrs(), %{"mode" => "existing_site", "domain" => "https://"})
+
+    assert {:error, changeset} = Research.start_run(scope, attrs)
+
+    assert %{domain: ["can't be blank"]} = errors_on(changeset)
+  end
+
+  test "a run in a country dirmoon has no location for is rejected with an error on the country" do
+    scope = scope_for(insert(:account))
+
+    assert {:error, changeset} = Research.start_run(scope, %{valid_run_attrs() | "country_code" => "XX"})
+
+    assert %{country_code: ["is not supported"]} = errors_on(changeset)
+    refute_enqueued(worker: GenerateSeeds)
+  end
+
+  test "a run without a country is rejected with an error on the country" do
+    scope = scope_for(insert(:account))
+
+    assert {:error, changeset} = Research.start_run(scope, %{valid_run_attrs() | "country_code" => ""})
+
+    assert %{country_code: ["can't be blank"]} = errors_on(changeset)
   end
 
   test "a running run is running" do
@@ -416,12 +475,12 @@ defmodule Dirmoon.ResearchTest do
     assert Research.idle?(run)
   end
 
-  test "the estimated cost adds keyword ideas, one volumes request, the SERP checks and the LLM allowance" do
+  test "the estimated cost adds phrase ideas, one volumes request, the SERP checks and the LLM allowance" do
     prices = Application.fetch_env!(:dirmoon, :cost_estimates)
     serp_phrase_limit = Application.fetch_env!(:dirmoon, :serp_phrase_limit)
 
     expected =
-      prices.keyword_ideas
+      prices.phrase_ideas
       |> Decimal.new()
       |> Decimal.add(Decimal.new(prices.search_volumes))
       |> Decimal.add(Decimal.mult(Decimal.new(prices.serp_top10), serp_phrase_limit))

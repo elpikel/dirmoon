@@ -4,7 +4,7 @@ defmodule DirmoonWeb.PagesLiveTest do
   import Phoenix.LiveViewTest
 
   test "the Account's pages are listed newest first", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account)
     older = insert(:page, run: run, inserted_at: ~U[2026-11-01 10:00:00Z])
     newer = insert(:page, run: run, inserted_at: ~U[2026-11-20 10:00:00Z])
@@ -16,7 +16,7 @@ defmodule DirmoonWeb.PagesLiveTest do
   end
 
   test "each page shows its title, Niche, Mode, status, published URL and date", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, mode: :existing_site, domain: "kancelaria-testowa.example")
     brief = build(:brief)
     url = "https://#{brief.slug}.example"
@@ -41,7 +41,7 @@ defmodule DirmoonWeb.PagesLiveTest do
   end
 
   test "a page whose Brief is being written is listed under its Niche's name", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: insert(:run, account: scope.account), status: :writing, brief: nil)
 
     {:ok, view, _html} = live(conn, ~p"/app/pages")
@@ -51,8 +51,17 @@ defmodule DirmoonWeb.PagesLiveTest do
     refute has_element?(view, "#pages-#{page.id}-url")
   end
 
+  test "a page whose Brief failed shows the error status", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    page = insert(:page, run: insert(:run, account: scope.account), status: :failed, brief: nil, error: "Błąd testowy")
+
+    {:ok, view, _html} = live(conn, ~p"/app/pages")
+
+    assert has_element?(view, "#pages-#{page.id}-status.text-warn", "Błąd")
+  end
+
   test "each page links to its page screen", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: insert(:run, account: scope.account))
 
     {:ok, view, _html} = live(conn, ~p"/app/pages")
@@ -61,7 +70,7 @@ defmodule DirmoonWeb.PagesLiveTest do
   end
 
   test "another Account's pages are not listed", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     own = insert(:page, run: insert(:run, account: scope.account))
     foreign = insert(:page, run: insert(:run))
 
@@ -73,7 +82,7 @@ defmodule DirmoonWeb.PagesLiveTest do
   end
 
   test "with no pages it invites the User to pick a Niche in the results", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     {:ok, view, _html} = live(conn, ~p"/app/pages")
 
@@ -88,7 +97,7 @@ defmodule DirmoonWeb.PagesLiveTest do
   end
 
   test "the \"Strony\" nav link leads here and is marked current", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     {:ok, view, _html} = live(conn, ~p"/app/pages")
 

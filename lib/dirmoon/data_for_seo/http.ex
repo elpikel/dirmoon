@@ -25,14 +25,14 @@ defmodule Dirmoon.DataForSEO.HTTP do
   @city_location_type "City"
 
   @impl DataForSEO
-  def keyword_ideas(%{seeds: seeds, location_code: location_code, language_code: language_code}) do
+  def phrase_ideas(%{seeds: seeds, location_code: location_code, language_code: language_code}) do
     with :ok <- DataForSEO.ensure_within_limit(seeds, DataForSEO.max_seeds()),
          {:ok, answer} <-
            post_task(%{
              path: "/v3/keywords_data/google_ads/keywords_for_keywords/live",
              task: %{keywords: seeds, location_code: location_code, language_code: language_code}
            }) do
-      {:ok, with_rows(answer, &keyword_rows/1)}
+      {:ok, with_rows(answer, &phrase_rows/1)}
     end
   end
 
@@ -44,7 +44,7 @@ defmodule Dirmoon.DataForSEO.HTTP do
              path: "/v3/keywords_data/google_ads/search_volume/live",
              task: %{keywords: phrases, location_code: location_code, language_code: language_code}
            }) do
-      {:ok, with_rows(answer, &keyword_rows/1)}
+      {:ok, with_rows(answer, &phrase_rows/1)}
     end
   end
 
@@ -118,19 +118,19 @@ defmodule Dirmoon.DataForSEO.HTTP do
 
   defp with_rows(%{result: result, raw: raw, cost: cost}, to_rows), do: %{rows: to_rows.(result), raw: raw, cost: cost}
 
-  defp keyword_rows(items), do: Enum.map(items, &keyword_row/1)
+  defp phrase_rows(items), do: Enum.map(items, &phrase_row/1)
 
-  defp keyword_row(item) do
+  defp phrase_row(item) do
     %{
       phrase: item["keyword"],
       search_volume: item["search_volume"],
       cpc: decimal(item["cpc"]),
       currency: @currency,
-      monthly_searches: item["monthly_searches"] |> List.wrap() |> Enum.map(&monthly_search/1)
+      trend: item["monthly_searches"] |> List.wrap() |> Enum.map(&trend_month/1)
     }
   end
 
-  defp monthly_search(month) do
+  defp trend_month(month) do
     %{year: month["year"], month: month["month"], search_volume: month["search_volume"]}
   end
 

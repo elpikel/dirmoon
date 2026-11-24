@@ -15,12 +15,12 @@ defmodule Dirmoon.Pages.TemplateTest do
     document = render_document(brief_params())
 
     assert document |> LazyHTML.query(".hero-inner > *") |> LazyHTML.attribute("class") ==
-             ["breadcrumb", "hero-title", "intro", "hero-actions", "facts"]
+             ["breadcrumb", "hero-title", "intro", "hero-actions", "fact-tiles"]
 
     assert document |> LazyHTML.query(".hero-actions > *") |> LazyHTML.attribute("class") ==
              ["button button-dark", "phone"]
 
-    assert document |> LazyHTML.query(".facts .fact") |> Enum.count() == 3
+    assert document |> LazyHTML.query(".fact-tiles .fact-tile") |> Enum.count() == 3
     assert document |> LazyHTML.query(".hero h1") |> text() == "Nagłówek testowy strony"
   end
 
@@ -117,7 +117,7 @@ defmodule Dirmoon.Pages.TemplateTest do
     params =
       brief_params()
       |> Map.drop(["phone", "email", "address"])
-      |> Map.put("facts", [
+      |> Map.put("fact_tiles", [
         %{"label" => "Cena testowa", "value" => ""},
         %{"label" => "Etykieta B", "value" => "Wartość B"},
         %{"label" => "Etykieta C", "value" => "Wartość C"}
@@ -192,7 +192,7 @@ defmodule Dirmoon.Pages.TemplateTest do
       brief_params()
       |> Map.put("business_name", attack)
       |> Map.put("sections", [%{"question" => "Pytanie #{attack}?", "answer" => "Odpowiedź #{attack}"}])
-      |> Map.put("facts", [
+      |> Map.put("fact_tiles", [
         %{"label" => "Etykieta A", "value" => attack},
         %{"label" => "Etykieta B", "value" => "Wartość B"},
         %{"label" => "Etykieta C", "value" => "Wartość C"}
@@ -205,7 +205,7 @@ defmodule Dirmoon.Pages.TemplateTest do
     assert document |> LazyHTML.query("header .business-name") |> text() == attack
     assert document |> LazyHTML.query("h2#sekcja-1") |> text() == "Pytanie #{attack}?"
     assert document |> LazyHTML.query(".answer") |> text() =~ "Odpowiedź #{attack}"
-    assert document |> LazyHTML.query(".fact-value") |> Enum.map(&text/1) |> hd() == attack
+    assert document |> LazyHTML.query(".fact-tile-value") |> Enum.map(&text/1) |> hd() == attack
   end
 
   test "a plausible domain that is not a bare host is never rendered" do
@@ -244,7 +244,7 @@ defmodule Dirmoon.Pages.TemplateTest do
         phrases: [hostile],
         primary_phrase: hostile,
         plausible_domain: hostile,
-        facts: [%Brief.Fact{label: hostile, value: hostile}],
+        fact_tiles: [%Brief.FactTile{label: hostile, value: hostile}],
         sections: [%Brief.Section{question: hostile, answer: hostile <> "\n" <> hostile}]
       }
 
@@ -266,7 +266,7 @@ defmodule Dirmoon.Pages.TemplateTest do
       |> Map.put("cta_label", "Zamów za [CENA]")
       |> Map.put("closing_prompt", "Zapytaj o [CENA]")
       |> Map.put("nav_links", ["Cennik [CENA]"])
-      |> Map.put("facts", [
+      |> Map.put("fact_tiles", [
         %{"label" => "Cena [CENA]", "value" => "Wartość A"},
         %{"label" => "Etykieta B", "value" => "Wartość B"},
         %{"label" => "Etykieta C", "value" => "Wartość C"}
@@ -283,7 +283,7 @@ defmodule Dirmoon.Pages.TemplateTest do
           ".closing-prompt .placeholder",
           "a.button-lime .placeholder",
           "header a.nav-link .placeholder",
-          ".fact-label .placeholder",
+          ".fact-tile-label .placeholder",
           "h2#sekcja-1 .placeholder",
           "[data-block=jump-strip] a.pill .placeholder"
         ] do
@@ -365,6 +365,58 @@ defmodule Dirmoon.Pages.TemplateTest do
     assert document |> LazyHTML.query("h2#sekcja-1 .placeholder") |> Enum.count() == 1
   end
 
+  test "without nav links the header nav holds only the call to action" do
+    document = brief_params() |> Map.put("nav_links", []) |> render_document()
+
+    assert document |> LazyHTML.query("header nav a") |> LazyHTML.attribute("href") == ["#kontakt"]
+    assert document |> LazyHTML.query("header nav a.nav-link") |> Enum.count() == 0
+  end
+
+  test "a nav link past the last section leads to the contact anchor" do
+    document =
+      brief_params()
+      |> Map.put("nav_links", ["Pierwsza", "Druga", "Trzecia"])
+      |> Map.put("sections", [%{"question" => "Jedyne pytanie testowe?", "answer" => "Jedyna odpowiedź."}])
+      |> render_document()
+
+    assert document |> LazyHTML.query("header nav a.nav-link") |> LazyHTML.attribute("href") ==
+             ["#sekcja-1", "#kontakt", "#kontakt"]
+  end
+
+  test "without Fact Tiles the hero still shows three Fact Tiles, each a Placeholder" do
+    document = brief_params() |> Map.put("fact_tiles", []) |> render_document()
+
+    fact_tiles = LazyHTML.query(document, ".fact-tiles .fact-tile")
+
+    assert Enum.count(fact_tiles) == 3
+
+    assert Enum.map(fact_tiles, &(&1 |> LazyHTML.query(".placeholder") |> Enum.count())) == [2, 2, 2]
+  end
+
+  test "one section gives one section block, one jump pill and the short answer box" do
+    document =
+      brief_params()
+      |> Map.put("sections", [%{"question" => "Jedyne pytanie testowe?", "answer" => "Jedyna odpowiedź."}])
+      |> render_document()
+
+    assert document |> LazyHTML.query("[data-block=section]") |> Enum.count() == 1
+    assert document |> LazyHTML.query("[data-block=jump-strip] a") |> Enum.count() == 1
+    assert document |> LazyHTML.query(".short-answer") |> Enum.count() == 1
+  end
+
+  test "an e-mail typed in the editor that is not yet an address is shown as written, without a mailto link" do
+    document =
+      brief_params()
+      |> build_brief()
+      |> Map.put(:email, "napisz przez formularz")
+      |> Template.render(%{mode: :new_idea})
+      |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("a[href^='mailto:']") |> Enum.count() == 0
+    assert document |> LazyHTML.query("footer#kontakt .contact") |> text() =~ "napisz przez formularz"
+    refute "[E-MAIL]" in (document |> LazyHTML.query(".placeholder") |> Enum.map(&text/1))
+  end
+
   defp text(node) do
     node
     |> LazyHTML.text()
@@ -407,7 +459,7 @@ defmodule Dirmoon.Pages.TemplateTest do
       "phone" => "+48 500 000 001",
       "email" => "kontakt@strona-testowa.example",
       "address" => "ul. Testowa 1, 00-001 Testowo",
-      "facts" => [
+      "fact_tiles" => [
         %{"label" => "Etykieta A", "value" => "Wartość A"},
         %{"label" => "Etykieta B", "value" => "Wartość B"},
         %{"label" => "Etykieta C", "value" => "Wartość C"}

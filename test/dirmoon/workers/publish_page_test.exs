@@ -41,6 +41,40 @@ defmodule Dirmoon.Workers.PublishPageTest do
     assert %Run{status: :done} = Repo.get!(Run, run.id)
   end
 
+  test "the published page's id and url are stored as plain JSON in the step output" do
+    run = finished_run()
+    page = insert(:page, run: run, brief: build(:brief, slug: "hotel-dla-psa"))
+    {:ok, _page} = Pages.publish(scope_for(run.account), page.id)
+
+    stub(Dirmoon.HostingMock, :create_site, fn _request -> {:ok, %{site_id: "netlify-site-1"}} end)
+    stub(Dirmoon.HostingMock, :deploy, fn _request -> {:ok, %{url: "https://dirmoon-hotel-dla-psa.netlify.app"}} end)
+
+    assert :ok = perform_job(PublishPage, %{run_id: run.id})
+
+    page_id = page.id
+
+    assert [%{"page_id" => ^page_id, "url" => "https://dirmoon-hotel-dla-psa.netlify.app"}] =
+             stored_json(%{table: "run_steps", column: "output", where: "run_id = $1 AND number = 9", value: run.id})
+  end
+
+  test "a page whose brief has no slug gets a site with the fallback name" do
+    run = finished_run()
+    page = insert(:page, run: run, brief: build(:brief, slug: nil))
+    {:ok, _page} = Pages.publish(scope_for(run.account), page.id)
+
+    expect(Dirmoon.HostingMock, :create_site, 1, fn %{site_name: "dirmoon-strona"} ->
+      {:ok, %{site_id: "netlify-site-1"}}
+    end)
+
+    expect(Dirmoon.HostingMock, :deploy, 1, fn %{site_id: "netlify-site-1"} ->
+      {:ok, %{url: "https://strona.netlify.app"}}
+    end)
+
+    assert :ok = perform_job(PublishPage, %{run_id: run.id})
+
+    assert %Page{status: :published, hosting_site_id: "netlify-site-1"} = Repo.get!(Page, page.id)
+  end
+
   test "a plausible domain on the page puts the plausible script for that domain in the deployed html" do
     run = finished_run()
     page = insert(:page, run: run, brief: build(:brief, plausible_domain: "hotel-dla-psa.example"))

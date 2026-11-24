@@ -65,14 +65,15 @@ defmodule Dirmoon.Research do
   end
 
   @doc """
-  The Scope's Account's latest #{@list_limit} runs, newest first, each with
-  its Steps in order (so `Run.results_ready?/1` can be asked of it).
+  The Scope's Account's latest `count` runs (#{@list_limit} by default),
+  newest first, each with its Steps in order (so `Run.results_ready?/1` can
+  be asked of it).
   """
-  def list_runs(%Scope{} = scope) do
+  def list_runs(%Scope{} = scope, count \\ @list_limit) when is_integer(count) and count > 0 do
     scope
     |> account_runs_query()
     |> order_by([run: run], desc: run.inserted_at, desc: run.id)
-    |> limit(@list_limit)
+    |> limit(^count)
     |> preload(steps: ^RunStep.ordered_by_number())
     |> Repo.all()
   end
@@ -144,7 +145,7 @@ defmodule Dirmoon.Research do
 
   @doc """
   The estimated API Cost in USD of a run, before it starts, from the
-  per-request prices in `config :dirmoon, :cost_estimates`: one keyword ideas
+  per-request prices in `config :dirmoon, :cost_estimates`: one phrase ideas
   request, one search volumes request for the country and one more for a
   city, one SERP request per checked Phrase (`serp_phrase_limit`) and the LLM
   allowance. The Mode doesn't change it: Search Console is free.
@@ -155,7 +156,7 @@ defmodule Dirmoon.Research do
 
     Enum.reduce(
       [
-        price(prices, :keyword_ideas),
+        price(prices, :phrase_ideas),
         prices |> price(:search_volumes) |> Decimal.mult(volume_requests),
         prices |> price(:serp_top10) |> Decimal.mult(Application.fetch_env!(:dirmoon, :serp_phrase_limit)),
         price(prices, :llm_allowance)

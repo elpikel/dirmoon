@@ -310,7 +310,7 @@ defmodule Dirmoon.PagesTest do
       "breadcrumb" => "Strona główna / Strona testowa",
       "intro" => "Wstęp testowy. Drugie zdanie wstępu.",
       "cta_label" => "Zapytaj o termin",
-      "facts" => [
+      "fact_tiles" => [
         %{"label" => "Cena", "value" => "[CENA]"},
         %{"label" => "Telefon", "value" => "[TELEFON]"},
         %{"label" => "Obszar", "value" => "[OBSZAR]"}
@@ -331,7 +331,7 @@ defmodule Dirmoon.PagesTest do
         "intro" => brief.intro,
         "cta_label" => brief.cta_label,
         "short_answer" => brief.short_answer,
-        "facts" => Enum.map(brief.facts, &%{"label" => &1.label, "value" => &1.value}),
+        "fact_tiles" => Enum.map(brief.fact_tiles, &%{"label" => &1.label, "value" => &1.value}),
         "sections" => Enum.map(brief.sections, &%{"question" => &1.question, "answer" => &1.answer})
       },
       changes

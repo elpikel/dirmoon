@@ -29,6 +29,18 @@ defmodule DirmoonWeb.Controllers.SignUp.CreateTest do
     end)
   end
 
+  test "a signed-in user submitting the sign-up form is sent to the app and nothing is created or mailed",
+       %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    email = unique_user_email()
+
+    conn = post(conn, ~p"/sign-up", %{"form" => "hero", "user" => %{"email" => email}})
+
+    assert redirected_to(conn) == ~p"/app"
+    refute Repo.get_by(User, email: email)
+    assert_no_email_sent()
+  end
+
   test "signing up from the hero form brings the visitor back to a confirmation that the link was sent",
        %{conn: conn} do
     email = unique_user_email()
@@ -59,7 +71,7 @@ defmodule DirmoonWeb.Controllers.SignUp.CreateTest do
              "Wysłaliśmy link logowania na #{email}. Sprawdź skrzynkę."
   end
 
-  test "signing up with an already registered email gets the same confirmation and a sign-in link, without a new account",
+  test "signing up with an email that already has a User gets the same confirmation and a sign-in link, without a new account",
        %{conn: conn} do
     user = insert(:user)
     account_count = Repo.aggregate(Account, :count)

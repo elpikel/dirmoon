@@ -12,12 +12,12 @@ defmodule Dirmoon.NichesTest do
   alias Dirmoon.Research.Run
   alias Dirmoon.Workers.WriteBrief
 
-  test "storing groups creates the niches in order, assigns their phrases and rejects the rest" do
+  test "storing a grouping creates the niches in order, assigns their phrases and rejects the rest" do
     run = insert(:run)
     [grouped, dropped, left_out] = insert_list(3, :run_phrase, run: run)
 
     assert {:ok, %{niches: 1, kept: 1, rejected: 2}} =
-             Niches.store_groups(run, %{
+             Niches.store_grouping(run, %{
                niches: [%{name: "Hotel dla psa", intent: "lokalna", reading: "Zdanie. Zdanie.", phrase_ids: [grouped.id]}],
                rejected: [%{phrase_id: dropped.id, reason: "inna branża"}]
              })
@@ -30,18 +30,18 @@ defmodule Dirmoon.NichesTest do
     assert %RunPhrase{status: :rejected, rejection_reason: "pominięta przez model"} = Repo.get!(RunPhrase, left_out.id)
   end
 
-  test "storing groups again replaces the run's niches and decisions instead of adding to them" do
+  test "storing a grouping again replaces the run's niches and decisions instead of adding to them" do
     run = insert(:run)
     [first, second] = insert_list(2, :run_phrase, run: run)
 
     {:ok, _counts} =
-      Niches.store_groups(run, %{
+      Niches.store_grouping(run, %{
         niches: [%{name: "Pierwsza", intent: nil, reading: nil, phrase_ids: [first.id]}],
         rejected: [%{phrase_id: second.id, reason: "inna branża"}]
       })
 
     assert {:ok, %{niches: 1, kept: 2, rejected: 0}} =
-             Niches.store_groups(run, %{
+             Niches.store_grouping(run, %{
                niches: [%{name: "Druga", intent: nil, reading: nil, phrase_ids: [first.id, second.id]}],
                rejected: []
              })
@@ -52,14 +52,25 @@ defmodule Dirmoon.NichesTest do
     assert %RunPhrase{status: :kept, rejection_reason: nil, cluster_id: ^niche_id} = Repo.get!(RunPhrase, second.id)
   end
 
-  test "storing groups leaves other runs' niches and phrases alone" do
+  test "storing a grouping without niches creates none and rejects every phrase" do
+    run = insert(:run)
+    [dropped, left_out] = insert_list(2, :run_phrase, run: run)
+
+    assert {:ok, %{niches: 0, kept: 0, rejected: 2}} =
+             Niches.store_grouping(run, %{niches: [], rejected: [%{phrase_id: dropped.id, reason: "inna branża"}]})
+
+    assert Niche |> from(as: :niche) |> where([niche: niche], niche.run_id == ^run.id) |> Repo.all() == []
+    assert %RunPhrase{status: :rejected, rejection_reason: "pominięta przez model"} = Repo.get!(RunPhrase, left_out.id)
+  end
+
+  test "storing a grouping leaves other runs' niches and phrases alone" do
     run = insert(:run)
     run_phrase = insert(:run_phrase, run: run)
     other_niche = insert(:niche)
     other_run_phrase = insert(:run_phrase, run: other_niche.run, niche: other_niche)
 
     {:ok, _counts} =
-      Niches.store_groups(run, %{
+      Niches.store_grouping(run, %{
         niches: [%{name: "Nisza", intent: nil, reading: nil, phrase_ids: [run_phrase.id]}],
         rejected: []
       })
@@ -366,7 +377,7 @@ defmodule Dirmoon.NichesTest do
     run_phrase = insert(:run_phrase, run: run, niche: niche)
 
     {:ok, _counts} =
-      Niches.store_groups(run, %{
+      Niches.store_grouping(run, %{
         niches: [%{name: "Nowa nisza", intent: nil, reading: nil, phrase_ids: [run_phrase.id]}],
         rejected: []
       })
@@ -428,7 +439,7 @@ defmodule Dirmoon.NichesTest do
     run = insert(:run, status: :awaiting_choice, city: "Płock", city_location_code: 9_990_123, steps: scored_steps())
     niche = insert(:niche, run: run)
     checked = phrase_in_niche(run, niche, %{volume: 90, cpc: "0.30"})
-    insert(:volume, phrase: checked.phrase, location_code: 9_990_123, search_volume: 9)
+    insert(:metrics, phrase: checked.phrase, location_code: 9_990_123, search_volume: 9)
     unchecked = phrase_in_niche(run, niche, %{volume: 30, cpc: nil})
     phrase_in_niche(run, niche, %{volume: 500, cpc: "1.00", status: :rejected})
     insert(:serp_assessment, run: run, phrase: checked.phrase, labels: labels(%{"portal" => 3, "blog" => 1}))
@@ -442,6 +453,26 @@ defmodule Dirmoon.NichesTest do
     assert %{volume: 30, city_volume: nil, holders: nil, cpc: nil} = second
     assert second.phrase == unchecked.phrase.phrase
     assert detail.page == nil
+  end
+
+  test "a Niche's detail marks its Quick Wins and counts them" do
+    run = insert(:run, mode: :existing_site, domain: "strona-testowa.pl", status: :awaiting_choice, steps: scored_steps())
+    niche = insert(:niche, run: run)
+    quick_win = phrase_in_niche(run, niche, %{volume: 90, cpc: nil})
+    top = phrase_in_niche(run, niche, %{volume: 60, cpc: nil})
+    unranked = phrase_in_niche(run, niche, %{volume: 30, cpc: nil})
+    quick_win |> Ecto.Changeset.change(current_position: Decimal.new("12.0")) |> Repo.update!()
+    top |> Ecto.Changeset.change(current_position: Decimal.new("2.0")) |> Repo.update!()
+
+    detail = Niches.niche_detail(run, niche)
+
+    assert Enum.map(detail.phrases, &{&1.id, &1.quick_win?}) == [
+             {quick_win.id, true},
+             {top.id, false},
+             {unranked.id, false}
+           ]
+
+    assert detail.quick_win_count == 1
   end
 
   test "a Niche's detail counts the most direct competitors in one checked top 10" do
@@ -493,7 +524,7 @@ defmodule Dirmoon.NichesTest do
     phrase = insert(:phrase, phrase: unique_phrase_text("fraza niszy"))
 
     if metrics.volume || metrics.cpc do
-      insert(:volume,
+      insert(:metrics,
         phrase: phrase,
         location_code: run.location_code,
         search_volume: metrics.volume,

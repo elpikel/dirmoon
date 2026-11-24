@@ -206,14 +206,14 @@ a.phone:hover {
   border-color: var(--ink);
 }
 
-.facts {
+.fact-tiles {
   margin-top: 6px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   gap: 10px;
 }
 
-.fact {
+.fact-tile {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -223,12 +223,12 @@ a.phone:hover {
   background: var(--white);
 }
 
-.fact-label {
+.fact-tile-label {
   color: var(--text-muted);
   font-size: 12px;
 }
 
-.fact-value {
+.fact-tile-value {
   font-size: 16px;
   font-weight: 700;
 }

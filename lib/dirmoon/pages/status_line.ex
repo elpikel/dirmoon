@@ -1,6 +1,6 @@
 defmodule Dirmoon.Pages.StatusLine do
   @moduledoc """
-  The status sentences of Produced Pages: one first-person Polish line saying
+  The status sentences of Pages: one first-person Polish line saying
   what dirmoon did or is doing with a page (screen 4), and one about the
   Account's pages (the "Strony" list). Built only from stored state, never by
   the LLM; see `docs/design/README.md` sections 8.2 and 8.4.

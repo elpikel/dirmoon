@@ -13,12 +13,8 @@ defmodule DirmoonWeb.Router do
     plug :fetch_current_scope_for_user
   end
 
-  pipeline :api do
-    plug :accepts, ["json"]
-  end
-
   scope "/", DirmoonWeb do
-    pipe_through :browser
+    pipe_through [:browser, :redirect_if_user_is_authenticated]
 
     get "/", PageController, :home
     post "/sign-up", SignUpController, :create
@@ -34,7 +30,8 @@ defmodule DirmoonWeb.Router do
     get "/pages/:id/file", PageFileController, :show
     get "/runs/:id/export.csv", RunExportController, :show
 
-    live_session :app, on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}] do
+    live_session :app,
+      on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}, {DirmoonWeb.Layouts, :slate_body}] do
       live "/research/new", NewResearchLive
       live "/runs", RunsLive
       live "/runs/:id", RunLive
@@ -47,7 +44,8 @@ defmodule DirmoonWeb.Router do
   scope "/", DirmoonWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    live_session :require_authenticated_user, on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}] do
+    live_session :require_authenticated_user,
+      on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}, {DirmoonWeb.Layouts, :slate_body}] do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end

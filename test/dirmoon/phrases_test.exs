@@ -2,9 +2,9 @@ defmodule Dirmoon.PhrasesTest do
   use Dirmoon.DataCase, async: true
 
   alias Dirmoon.Phrases
+  alias Dirmoon.Phrases.Metrics
   alias Dirmoon.Phrases.Phrase
   alias Dirmoon.Phrases.RunPhrase
-  alias Dirmoon.Phrases.Volume
 
   test "expansion rows are stored as normalised shared phrases linked to the run" do
     run = insert(:run)
@@ -14,7 +14,7 @@ defmodule Dirmoon.PhrasesTest do
 
     assert Phrase |> Repo.all() |> Enum.map(& &1.phrase) |> Enum.sort() == Enum.sort([other_text, "hotel dla psów"])
 
-    assert [%RunPhrase{origin: :expansion, status: :kept}, %RunPhrase{origin: :expansion, status: :kept}] =
+    assert [%RunPhrase{status: :kept}, %RunPhrase{status: :kept}] =
              RunPhrase
              |> from(as: :run_phrase)
              |> where([run_phrase: run_phrase], run_phrase.run_id == ^run.id)
@@ -27,7 +27,7 @@ defmodule Dirmoon.PhrasesTest do
 
     assert {:ok, 1} = Phrases.store_expansion(run, [row(text, 320), row(String.upcase(text), 10)])
 
-    assert [%Volume{search_volume: 320}] = Repo.all(Volume)
+    assert [%Metrics{search_volume: 320}] = Repo.all(Metrics)
     assert Phrases.count_for_run(run) == 1
   end
 
@@ -39,46 +39,46 @@ defmodule Dirmoon.PhrasesTest do
     assert {:ok, 2} = Phrases.store_expansion(run, rows)
 
     assert Repo.aggregate(Phrase, :count) == 2
-    assert Repo.aggregate(Volume, :count) == 2
+    assert Repo.aggregate(Metrics, :count) == 2
     assert Phrases.count_for_run(run) == 2
   end
 
-  test "a newer fetch replaces an older volume of the phrase for the same location" do
-    volume =
-      insert(:volume, location_code: 2616, search_volume: 10, cpc: Decimal.new("0.10"), fetched_at: days_ago(40))
+  test "a newer fetch replaces older metrics of the phrase for the same location" do
+    stored =
+      insert(:metrics, location_code: 2616, search_volume: 10, cpc: Decimal.new("0.10"), fetched_at: days_ago(40))
 
-    run = insert(:run, location_code: 2616, language_code: volume.phrase.language_code)
+    run = insert(:run, location_code: 2616, language_code: stored.phrase.language_code)
     fetched_at = days_ago(1)
 
     {:ok, 1} =
       Phrases.store_expansion(run, [
-        %{row(volume.phrase.phrase, 500) | cpc: Decimal.new("2.00"), fetched_at: fetched_at}
+        %{row(stored.phrase.phrase, 500) | cpc: Decimal.new("2.00"), fetched_at: fetched_at}
       ])
 
-    assert [%Volume{id: volume_id, search_volume: 500, cpc: cpc, fetched_at: ^fetched_at}] = Repo.all(Volume)
-    assert volume_id == volume.id
+    assert [%Metrics{id: metrics_id, search_volume: 500, cpc: cpc, fetched_at: ^fetched_at}] = Repo.all(Metrics)
+    assert metrics_id == stored.id
     assert Decimal.equal?(cpc, Decimal.new("2.00"))
   end
 
-  test "an older fetch neither replaces a newer volume nor refreshes its fetch time" do
+  test "an older fetch neither replaces newer metrics nor refreshes its fetch time" do
     newer_fetched_at = days_ago(1)
-    volume = insert(:volume, location_code: 2616, search_volume: 10, fetched_at: newer_fetched_at)
-    run = insert(:run, location_code: 2616, language_code: volume.phrase.language_code)
+    stored = insert(:metrics, location_code: 2616, search_volume: 10, fetched_at: newer_fetched_at)
+    run = insert(:run, location_code: 2616, language_code: stored.phrase.language_code)
 
-    {:ok, 1} = Phrases.store_expansion(run, [%{row(volume.phrase.phrase, 500) | fetched_at: days_ago(40)}])
+    {:ok, 1} = Phrases.store_expansion(run, [%{row(stored.phrase.phrase, 500) | fetched_at: days_ago(40)}])
 
-    assert [%Volume{search_volume: 10, fetched_at: ^newer_fetched_at}] = Repo.all(Volume)
+    assert [%Metrics{search_volume: 10, fetched_at: ^newer_fetched_at}] = Repo.all(Metrics)
     assert Phrases.count_for_run(run) == 1
   end
 
-  test "shared phrases and volumes hold nothing that identifies the run" do
+  test "shared phrases and metrics hold nothing that identifies the run" do
     run = insert(:run, description: "Opis firmy, który nie może trafić do danych wspólnych")
 
     {:ok, 1} = Phrases.store_expansion(run, [row(unique_phrase_text("hotel dla psów"), 320)])
 
-    refute :fields |> Phrase.__schema__() |> Enum.concat(Volume.__schema__(:fields)) |> Enum.member?(:run_id)
+    refute :fields |> Phrase.__schema__() |> Enum.concat(Metrics.__schema__(:fields)) |> Enum.member?(:run_id)
     refute inspect(Repo.all(Phrase)) =~ run.description
-    refute inspect(Repo.all(Volume)) =~ run.description
+    refute inspect(Repo.all(Metrics)) =~ run.description
   end
 
   test "the run's phrases are listed with their country volume, highest volume first and missing volumes last" do
@@ -93,17 +93,17 @@ defmodule Dirmoon.PhrasesTest do
     {:ok, 1} = Phrases.store_expansion(other_run, [row(unique_phrase_text("cudza fraza"), 5000)])
 
     assert [
-             %RunPhrase{phrase: %Phrase{phrase: ^large}, volume: %Volume{search_volume: 900, location_code: 2616}},
-             %RunPhrase{phrase: %Phrase{phrase: ^small}, volume: %Volume{search_volume: 15}},
-             %RunPhrase{phrase: %Phrase{phrase: ^without_volume}, volume: %Volume{search_volume: nil}}
+             %RunPhrase{phrase: %Phrase{phrase: ^large}, metrics: %Metrics{search_volume: 900, location_code: 2616}},
+             %RunPhrase{phrase: %Phrase{phrase: ^small}, metrics: %Metrics{search_volume: 15}},
+             %RunPhrase{phrase: %Phrase{phrase: ^without_volume}, metrics: %Metrics{search_volume: nil}}
            ] = Phrases.list_for_run(run)
   end
 
   test "a phrase with no volume for the run's country is listed without a volume" do
     run_phrase = insert(:run_phrase)
-    insert(:volume, phrase: run_phrase.phrase, location_code: run_phrase.run.location_code + 1)
+    insert(:metrics, phrase: run_phrase.phrase, location_code: run_phrase.run.location_code + 1)
 
-    assert [%RunPhrase{volume: nil}] = Phrases.list_for_run(run_phrase.run)
+    assert [%RunPhrase{metrics: nil}] = Phrases.list_for_run(run_phrase.run)
   end
 
   test "the run's phrases are counted" do
@@ -118,21 +118,21 @@ defmodule Dirmoon.PhrasesTest do
   test "a run phrase also lists its city volume when the run has a city location" do
     run = insert(:run, location_code: 2616, city: "Gdańsk", city_location_code: 1_000_123)
     run_phrase = insert(:run_phrase, run: run)
-    insert(:volume, phrase: run_phrase.phrase, location_code: 2616, search_volume: 300)
-    insert(:volume, phrase: run_phrase.phrase, location_code: 1_000_123, search_volume: 30)
+    insert(:metrics, phrase: run_phrase.phrase, location_code: 2616, search_volume: 300)
+    insert(:metrics, phrase: run_phrase.phrase, location_code: 1_000_123, search_volume: 30)
 
-    assert [%RunPhrase{volume: %Volume{search_volume: 300}, city_volume: %Volume{search_volume: 30}}] =
+    assert [%RunPhrase{metrics: %Metrics{search_volume: 300}, city_metrics: %Metrics{search_volume: 30}}] =
              Phrases.list_for_run(run)
   end
 
   test "a run phrase has no city volume when the run has no city location" do
     run_phrase = insert(:run_phrase)
-    insert(:volume, phrase: run_phrase.phrase, location_code: run_phrase.run.location_code)
+    insert(:metrics, phrase: run_phrase.phrase, location_code: run_phrase.run.location_code)
 
-    assert [%RunPhrase{volume: %Volume{}, city_volume: nil}] = Phrases.list_for_run(run_phrase.run)
+    assert [%RunPhrase{metrics: %Metrics{}, city_metrics: nil}] = Phrases.list_for_run(run_phrase.run)
   end
 
-  test "phrases needing a volume are the run's kept phrases without a volume fetched in the last 30 days" do
+  test "phrases needing metrics are the run's kept phrases without metrics fetched in the last 30 days" do
     run = insert(:run, location_code: 2616)
     missing = insert(:run_phrase, run: run)
     stale = insert(:run_phrase, run: run)
@@ -140,21 +140,21 @@ defmodule Dirmoon.PhrasesTest do
     other_location = insert(:run_phrase, run: run)
     insert(:run_phrase, run: run, status: :rejected)
     insert(:run_phrase)
-    insert(:volume, phrase: stale.phrase, location_code: 2616, fetched_at: days_ago(31))
-    insert(:volume, phrase: fresh.phrase, location_code: 2616, fetched_at: days_ago(29))
-    insert(:volume, phrase: other_location.phrase, location_code: 1_000_123, fetched_at: days_ago(1))
+    insert(:metrics, phrase: stale.phrase, location_code: 2616, fetched_at: days_ago(31))
+    insert(:metrics, phrase: fresh.phrase, location_code: 2616, fetched_at: days_ago(29))
+    insert(:metrics, phrase: other_location.phrase, location_code: 1_000_123, fetched_at: days_ago(1))
 
-    assert Enum.map(Phrases.phrases_needing_volume(run, 2616), & &1.id) ==
+    assert Enum.map(Phrases.phrases_needing_metrics(run, 2616), & &1.id) ==
              [missing.keyword_id, stale.keyword_id, other_location.keyword_id]
   end
 
-  test "stored volumes are matched to the asked phrases by normalised phrase and missing ones are stored empty" do
+  test "stored metrics are matched to the asked phrases by normalised phrase and missing ones are stored empty" do
     returned = insert(:phrase)
     missing = insert(:phrase)
     fetched_at = days_ago(1)
 
     assert {:ok, 2} =
-             Phrases.store_volumes(1_000_123, %{
+             Phrases.store_metrics(1_000_123, %{
                phrases: [returned, missing],
                rows: [
                  %{row(" " <> String.upcase(returned.phrase), 40) | fetched_at: fetched_at},
@@ -163,13 +163,13 @@ defmodule Dirmoon.PhrasesTest do
                fetched_at: fetched_at
              })
 
-    assert %Volume{search_volume: 40, fetched_at: ^fetched_at} =
-             Repo.get_by!(Volume, keyword_id: returned.id, location_code: 1_000_123)
+    assert %Metrics{search_volume: 40, fetched_at: ^fetched_at} =
+             Repo.get_by!(Metrics, keyword_id: returned.id, location_code: 1_000_123)
 
-    assert %Volume{search_volume: nil, cpc: nil, fetched_at: ^fetched_at} =
-             Repo.get_by!(Volume, keyword_id: missing.id, location_code: 1_000_123)
+    assert %Metrics{search_volume: nil, cpc: nil, fetched_at: ^fetched_at} =
+             Repo.get_by!(Metrics, keyword_id: missing.id, location_code: 1_000_123)
 
-    assert Repo.aggregate(Volume, :count) == 2
+    assert Repo.aggregate(Metrics, :count) == 2
   end
 
   test "expansion rows store the same phrases and volumes whatever order they arrive in" do
@@ -192,7 +192,7 @@ defmodule Dirmoon.PhrasesTest do
       phrases |> Enum.zip([30, 10, 20]) |> Map.new(fn {phrase, search_volume} -> {phrase.phrase, search_volume} end)
 
     assert {:ok, 3} =
-             Phrases.store_volumes(1_000_123, %{
+             Phrases.store_metrics(1_000_123, %{
                phrases: Enum.reverse(phrases),
                rows: Enum.map(Enum.sort(Map.keys(volumes_by_text), :desc), &row(&1, Map.fetch!(volumes_by_text, &1))),
                fetched_at: fetched_at
@@ -289,6 +289,14 @@ defmodule Dirmoon.PhrasesTest do
     assert Phrases.quick_win_range() == 8..20
   end
 
+  test "a Current Position from 8 to 20 makes a Quick Win, and no position makes none" do
+    assert Phrases.quick_win?(Decimal.new("8.0"))
+    assert Phrases.quick_win?(Decimal.new("20.0"))
+    refute Phrases.quick_win?(Decimal.new("7.9"))
+    refute Phrases.quick_win?(Decimal.new("20.1"))
+    refute Phrases.quick_win?(nil)
+  end
+
   test "a phrase listed twice keeps its best position" do
     run = insert(:run)
     run_phrase = insert(:run_phrase, run: run)
@@ -321,7 +329,7 @@ defmodule Dirmoon.PhrasesTest do
     second = phrase_in_niche(run, niche, %{volume: 10, cpc: "3.00"})
     without_cpc = phrase_in_niche(run, niche, %{volume: 20, cpc: nil})
     city_only = phrase_in_niche(run, niche, %{volume: nil, cpc: nil})
-    insert(:volume, phrase: city_only.phrase, location_code: run.location_code + 1, search_volume: 700)
+    insert(:metrics, phrase: city_only.phrase, location_code: run.location_code + 1, search_volume: 700)
 
     assert %{volume: 60, cpc: cpc, keyword_ids: keyword_ids} = Map.fetch!(Phrases.market_totals_by_niche(run), niche.id)
     assert Decimal.equal?(cpc, Decimal.new("1.5"))
@@ -419,14 +427,14 @@ defmodule Dirmoon.PhrasesTest do
     run = insert(:run, city: "Płock", city_location_code: 9_990_321)
     niche = insert(:niche, run: run, name: "Nisza eksportu")
     kept = phrase_in_niche(run, niche, %{volume: 60, cpc: "0.25"})
-    insert(:volume, phrase: kept.phrase, location_code: 9_990_321, search_volume: 6)
+    insert(:metrics, phrase: kept.phrase, location_code: 9_990_321, search_volume: 6)
     kept |> Ecto.Changeset.change(current_position: Decimal.new("11.4")) |> Repo.update!()
     insert(:serp_assessment, run: run, phrase: kept.phrase, verdict: :weak)
 
     rejected =
       insert(:run_phrase, run: run, status: :rejected, rejection_reason: "poza ofertą", phrase: build(:phrase))
 
-    insert(:volume, phrase: rejected.phrase, search_volume: 700)
+    insert(:metrics, phrase: rejected.phrase, search_volume: 700)
 
     assert [kept_row, rejected_row] = Phrases.export_rows(run)
 
@@ -470,17 +478,17 @@ defmodule Dirmoon.PhrasesTest do
       search_volume: search_volume,
       cpc: Decimal.new("0.40"),
       currency: "USD",
-      monthly_searches: [],
+      trend: [],
       fetched_at: DateTime.utc_now(:second)
     }
   end
 
   defp stored_volumes_by_text(location_code) do
-    Volume
-    |> from(as: :volume)
-    |> join(:inner, [volume: volume], phrase in assoc(volume, :phrase), as: :phrase)
-    |> where([volume: volume], volume.location_code == ^location_code)
-    |> select([volume: volume, phrase: phrase], {phrase.phrase, volume.search_volume})
+    Metrics
+    |> from(as: :metrics)
+    |> join(:inner, [metrics: metrics], phrase in assoc(metrics, :phrase), as: :phrase)
+    |> where([metrics: metrics], metrics.location_code == ^location_code)
+    |> select([metrics: metrics, phrase: phrase], {phrase.phrase, metrics.search_volume})
     |> Repo.all()
     |> Map.new()
   end
@@ -489,7 +497,7 @@ defmodule Dirmoon.PhrasesTest do
     phrase = insert(:phrase, phrase: unique_phrase_text("fraza niszy"))
 
     if metrics.volume || metrics.cpc do
-      insert(:volume,
+      insert(:metrics,
         phrase: phrase,
         location_code: run.location_code,
         search_volume: metrics.volume,

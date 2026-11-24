@@ -8,7 +8,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
   alias Dirmoon.SearchConsole.Connection
 
   test "granting access at Google stores the account's connection with an encrypted refresh token", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     email = unique_user_email()
     callback_url = url(~p"/app/search-console/callback")
     %{conn: conn, state: state} = start_connect(conn)
@@ -26,7 +26,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
   end
 
   test "after connecting the user is back in the app and sees which Google account was connected", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     email = unique_user_email()
     %{conn: conn, state: state} = start_connect(conn)
     stub_exchange(email)
@@ -38,7 +38,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
   end
 
   test "after connecting the user returns to the app page they started from", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     %{conn: conn, state: state} = start_connect(conn, %{return_to: "/app/runs/7"})
     stub_exchange(unique_user_email())
 
@@ -48,7 +48,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
   end
 
   test "after connecting the user returns to the app page they started from, query string included", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     %{conn: conn, state: state} = start_connect(conn, %{return_to: "/app/runs/1?view=niches"})
     stub_exchange(unique_user_email())
 
@@ -57,8 +57,19 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
     assert redirected_to(conn) == "/app/runs/1?view=niches"
   end
 
+  test "after connecting from the new research screen the user returns to it in the existing site mode",
+       %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    %{conn: conn, state: state} = start_connect(conn, %{return_to: "/app/research/new?mode=existing_site"})
+    stub_exchange(unique_user_email())
+
+    conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod", state: state]}")
+
+    assert redirected_to(conn) == "/app/research/new?mode=existing_site"
+  end
+
   test "neither the flash nor the redirect carries a token", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     %{conn: conn, state: state} = start_connect(conn)
     stub_exchange(unique_user_email())
 
@@ -70,7 +81,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
   end
 
   test "a callback with a state not issued to this session stores nothing and shows an error", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     %{conn: conn} = start_connect(conn)
 
     conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod", state: "podrobiony-stan"]}")
@@ -81,7 +92,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
   end
 
   test "a callback with no state issued to this session stores nothing and shows an error", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
 
     conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod", state: "jakis-stan"]}")
 
@@ -91,7 +102,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
   end
 
   test "a callback without a state stores nothing and shows an error", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     %{conn: conn} = start_connect(conn)
 
     conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod"]}")
@@ -101,7 +112,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
   end
 
   test "a state is accepted only once", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     %{conn: conn, state: state} = start_connect(conn)
 
     expect(Dirmoon.SearchConsoleMock, :exchange_code, 1, fn _request ->
@@ -118,7 +129,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
   end
 
   test "denying access at Google stores nothing and shows an error", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     %{conn: conn, state: state} = start_connect(conn)
 
     conn = get(conn, ~p"/app/search-console/callback?#{[error: "access_denied", state: state]}")
@@ -128,8 +139,33 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
     refute SearchConsole.get_connection(scope)
   end
 
+  test "a callback without a code stores nothing and shows an error", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    %{conn: conn, state: state} = start_connect(conn)
+
+    expect(Dirmoon.SearchConsoleMock, :exchange_code, 0, fn _request -> flunk("no exchange without a code") end)
+
+    conn = get(conn, ~p"/app/search-console/callback?#{[state: state]}")
+
+    assert redirected_to(conn) == ~p"/app"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+    refute SearchConsole.get_connection(scope)
+  end
+
+  test "a failed code exchange sends the user to the app start, not the page they started from", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    %{conn: conn, state: state} = start_connect(conn, %{return_to: "/app/runs/12"})
+
+    expect(Dirmoon.SearchConsoleMock, :exchange_code, 1, fn _request -> {:error, "Google OAuth: HTTP 500"} end)
+
+    conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod", state: state]}")
+
+    assert redirected_to(conn) == ~p"/app"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+  end
+
   test "a failed code exchange stores nothing and shows an error", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     %{conn: conn, state: state} = start_connect(conn)
 
     expect(Dirmoon.SearchConsoleMock, :exchange_code, 1, fn _request -> {:error, :invalid_grant} end)
@@ -142,7 +178,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
   end
 
   test "connecting never touches another account's connection", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     other = insert(:search_console_connection)
     %{conn: conn, state: state} = start_connect(conn)
     stub_exchange(unique_user_email())

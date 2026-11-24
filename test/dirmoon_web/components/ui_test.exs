@@ -19,24 +19,23 @@ defmodule DirmoonWeb.UITest do
     assert has_class?(document, "svg[data-moon-mark] path", "fill-accent")
   end
 
-  test "the moon mark is decorative unless it is given a label" do
+  test "the moon mark is decorative and drawn in ink by default" do
     assigns = %{}
 
-    decorative = parse(~H"<UI.moon_mark />")
-    labelled = parse(~H|<UI.moon_mark label="dirmoon" />|)
+    document = parse(~H"<UI.moon_mark />")
 
-    assert ["true"] = decorative |> LazyHTML.query("svg") |> LazyHTML.attribute("aria-hidden")
-    assert ["dirmoon"] = labelled |> LazyHTML.query("svg") |> LazyHTML.attribute("aria-label")
+    assert ["true"] = document |> LazyHTML.query("svg") |> LazyHTML.attribute("aria-hidden")
+    assert ["24"] = document |> LazyHTML.query("svg") |> LazyHTML.attribute("width")
+    assert has_class?(document, "svg path", "fill-ink")
   end
 
-  test "the nav card floats with the mark and wordmark on the left and its links on the right" do
+  test "the nav card floats with the mark and wordmark linking home on the left and its links on the right" do
     assigns = %{}
 
     document =
       parse(~H"""
       <UI.nav_card id="nav">
-        <UI.nav_link href="/somewhere" active>Wyniki</UI.nav_link>
-        <UI.button variant="dark" href="/new">Nowy research</UI.button>
+        <UI.nav_link href="/somewhere">Zaloguj się</UI.nav_link>
       </UI.nav_card>
       """)
 
@@ -48,11 +47,12 @@ defmodule DirmoonWeb.UITest do
     assert document |> LazyHTML.query("#nav [data-part=brand]") |> LazyHTML.text() =~ "dirmoon"
     assert has_class?(document, "#nav [data-part=brand]", "font-extrabold")
     assert has_class?(document, "#nav [data-part=brand]", "text-[21px]")
-    assert ["page"] = document |> LazyHTML.query("#nav nav a[href='/somewhere']") |> LazyHTML.attribute("aria-current")
-    assert document |> LazyHTML.query("#nav nav a[href='/new'][data-variant=dark]") |> Enum.count() == 1
+    assert ["/"] = document |> LazyHTML.query("#nav [data-part=brand]") |> LazyHTML.attribute("href")
+    assert ["Główna"] = document |> LazyHTML.query("#nav nav") |> LazyHTML.attribute("aria-label")
+    assert document |> LazyHTML.query("#nav nav a[href='/somewhere']") |> Enum.count() == 1
   end
 
-  test "an inactive nav link is muted and not marked as the current page" do
+  test "a nav link is muted and not marked as the current page" do
     assigns = %{}
 
     document = parse(~H|<UI.nav_link href="/elsewhere">Strony</UI.nav_link>|)
@@ -65,13 +65,13 @@ defmodule DirmoonWeb.UITest do
   test "the eyebrow tag is a small mono uppercase label on the chip fill" do
     assigns = %{}
 
-    document = parse(~H|<UI.eyebrow id="tag">Popyt z Google</UI.eyebrow>|)
+    document = parse(~H|<UI.eyebrow>Popyt z Google</UI.eyebrow>|)
 
     for class <- ~w(font-mono text-xs uppercase tracking-[0.1em] bg-chip rounded-chip) do
-      assert has_class?(document, "#tag", class)
+      assert has_class?(document, "span", class)
     end
 
-    assert document |> LazyHTML.query("#tag") |> LazyHTML.text() == "Popyt z Google"
+    assert document |> LazyHTML.query("span") |> LazyHTML.text() == "Popyt z Google"
   end
 
   test "the headline wraps its underline phrase in the lime stroke placed behind the text" do
@@ -79,47 +79,51 @@ defmodule DirmoonWeb.UITest do
 
     document =
       parse(~H"""
-      <UI.headline id="hero">
+      <UI.headline size="hero">
         Research
         <:underline>w toku.</:underline>
       </UI.headline>
       """)
 
-    assert has_class?(document, "h1#hero", "font-extrabold")
-    assert has_class?(document, "h1#hero", "isolate")
-    assert document |> LazyHTML.query("h1#hero") |> LazyHTML.text() |> squish() == "Research w toku."
-    assert document |> LazyHTML.query("#hero [data-part=underline]") |> LazyHTML.text() =~ "w toku."
+    assert has_class?(document, "h1", "font-extrabold")
+    assert has_class?(document, "h1", "isolate")
+    assert has_class?(document, "h1", "leading-[0.98]")
+    assert document |> LazyHTML.query("h1") |> LazyHTML.text() |> squish() == "Research w toku."
+    assert document |> LazyHTML.query("h1 [data-part=underline]") |> LazyHTML.text() =~ "w toku."
 
     assert [@underline_path] =
-             document |> LazyHTML.query("#hero [data-part=underline] svg path") |> LazyHTML.attribute("d")
+             document |> LazyHTML.query("h1 [data-part=underline] svg path") |> LazyHTML.attribute("d")
 
-    assert has_class?(document, "#hero [data-part=underline] svg path", "stroke-accent")
+    assert has_class?(document, "h1 [data-part=underline] svg path", "stroke-accent")
 
     assert ["7"] =
-             document |> LazyHTML.query("#hero [data-part=underline] svg path") |> LazyHTML.attribute("stroke-width")
+             document |> LazyHTML.query("h1 [data-part=underline] svg path") |> LazyHTML.attribute("stroke-width")
 
     assert ["round"] =
-             document |> LazyHTML.query("#hero [data-part=underline] svg path") |> LazyHTML.attribute("stroke-linecap")
+             document |> LazyHTML.query("h1 [data-part=underline] svg path") |> LazyHTML.attribute("stroke-linecap")
 
-    assert has_class?(document, "#hero [data-part=underline] svg", "-z-10")
+    assert has_class?(document, "h1 [data-part=underline] svg", "-z-10")
   end
 
   test "the headline can render at a lower heading level" do
     assigns = %{}
 
-    document = parse(~H|<UI.headline id="sub" level="h2">Strony</UI.headline>|)
+    document = parse(~H|<UI.headline level="h2">
+  Strony
+  <:underline>i wyniki.</:underline>
+</UI.headline>|)
 
-    assert document |> LazyHTML.query("h2#sub") |> Enum.count() == 1
-    assert document |> LazyHTML.query("#sub [data-part=underline]") |> Enum.count() == 0
+    assert document |> LazyHTML.query("h1") |> Enum.count() == 0
+    assert document |> LazyHTML.query("h2 [data-part=underline]") |> LazyHTML.text() =~ "i wyniki."
+    assert has_class?(document, "h2", "leading-none")
   end
 
-  test "the dark panel shows a mono top bar with context and note, then the status row with the mark" do
+  test "the dark panel shows a mono top bar with context and note, then its content" do
     assigns = %{}
 
     document =
       parse(~H"""
-      <UI.dark_panel id="panel" context="wynajem kamperów" note="Dane przykładowe">
-        <:status>Sprawdzam, kto odpowiada na najlepsze frazy.</:status>
+      <UI.dark_panel id="panel" context="jak to działa" note="9 kroków">
         <p id="panel-body">Treść</p>
       </UI.dark_panel>
       """)
@@ -129,24 +133,10 @@ defmodule DirmoonWeb.UITest do
     end
 
     assert has_class?(document, "#panel [data-part=top-bar]", "font-mono")
-    assert document |> LazyHTML.query("#panel [data-part=context]") |> LazyHTML.text() == "dirmoon / wynajem kamperów"
-    assert document |> LazyHTML.query("#panel [data-part=note]") |> LazyHTML.text() == "Dane przykładowe"
-    assert has_class?(document, "#panel [data-part=status]", "bg-slate-raised")
-    assert document |> LazyHTML.query("#panel [data-part=status] svg[data-moon-mark]") |> Enum.count() == 1
-
-    assert document |> LazyHTML.query("#panel [data-part=status]") |> LazyHTML.text() |> squish() ==
-             "Sprawdzam, kto odpowiada na najlepsze frazy."
-
+    assert document |> LazyHTML.query("#panel [data-part=top-bar] svg[data-moon-mark]") |> Enum.count() == 1
+    assert document |> LazyHTML.query("#panel [data-part=context]") |> LazyHTML.text() == "dirmoon / jak to działa"
+    assert document |> LazyHTML.query("#panel [data-part=note]") |> LazyHTML.text() == "9 kroków"
     assert document |> LazyHTML.query("#panel #panel-body") |> Enum.count() == 1
-  end
-
-  test "the dark panel leaves out the status row and the note when none is given" do
-    assigns = %{}
-
-    document = parse(~H|<UI.dark_panel id="plain" context="jak to działa">Treść</UI.dark_panel>|)
-
-    assert document |> LazyHTML.query("#plain [data-part=status]") |> Enum.count() == 0
-    assert document |> LazyHTML.query("#plain [data-part=note]") |> Enum.count() == 0
   end
 
   test "a button without a destination is a real button at least 44px tall" do
@@ -175,23 +165,67 @@ defmodule DirmoonWeb.UITest do
     assert ["/elsewhere"] = document |> LazyHTML.query("a#out") |> LazyHTML.attribute("href")
   end
 
-  test "chips are 36px pills and the dashed variant has a dashed outline" do
+  test "chips are 36px pill buttons and the dashed variant has a dashed outline" do
+    assigns = %{}
+
+    document = parse(~H|<UI.chip id="domain" variant="dashed">+ Domena</UI.chip>|)
+
+    assert ["button"] = document |> LazyHTML.query("button#domain") |> LazyHTML.attribute("type")
+    assert has_class?(document, "#domain", "min-h-9")
+    assert has_class?(document, "#domain", "rounded-pill")
+    assert has_class?(document, "#domain", "border-dashed")
+    assert has_class?(document, "#domain", "border-line-dashed")
+  end
+
+  test "the slate chip is outlined on the dark surface" do
+    assigns = %{}
+
+    document = parse(~H|<UI.chip id="example" variant="slate">Przykład</UI.chip>|)
+
+    assert has_class?(document, "#example", "min-h-9")
+    assert has_class?(document, "#example", "border-slate-line-strong")
+    assert has_class?(document, "#example", "text-on-slate-2")
+    refute has_class?(document, "#example", "border-dashed")
+  end
+
+  test "an app sidebar link is 44px tall and the active one is filled and marked as the current page" do
     assigns = %{}
 
     document =
       parse(~H"""
-      <UI.chip id="mode" variant="dark">Nowy pomysł</UI.chip>
-      <UI.chip id="domain" variant="dashed">+ Domena</UI.chip>
+      <UI.app_sidebar_link id="new" href="/app/research/new" variant="action" active>Nowy research</UI.app_sidebar_link>
+      <UI.app_sidebar_link id="runs" href="/app/runs">Wyniki</UI.app_sidebar_link>
       """)
 
-    for id <- ~w(#mode #domain) do
-      assert has_class?(document, id, "min-h-9")
-      assert has_class?(document, id, "rounded-pill")
+    for id <- ~w(#new #runs) do
+      assert has_class?(document, id, "min-h-target-min")
     end
 
-    assert has_class?(document, "#mode", "bg-ink")
-    assert has_class?(document, "#domain", "border-dashed")
-    assert has_class?(document, "#domain", "border-line-dashed")
+    assert ["page"] = document |> LazyHTML.query("a#new") |> LazyHTML.attribute("aria-current")
+    assert has_class?(document, "#new", "bg-slate-selected")
+    assert has_class?(document, "#new", "border-slate-line-strong")
+    assert document |> LazyHTML.query("a#runs[aria-current]") |> Enum.count() == 0
+    assert has_class?(document, "#runs", "border-transparent")
+    assert has_class?(document, "#runs", "text-on-slate-2")
+  end
+
+  test "a run status shows done in lime, failed in amber, stopped muted and the rest as a pill" do
+    assigns = %{}
+
+    document =
+      parse(~H"""
+      <UI.run_status id="done" status={:done} label="Gotowy" />
+      <UI.run_status id="failed" status={:failed} label="Błąd" />
+      <UI.run_status id="stopped" status={:stopped} label="Zatrzymany" />
+      <UI.run_status id="running" status={:running} label="W toku" />
+      """)
+
+    assert has_class?(document, "#done", "text-accent")
+    assert document |> LazyHTML.query("#done .hero-check-mini") |> Enum.count() == 1
+    assert has_class?(document, "#failed", "text-warn")
+    assert document |> LazyHTML.query("#failed .hero-exclamation-triangle") |> Enum.count() == 1
+    assert has_class?(document, "#stopped", "text-on-slate-muted")
+    assert has_class?(document, "#running", "rounded-pill")
   end
 
   test "a stat tile shows its label above the value and can highlight the value" do

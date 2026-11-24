@@ -1,6 +1,6 @@
 defmodule Dirmoon.Hosting do
   @moduledoc """
-  The seam to the static hosting a Produced Page is published to (Netlify).
+  The seam to the static hosting a Page is published to (Netlify).
   The adapter is chosen by `config :dirmoon, :hosting_adapter`.
 
   `create_site/1` creates a site (its name derived from `site_name`) and

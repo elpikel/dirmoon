@@ -1,10 +1,10 @@
 defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
   use DirmoonWeb.ConnCase, async: true
 
-  @header "fraza,nisza,wolumen_kraj,wolumen_miasto,cpc,waluta,top10,werdykt,pozycja,odrzucona,powod"
+  @header "fraza,nisza,wolumen_kraj,wolumen_miasto,cpc,waluta,top10,werdykt,pozycja,szybka_wygrana,odrzucona,powod"
 
   test "the run's Phrases download as a UTF-8 CSV named after the run", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account)
 
     conn = get(conn, ~p"/app/runs/#{run}/export.csv")
@@ -16,7 +16,7 @@ defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
   end
 
   test "the CSV starts with a byte order mark and the column header", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account)
 
     body = conn |> get(~p"/app/runs/#{run}/export.csv") |> response(200)
@@ -24,32 +24,41 @@ defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
     assert body == <<0xEF, 0xBB, 0xBF>> <> @header <> "\r\n"
   end
 
-  test "a kept Phrase has its Niche, Volumes, CPC, top 10, verdict and position", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+  test "a kept Phrase has its Niche, Volumes, CPC, top 10, verdict, position and whether it is a Quick Win", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, city: "Płock", city_location_code: 9_990_456)
     niche = insert(:niche, run: run, name: "Nisza testowa eksportu")
     phrase = insert(:phrase, phrase: unique_phrase_text("łódź na godziny"))
-    insert(:volume, phrase: phrase, search_volume: 1_234, cpc: Decimal.new("0.73"))
-    insert(:volume, phrase: phrase, location_code: 9_990_456, search_volume: 17)
+    insert(:metrics, phrase: phrase, search_volume: 1_234, cpc: Decimal.new("0.73"))
+    insert(:metrics, phrase: phrase, location_code: 9_990_456, search_volume: 17)
     insert(:run_phrase, run: run, phrase: phrase, niche: niche, current_position: Decimal.new("12.5"))
     insert(:serp_assessment, run: run, phrase: phrase, verdict: :weak)
 
     lines = export_lines(conn, run)
 
-    assert Enum.at(lines, 1) == "#{phrase.phrase},Nisza testowa eksportu,1234,17,0.73,USD,blogi,Słaba,12.5,nie,"
+    assert Enum.at(lines, 1) == "#{phrase.phrase},Nisza testowa eksportu,1234,17,0.73,USD,blogi,Słaba,12.5,tak,nie,"
   end
 
   test "Rejected Phrases come with their reason", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account)
     phrase = insert(:phrase, phrase: unique_phrase_text("kurs żeglarski"))
     insert(:run_phrase, run: run, phrase: phrase, status: :rejected, rejection_reason: "poza ofertą testową")
 
-    assert export_lines(conn, run) == [@header, "#{phrase.phrase},,,,,,,,,tak,poza ofertą testową"]
+    assert export_lines(conn, run) == [@header, "#{phrase.phrase},,,,,,,,,nie,tak,poza ofertą testową"]
+  end
+
+  test "a Phrase ranked outside positions 8 to 20 is not a Quick Win in the CSV", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, mode: :existing_site, domain: "strona-testowa.pl")
+    phrase = insert(:phrase, phrase: unique_phrase_text("czarter jachtu"))
+    insert(:run_phrase, run: run, phrase: phrase, current_position: Decimal.new("3.0"))
+
+    assert export_lines(conn, run) == [@header, "#{phrase.phrase},,,,,,,,3.0,nie,nie,"]
   end
 
   test "a cell with a comma, a quote or a line break is quoted", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account)
     niche = insert(:niche, run: run, name: ~s(Rejsy, "czartery"\ni kursy))
     insert(:run_phrase, run: run, niche: niche)
@@ -60,7 +69,7 @@ defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
   end
 
   test "a cell a spreadsheet would run as a formula starts with an apostrophe", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account)
     phrase = insert(:phrase, phrase: unique_phrase_text("=HYPERLINK(\"http://zly.example\")"))
     insert(:run_phrase, run: run, phrase: phrase, status: :rejected, rejection_reason: "@SUM(A1:A2)")
@@ -74,7 +83,7 @@ defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
   end
 
   test "another Account's run is not found", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run)
     insert(:run_phrase, run: run)
 
@@ -84,7 +93,7 @@ defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
   end
 
   test "a malformed run id is not found", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     assert conn |> get(~p"/app/runs/nie-liczba/export.csv") |> response(404) == "Not Found"
   end

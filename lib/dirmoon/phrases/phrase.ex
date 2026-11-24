@@ -6,13 +6,13 @@ defmodule Dirmoon.Phrases.Phrase do
   """
   use Ecto.Schema
 
-  alias Dirmoon.Phrases.Volume
+  alias Dirmoon.Phrases.Metrics
 
   schema "keywords" do
     field :phrase, :string
     field :language_code, :string
 
-    has_many :volumes, Volume, foreign_key: :keyword_id
+    has_many :metrics, Metrics, foreign_key: :keyword_id
 
     timestamps(type: :utc_datetime)
   end

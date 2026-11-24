@@ -4,7 +4,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.ConnectTest do
   import Mox
 
   test "connecting sends the user to Google's consent screen with a fresh state and our callback", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     callback_url = url(~p"/app/search-console/callback")
 
     expect(Dirmoon.SearchConsoleMock, :authorize_url, 1, fn %{state: state, redirect_uri: ^callback_url} ->
@@ -20,7 +20,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.ConnectTest do
   end
 
   test "each connect attempt gets a different state", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     stub_authorize_url()
 
     first = conn |> get(~p"/app/search-console/connect") |> redirected_to(302)
@@ -30,7 +30,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.ConnectTest do
   end
 
   test "when Search Console is not configured the user stays in the app and sees why", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     expect(Dirmoon.SearchConsoleMock, :authorize_url, 1, fn _request -> {:error, :search_console_not_configured} end)
 
@@ -41,7 +41,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.ConnectTest do
   end
 
   test "when Search Console is not configured the user goes back to the app page they came from", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     expect(Dirmoon.SearchConsoleMock, :authorize_url, 1, fn _request -> {:error, :search_console_not_configured} end)
 
@@ -50,8 +50,40 @@ defmodule DirmoonWeb.Controllers.SearchConsole.ConnectTest do
     assert redirected_to(conn) == "/app/runs/12"
   end
 
+  test "when the authorization url cannot be built the user goes back to the app page they came from with an error",
+       %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+
+    expect(Dirmoon.SearchConsoleMock, :authorize_url, 1, fn _request -> {:error, :unexpected} end)
+
+    conn = get(conn, ~p"/app/search-console/connect?return_to=/app/runs/12")
+
+    assert redirected_to(conn) == "/app/runs/12"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+  end
+
+  test "the app's own start page is accepted as the return address", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+
+    stub(Dirmoon.SearchConsoleMock, :authorize_url, fn _request -> {:error, :search_console_not_configured} end)
+
+    conn = get(conn, ~p"/app/search-console/connect?return_to=/app")
+
+    assert redirected_to(conn) == "/app"
+  end
+
+  test "the new research screen with its mode in the query string is accepted as the return address", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+
+    stub(Dirmoon.SearchConsoleMock, :authorize_url, fn _request -> {:error, :search_console_not_configured} end)
+
+    conn = get(conn, ~p"/app/search-console/connect?#{[return_to: "/app/research/new?mode=existing_site"]}")
+
+    assert redirected_to(conn) == "/app/research/new?mode=existing_site"
+  end
+
   test "an external return address is ignored", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     stub(Dirmoon.SearchConsoleMock, :authorize_url, fn _request -> {:error, :search_console_not_configured} end)
 

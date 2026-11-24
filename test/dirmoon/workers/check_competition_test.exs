@@ -35,6 +35,40 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
     refute Repo.get_by(SerpAssessment, run_id: run.id, keyword_id: without_volume.keyword_id)
   end
 
+  test "decimals in the top 10's raw answer are stored as decimal strings in the snapshot and the ledger" do
+    run = insert(:run, steps: build_run_steps())
+    run_phrase = phrase_in_niche(run, insert(:niche, run: run), "fraza z kosztem", 500)
+
+    expect(Dirmoon.DataForSEOMock, :serp_top10, 1, fn _request ->
+      {:ok,
+       %{
+         rows: serp_rows(["blog.example.pl"]),
+         raw: %{"tasks" => [%{"cost" => Decimal.new("0.002")}]},
+         cost: Decimal.new("0.002")
+       }}
+    end)
+
+    expect(Dirmoon.LLMMock, :structured, 1, &label_all(&1, "blog"))
+
+    assert :ok = perform_job(CheckCompetition, %{run_id: run.id})
+
+    snapshot_row = %{table: "serp_snapshots", where: "keyword_id = $1", value: run_phrase.keyword_id}
+
+    assert [%{"tasks" => [%{"cost" => "0.002"}]}] = stored_json(Map.put(snapshot_row, :column, "raw"))
+
+    assert [[%{"position" => 1, "domain" => "blog.example.pl", "title" => "Wynik 1"}]] =
+             stored_json(Map.put(snapshot_row, :column, "results"))
+
+    assert [[%{"position" => 1, "page_type" => "blog"}]] =
+             stored_json(%{table: "serp_assessments", column: "labels", where: "run_id = $1", value: run.id})
+
+    assert [%{"raw" => %{"tasks" => [%{"cost" => "0.002"}]}}, %{"labels" => [_label]}] =
+             stored_json(%{table: "api_requests", column: "response", where: "run_id = $1", value: run.id})
+
+    assert [%{"checked" => 1, "weak" => 1}] =
+             stored_json(%{table: "run_steps", column: "output", where: "run_id = $1 AND number = 5", value: run.id})
+  end
+
   test "rejected phrases and phrases outside a niche are not checked" do
     run = insert(:run, steps: build_run_steps())
     niche = insert(:niche, run: run)
@@ -487,7 +521,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
 
   defp phrase_in_niche(run, niche, text, search_volume) do
     phrase = insert(:phrase, phrase: unique_phrase_text(text))
-    insert(:volume, phrase: phrase, location_code: run.location_code, search_volume: search_volume)
+    insert(:metrics, phrase: phrase, location_code: run.location_code, search_volume: search_volume)
     insert(:run_phrase, run: run, phrase: phrase, niche: niche)
   end
 

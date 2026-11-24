@@ -1,6 +1,6 @@
 defmodule Dirmoon.Pages.Brief do
   @moduledoc """
-  The Brief: the plan and content for one Produced Page. Stored embedded in a
+  The Brief: the plan and content for one Page. Stored embedded in a
   page's `brief` column and rendered by `Dirmoon.Pages.Template`.
 
   Only the H1 and at least one section question are required; every other
@@ -15,7 +15,7 @@ defmodule Dirmoon.Pages.Brief do
 
   import Ecto.Changeset
 
-  @fact_count 3
+  @fact_tile_count 3
   @max_sections 12
   @max_nav_links 3
 
@@ -59,7 +59,7 @@ defmodule Dirmoon.Pages.Brief do
     field :primary_phrase, :string
     field :plausible_domain, :string
 
-    embeds_many :facts, Fact, on_replace: :delete, primary_key: false do
+    embeds_many :fact_tiles, FactTile, on_replace: :delete, primary_key: false do
       field :label, :string
       field :value, :string
     end
@@ -70,7 +70,7 @@ defmodule Dirmoon.Pages.Brief do
     end
   end
 
-  def fact_count, do: @fact_count
+  def fact_tile_count, do: @fact_tile_count
 
   @doc """
   Validates a Brief from string- or atom-keyed params. The slug is lowercase
@@ -86,7 +86,7 @@ defmodule Dirmoon.Pages.Brief do
     |> update_change(:phrases, &drop_blank/1)
     |> update_change(:plausible_domain, &downcase/1)
     |> update_change(:primary_phrase, &trim/1)
-    |> cast_embed(:facts, with: &fact_changeset/2)
+    |> cast_embed(:fact_tiles, with: &fact_tile_changeset/2)
     |> cast_embed(:sections,
       with: &section_changeset/2,
       required: true,
@@ -94,7 +94,7 @@ defmodule Dirmoon.Pages.Brief do
       drop_param: :sections_drop
     )
     |> validate_required([:h1])
-    |> validate_length(:facts, is: @fact_count)
+    |> validate_length(:fact_tiles, is: @fact_tile_count)
     |> validate_length(:sections, min: 1, max: @max_sections)
     |> validate_length(:nav_links, max: @max_nav_links)
     |> validate_format(:slug, @slug_format)
@@ -140,7 +140,7 @@ defmodule Dirmoon.Pages.Brief do
     end
   end
 
-  defp fact_changeset(fact, attrs), do: cast(fact, attrs, [:label, :value])
+  defp fact_tile_changeset(fact_tile, attrs), do: cast(fact_tile, attrs, [:label, :value])
 
   defp section_changeset(section, attrs) do
     section

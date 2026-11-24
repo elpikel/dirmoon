@@ -65,7 +65,7 @@ defmodule Dirmoon.Phrases.Expansion do
     request = %{seeds: batch, location_code: run.location_code, language_code: run.language_code}
 
     with {:ok, %{rows: rows}} <-
-           LedgerRows.fetch(run, %{operation: "keyword_ideas", request: request}, &DataForSEO.keyword_ideas/1) do
+           LedgerRows.fetch(run, %{operation: "phrase_ideas", request: request}, &DataForSEO.phrase_ideas/1) do
       {:ok, rows}
     end
   end

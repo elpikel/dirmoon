@@ -42,8 +42,8 @@ defmodule DirmoonWeb.PageHTML do
   def sign_up_form_path(:closing), do: ~p"/" <> "#closing"
 
   @doc """
-  Returns the confirmation shown after a sign-up, identical for new and
-  already registered emails.
+  Returns the confirmation shown after a sign-up, identical for new emails and
+  emails that already have a User.
   """
   def sign_up_confirmation_message(email), do: "Wysłaliśmy link logowania na #{email}. Sprawdź skrzynkę."
 

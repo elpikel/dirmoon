@@ -7,6 +7,7 @@ defmodule Dirmoon.Research.Ledger do
 
   import Ecto.Query
 
+  alias Dirmoon.JsonSafe
   alias Dirmoon.Repo
   alias Dirmoon.Research.ApiRequest
   alias Dirmoon.Research.Run
@@ -17,7 +18,7 @@ defmodule Dirmoon.Research.Ledger do
   When the run already stored a response to the same service, operation and
   request (key order doesn't matter), returns it without calling
   `api_function`. Otherwise calls it; `{:ok, response, cost}` is stored with
-  the request and returned as `{:ok, response}`, and `{:error, reason}` is
+  the request (a `nil` cost as zero) and returned as `{:ok, response}`, and `{:error, reason}` is
   returned without storing anything. Responses always come back with string
   keys, as stored. The request is stored as given, so pass the payload, never
   credentials.
@@ -60,11 +61,14 @@ defmodule Dirmoon.Research.Ledger do
 
   defp call_and_record(api_request, api_function) do
     with {:ok, response, cost} <- api_function.() do
-      %{api_request | response: as_stored(response), cost: cost |> to_string() |> Decimal.new()}
+      %{api_request | response: as_stored(response), cost: recorded_cost(cost)}
       |> Repo.insert!(on_conflict: :nothing, conflict_target: [:run_id, :request_hash])
       |> recorded_response()
     end
   end
+
+  defp recorded_cost(nil), do: Decimal.new(0)
+  defp recorded_cost(cost), do: cost |> to_string() |> Decimal.new()
 
   defp recorded_response(%ApiRequest{id: nil, run_id: run_id, request_hash: request_hash}) do
     %ApiRequest{response: response} = Repo.get_by!(ApiRequest, run_id: run_id, request_hash: request_hash)
@@ -82,6 +86,7 @@ defmodule Dirmoon.Research.Ledger do
 
   defp as_stored(data) do
     data
+    |> JsonSafe.encode()
     |> Jason.encode!()
     |> Jason.decode!()
   end

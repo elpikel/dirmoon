@@ -102,6 +102,10 @@ defmodule Dirmoon.Research.StepRunner do
     end
   end
 
+  defp record_outcome(unexpected_outcome, context) do
+    record_outcome({:error, {:unexpected_step_outcome, unexpected_outcome}}, context)
+  end
+
   defp finish(%{run: run, step: step}, outcome) do
     step |> RunStep.finish_changeset(outcome) |> Repo.update!()
     Research.broadcast_run_updated(run)

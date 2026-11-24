@@ -69,4 +69,28 @@ defmodule Dirmoon.PolishTest do
     assert Polish.money(Decimal.new("0.37"), "USD") == "$0,37"
     assert Polish.money(Decimal.new("0.37"), "EUR") == "0,37 EUR"
   end
+
+  test "negative whole numbers keep their minus sign before the grouped digits" do
+    assert Enum.map([-7, -1000, -1_234_567], &Polish.integer/1) ==
+             ["-7", "-1\u00A0000", "-1\u00A0234\u00A0567"]
+  end
+
+  test "negative decimals keep their minus sign" do
+    assert Polish.decimal(Decimal.new("-2.345"), 2) == "-2,35"
+  end
+
+  test "zero places round to a whole number without a comma" do
+    assert Polish.decimal(Decimal.new("8.6"), 0) == "9"
+  end
+
+  test "large counts pick their plural form from the last two digits" do
+    assert Polish.plural(1_000_002, @phrase_forms) == "frazy startowe"
+    assert Polish.plural(1_000_012, @phrase_forms) == "fraz startowych"
+    assert Polish.plural(1_000_001, @phrase_forms) == "fraz startowych"
+  end
+
+  test "zero reads as the word for zero" do
+    assert Polish.feminine_number(0) == "zero"
+    assert Polish.feminine_number(20) == "dwadzieścia"
+  end
 end

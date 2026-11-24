@@ -24,6 +24,22 @@ defmodule Dirmoon.Research.PipelineTest do
     assert run_id == run.id
   end
 
+  test "advancing while a Step is still running enqueues nothing" do
+    run = insert(:run, steps: build_run_steps(%{1 => :done, 2 => :running}))
+
+    assert :ok = Pipeline.advance(run)
+
+    assert all_enqueued() == []
+  end
+
+  test "advancing a running run whose next Step failed enqueues nothing" do
+    run = insert(:run, steps: build_run_steps(%{1 => :done, 2 => :failed}))
+
+    assert :ok = Pipeline.advance(run)
+
+    assert all_enqueued() == []
+  end
+
   test "advancing a New Idea run past Step 5 marks Step 6 skipped" do
     run = insert(:run, mode: :new_idea, steps: build_run_steps(done_through(5)))
 
@@ -202,7 +218,7 @@ defmodule Dirmoon.Research.PipelineTest do
       "breadcrumb" => "Strona główna / Strona testowa",
       "intro" => "Wstęp testowy. Drugie zdanie wstępu.",
       "cta_label" => "Zapytaj o termin",
-      "facts" => [
+      "fact_tiles" => [
         %{"label" => "Cena", "value" => "[CENA]"},
         %{"label" => "Telefon", "value" => "[TELEFON]"},
         %{"label" => "Obszar", "value" => "[OBSZAR]"}

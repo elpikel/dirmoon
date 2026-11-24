@@ -1,7 +1,8 @@
 defmodule DirmoonWeb.RunLive do
   @moduledoc """
-  Screen 2, Research in progress (`/app/runs/:id`): the run's nine Steps on
-  the left, the running Step's detail on the right, the status sentence, stop
+  Screen 2, Research in progress (`/app/runs/:id`), in the app shell: the
+  run's nine Steps on the left, the running Step's detail on the right with
+  the actions at its bottom, the status sentence in the status row, stop
   and resume, and the API Cost so far. Updates live from the run's PubSub
   topic and goes to the results once Step 7 finishes. See
   `docs/design/README.md` section 8.3 and `docs/design/reference/run.html`.
@@ -34,126 +35,112 @@ defmodule DirmoonWeb.RunLive do
     publish: "Landing na Netlify"
   }
 
-  @headlines %{
-    running: %{lead: "Research", underline: "w toku."},
-    stopped: %{lead: "Research", underline: "zatrzymany."},
-    failed: %{lead: "Research przerwany", underline: "błędem."},
-    awaiting_choice: %{lead: "Wybierz", underline: "niszę."},
-    done: %{lead: "Research", underline: "zakończony."}
-  }
-
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} active={:runs}>
-      <section id="run" class="flex flex-col items-center gap-6 text-center">
-        <.eyebrow id="run-context">{@context_line}</.eyebrow>
-        <.headline id="run-headline">
-          {@headline.lead}
-          <:underline>{@headline.underline}</:underline>
-        </.headline>
-
-        <.dark_panel id="run-panel" context={@short_description} class="mt-5">
-          <:status><span id="run-status-line">{@status_line}</span></:status>
-          <div class="flex flex-wrap">
-            <ol
-              id="run-steps"
-              class="m-0 min-w-0 flex-[4_1_380px] list-none border-r border-slate-line p-0"
-            >
-              <li
-                :for={step <- @step_rows}
-                id={"step-#{step.number}"}
-                data-status={step.status}
-                class={[
-                  "flex items-center gap-3.5 border-b border-slate-line px-5 py-[15px] last:border-b-0",
-                  step.status == :running && "bg-slate-raised"
-                ]}
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      active={:runs}
+      context={@context_line}
+      note={RunDisplay.mode_label(@run.mode)}
+    >
+      <:status><span id="run-status-line">{@status_line}</span></:status>
+      <section id="run" class="flex grow flex-col min-[1080px]:flex-row">
+        <h1 class="sr-only">Research: {@short_description}</h1>
+        <ol
+          id="run-steps"
+          class="m-0 min-w-0 list-none border-slate-line p-0 min-[1080px]:w-[min(42%,460px)] min-[1080px]:flex-none min-[1080px]:border-r max-[1079px]:border-b"
+        >
+          <li
+            :for={step <- @step_rows}
+            id={"step-#{step.number}"}
+            data-status={step.status}
+            class={[
+              "flex items-center gap-3.5 border-b border-slate-line px-5 py-[15px] last:border-b-0",
+              step.status == :running && "bg-slate-raised"
+            ]}
+          >
+            <span class={[
+              "font-mono text-[11px]",
+              if(step.status == :running, do: "text-on-slate", else: "text-on-slate-muted")
+            ]}>
+              {step.label_number}
+            </span>
+            <span class="flex min-w-0 flex-auto flex-col gap-[3px]">
+              <span class={["text-sm", step_name_class(step.status)]}>{step.name}</span>
+              <span class={[
+                "text-xs",
+                if(step.status == :running, do: "text-on-slate-2", else: "text-on-slate-muted")
+              ]}>
+                {step.summary}
+              </span>
+              <span
+                :if={step.status == :failed and step.error}
+                id={"step-#{step.number}-error"}
+                class="text-xs text-warn"
               >
-                <span class={[
-                  "font-mono text-[11px]",
-                  if(step.status == :running, do: "text-on-slate", else: "text-on-slate-muted")
-                ]}>
-                  {step.label_number}
-                </span>
-                <span class="flex min-w-0 flex-auto flex-col gap-[3px]">
-                  <span class={["text-sm", step_name_class(step.status)]}>{step.name}</span>
-                  <span class={[
-                    "text-xs",
-                    if(step.status == :running, do: "text-on-slate-2", else: "text-on-slate-muted")
-                  ]}>
-                    {step.summary}
-                  </span>
-                  <span
-                    :if={step.status == :failed and step.error}
-                    id={"step-#{step.number}-error"}
-                    class="text-xs text-warn"
-                  >
-                    {step.error}
-                  </span>
-                </span>
-                <.step_status id={"step-#{step.number}-status"} status={step.status} />
-              </li>
-            </ol>
+                {step.error}
+              </span>
+            </span>
+            <.step_status id={"step-#{step.number}-status"} status={step.status} />
+          </li>
+        </ol>
 
-            <div
-              id="run-detail"
-              class="flex min-w-0 flex-[6_1_420px] flex-col gap-[22px] px-7 pt-6 pb-7 max-sm:px-5"
+        <div
+          id="run-detail"
+          class="flex min-w-0 grow flex-col gap-[22px] px-7 pt-6 pb-7 max-sm:px-5"
+        >
+          <.competition_detail
+            :if={@detail == :competition}
+            step={@current_step}
+            progress={@progress}
+            checked_phrases={@streams.checked_phrases}
+          />
+          <.step_detail :if={@detail == :step} step={@current_step} />
+          <.state_detail
+            :if={@detail == :state}
+            run={@run}
+            step={@current_step}
+            results_path={@results_path}
+            published_url={@published_url}
+          />
+
+          <div class="mt-auto flex flex-wrap items-center gap-2.5">
+            <.button
+              :if={@run.status in [:running, :stopped, :failed]}
+              id="show-phrases"
+              variant={if(@run.status == :running, do: "lime", else: "outline")}
+              size="large"
+              navigate={@results_path}
             >
-              <.competition_detail
-                :if={@detail == :competition}
-                step={@current_step}
-                progress={@progress}
-                checked_phrases={@streams.checked_phrases}
-              />
-              <.step_detail :if={@detail == :step} step={@current_step} />
-              <.state_detail
-                :if={@detail == :state}
-                run={@run}
-                step={@current_step}
-                results_path={@results_path}
-                published_url={@published_url}
-              />
-
-              <div class="mt-auto flex flex-wrap items-center gap-2.5">
-                <.button
-                  :if={@run.status in [:running, :stopped, :failed]}
-                  id="show-phrases"
-                  variant={if(@run.status == :running, do: "lime", else: "outline")}
-                  size="large"
-                  navigate={@results_path}
-                >
-                  Pokaż dotychczasowe frazy
-                </.button>
-                <.button
-                  :if={@run.status == :running}
-                  id="stop-run"
-                  variant="outline"
-                  size="large"
-                  phx-click="stop"
-                  phx-disable-with="Zatrzymuję…"
-                >
-                  Zatrzymaj
-                </.button>
-                <.button
-                  :if={@run.status in [:stopped, :failed]}
-                  id="resume-run"
-                  variant="lime"
-                  size="large"
-                  phx-click="resume"
-                  phx-disable-with="Wznawiam…"
-                >
-                  Wznów
-                </.button>
-                <span id="run-cost" class="ml-auto font-mono text-xs text-on-slate-muted">
-                  Koszt API: {Polish.usd(@cost)}
-                </span>
-              </div>
-            </div>
+              Pokaż dotychczasowe frazy
+            </.button>
+            <.button
+              :if={@run.status == :running}
+              id="stop-run"
+              variant="outline"
+              size="large"
+              phx-click="stop"
+              phx-disable-with="Zatrzymuję…"
+            >
+              Zatrzymaj
+            </.button>
+            <.button
+              :if={@run.status in [:stopped, :failed]}
+              id="resume-run"
+              variant="lime"
+              size="large"
+              phx-click="resume"
+              phx-disable-with="Wznawiam…"
+            >
+              Wznów
+            </.button>
+            <span id="run-cost" class="ml-auto font-mono text-xs text-on-slate-muted">
+              Koszt API: {Polish.usd(@cost)}
+            </span>
           </div>
-        </.dark_panel>
-        <p class="m-0 font-mono text-xs text-body-muted">
-          Ryc. 2 · Kroki po lewej, bieżący krok po prawej.
-        </p>
+        </div>
       </section>
     </Layouts.app>
     """
@@ -457,7 +444,6 @@ defmodule DirmoonWeb.RunLive do
       detail: detail(run, current_step),
       short_description: short_description,
       context_line: RunDisplay.context_line(run),
-      headline: Map.fetch!(@headlines, run.status),
       status_line: StatusLine.sentence(%{run: run, progress: progress}),
       cost: Research.run_cost(run),
       results_path: RunDisplay.results_path(run),

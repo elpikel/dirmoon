@@ -21,7 +21,7 @@ defmodule Dirmoon.Pages.BriefTest do
              business_name: "Firma Testowa Alfa",
              slug: "strona-testowa-alfa",
              nav_links: ["Pierwsza", "Druga"],
-             facts: [%Brief.Fact{label: "Etykieta A", value: "Wartość A"} | _],
+             fact_tiles: [%Brief.FactTile{label: "Etykieta A", value: "Wartość A"} | _],
              sections: [%Brief.Section{question: "Pytanie testowe pierwsze?", answer: "Odpowiedź testowa."}],
              phrases: ["fraza testowa", "inna fraza testowa"],
              primary_phrase: "fraza testowa",
@@ -56,11 +56,11 @@ defmodule Dirmoon.Pages.BriefTest do
   end
 
   test "a Brief needs exactly three Fact Tiles when it has any" do
-    facts = [%{"label" => "Etykieta A", "value" => "Wartość A"}]
+    fact_tiles = [%{"label" => "Etykieta A", "value" => "Wartość A"}]
 
-    changeset = Brief.changeset(%Brief{}, Map.put(full_params(), "facts", facts))
+    changeset = Brief.changeset(%Brief{}, Map.put(full_params(), "fact_tiles", fact_tiles))
 
-    assert %{facts: [_]} = errors_on(changeset)
+    assert %{fact_tiles: [_]} = errors_on(changeset)
   end
 
   test "a Brief has at most three nav links" do
@@ -152,7 +152,7 @@ defmodule Dirmoon.Pages.BriefTest do
       "phone" => "+48 500 000 001",
       "email" => "kontakt@strona-testowa.example",
       "address" => "ul. Testowa 1, 00-001 Testowo",
-      "facts" => [
+      "fact_tiles" => [
         %{"label" => "Etykieta A", "value" => "Wartość A"},
         %{"label" => "Etykieta B", "value" => "Wartość B"},
         %{"label" => "Etykieta C", "value" => "Wartość C"}

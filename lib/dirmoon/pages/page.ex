@@ -1,6 +1,6 @@
 defmodule Dirmoon.Pages.Page do
   @moduledoc """
-  A Produced Page for one chosen Niche of a Research Run, with its Brief.
+  A Page for one chosen Niche of a Research Run, with its Brief.
   Belongs to one Account; `account_id` is set from the run, never cast.
 
   `status` is `:writing` while Step 8 writes the Brief (at most one page of a

@@ -13,8 +13,8 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
   @no_break_space <<0xC2, 0xA0>>
 
-  test "the headline counts the Niches on offer and those worth going after", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+  test "the heading above the Niche list counts the Niches on offer and those worth going after", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
 
     for score <- ["7.3", "5.1", "4.0", "3.9", "3.2", "2.6", "2.1", "1.4", "0.8"] do
@@ -25,12 +25,16 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
 
-    assert has_element?(view, "#results-headline", "Dziewięć nisz.")
-    assert has_element?(view, "#results-headline [data-part=underline]", "Trzy warte zajęcia.")
+    assert has_element?(view, "#app-main #results h1#results-headline", "Dziewięć nisz. Trzy warte zajęcia.")
+    assert has_element?(view, "#app-main #results #results-views")
+    assert has_element?(view, "#app-main #results #niches")
+    assert has_element?(view, "#app-nav #nav-runs[aria-current=page]")
+    refute has_element?(view, "#results-panel")
+    refute has_element?(view, "#results-context")
   end
 
   test "the Niches are listed by Score with Score, monthly Volume and a competition verdict", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     second = insert(:niche, run: run, score: Decimal.new("5.2"), name: "Nisza druga testowa")
     first = insert(:niche, run: run, score: Decimal.new("6.7"), name: "Nisza pierwsza testowa")
@@ -48,7 +52,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "strong competition shows in the warning colour", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     niche = insert(:niche, run: run, score: Decimal.new("4.4"))
     checked = phrase_in_niche(run, niche, %{volume: 20, cpc: nil})
@@ -60,7 +64,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "Niches scoring under 4 are collapsed behind one row that expands on click", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     worth = insert(:niche, run: run, score: Decimal.new("4.6"))
     low = Enum.map(["3.1", "1.7"], &insert(:niche, run: run, score: Decimal.new(&1)))
@@ -84,7 +88,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "the selected Niche shows its title, reading, three stat tiles and its Phrases", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope, %{city: "Płock", city_location_code: 9_990_777})
 
     niche =
@@ -96,7 +100,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
       )
 
     checked = phrase_in_niche(run, niche, %{volume: 2_345, cpc: "0.40"})
-    insert(:volume, phrase: checked.phrase, location_code: 9_990_777, search_volume: 13)
+    insert(:metrics, phrase: checked.phrase, location_code: 9_990_777, search_volume: 13)
     unchecked = phrase_in_niche(run, niche, %{volume: 655, cpc: "1.20"})
     insert(:serp_assessment, run: run, phrase: checked.phrase, labels: labels(%{"blog" => 5, "directory" => 5}))
 
@@ -119,7 +123,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a run without a city has no city column", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     niche = insert(:niche, run: run, score: Decimal.new("5.0"))
     phrase_in_niche(run, niche, %{volume: 30, cpc: nil})
@@ -131,7 +135,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a New Idea run's third tile counts direct competitors in the top 10", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     niche = insert(:niche, run: run, score: Decimal.new("5.5"))
     checked = phrase_in_niche(run, niche, %{volume: 30, cpc: nil})
@@ -146,7 +150,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "an Existing Site run's third tile and last column show the site's Current Positions", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope, %{mode: :existing_site, domain: "strona-testowa.pl"})
     niche = insert(:niche, run: run, score: Decimal.new("5.5"))
     ranked = phrase_in_niche(run, niche, %{volume: 30, cpc: nil})
@@ -163,8 +167,55 @@ defmodule DirmoonWeb.ResultsLiveTest do
     assert has_element?(view, "#run-parameters", "strona-testowa.pl")
   end
 
+  test "an Existing Site run marks the Niche's Quick Wins next to their position and counts them in the summary line",
+       %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope, %{mode: :existing_site, domain: "strona-testowa.pl"})
+    niche = insert(:niche, run: run, score: Decimal.new("5.5"))
+    quick_win = phrase_in_niche(run, niche, %{volume: 30, cpc: nil})
+    quick_win |> Ecto.Changeset.change(current_position: Decimal.new("13.7")) |> Repo.update!()
+    top = phrase_in_niche(run, niche, %{volume: 20, cpc: nil})
+    top |> Ecto.Changeset.change(current_position: Decimal.new("2.0")) |> Repo.update!()
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#niche-phrases-#{quick_win.id}-quick-win", "szybka wygrana")
+    refute has_element?(view, "#niche-phrases-#{top.id}-quick-win")
+    assert has_element?(view, "#niche-quick-win-count", "1 szybka wygrana")
+  end
+
+  test "a Niche without Quick Wins names none in its summary line", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope, %{mode: :existing_site, domain: "strona-testowa.pl"})
+    niche = insert(:niche, run: run, score: Decimal.new("5.5"))
+    top = phrase_in_niche(run, niche, %{volume: 20, cpc: nil})
+    top |> Ecto.Changeset.change(current_position: Decimal.new("2.0")) |> Repo.update!()
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    refute has_element?(view, "#niche-quick-win-count")
+    refute has_element?(view, "[data-part=quick-win]")
+  end
+
+  test "\"Wszystkie frazy\" of an Existing Site run shows each Phrase's position and marks the Quick Wins",
+       %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope, %{mode: :existing_site, domain: "strona-testowa.pl"})
+    niche = insert(:niche, run: run, score: Decimal.new("5.0"))
+    quick_win = phrase_in_niche(run, niche, %{volume: 30, cpc: nil})
+    quick_win |> Ecto.Changeset.change(current_position: Decimal.new("9.0")) |> Repo.update!()
+    unranked = phrase_in_niche(run, niche, %{volume: 20, cpc: nil})
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?view=phrases")
+
+    assert has_element?(view, "#phrases-#{quick_win.id}", "pozycja 9,0")
+    assert has_element?(view, "#phrases-#{quick_win.id}-quick-win", "szybka wygrana")
+    assert has_element?(view, "#phrases-#{unranked.id}", "pozycja —")
+    refute has_element?(view, "#phrases-#{unranked.id}-quick-win")
+  end
+
   test "all the Niche's Phrases show after clicking the button that names their count", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     niche = insert(:niche, run: run, score: Decimal.new("5.5"))
     phrases = Enum.map(1..12, &phrase_in_niche(run, niche, %{volume: 100 - &1, cpc: nil}))
@@ -181,7 +232,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "clicking a Niche's row selects it", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     insert(:niche, run: run, score: Decimal.new("7.0"))
     other = insert(:niche, run: run, score: Decimal.new("5.0"), name: "Nisza do kliknięcia")
@@ -195,7 +246,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "\"Wszystkie frazy\" lists the kept Phrases with their Niche, Volume and CPC", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     niche = insert(:niche, run: run, score: Decimal.new("5.0"), name: "Nisza widoku fraz")
     kept = phrase_in_niche(run, niche, %{volume: 4_321, cpc: "0.65"})
@@ -216,7 +267,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "\"Odrzucone\" lists the Rejected Phrases with their reasons", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     insert(:niche, run: run, score: Decimal.new("5.0"))
     rejected = insert(:run_phrase, run: run, status: :rejected, rejection_reason: "poza ofertą testową")
@@ -229,7 +280,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "an unknown view falls back to the Niches", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     niche = insert(:niche, run: run, score: Decimal.new("5.0"))
 
@@ -240,7 +291,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "another run's Niche in the URL is ignored and the top Niche is selected", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     top = insert(:niche, run: run, score: Decimal.new("6.0"), name: "Nisza najlepsza testowa")
     foreign = insert(:niche, run: scored_run(scope), score: Decimal.new("9.0"), name: "Nisza z innego researchu")
@@ -252,7 +303,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a malformed Niche id in the URL selects the top Niche", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     top = insert(:niche, run: run, score: Decimal.new("6.0"))
 
@@ -262,7 +313,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "choosing the Niche starts Step 8 and opens the page screen", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     niche = insert(:niche, run: run, score: Decimal.new("6.0"))
 
@@ -276,7 +327,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a choice that can't start says why", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     niche = insert(:niche, run: run, score: Decimal.new("6.0"))
     writing = insert(:niche, run: run, score: Decimal.new("5.0"), status: :chosen)
@@ -291,7 +342,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a stopped run hides the choice and points to the run screen to resume it", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope, %{status: :stopped})
     niche = insert(:niche, run: run, score: Decimal.new("6.0"))
 
@@ -305,7 +356,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a choice on a stopped run sent anyway changes nothing", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope, %{status: :stopped})
     niche = insert(:niche, run: run, score: Decimal.new("6.0"))
 
@@ -319,7 +370,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a choice the run is too busy for says the research is still working", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     steps = 1..8 |> Map.new(&{&1, :done}) |> Map.put(9, :running) |> build_run_steps()
     run = insert(:run, account: scope.account, status: :running, steps: steps)
     published = insert(:niche, run: run, score: Decimal.new("5.0"), status: :chosen)
@@ -335,7 +386,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "crafted choose and reject events before Step 7 change nothing", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     statuses = 1..4 |> Map.new(&{&1, :done}) |> Map.put(5, :running)
     run = insert(:run, account: scope.account, status: :running, steps: build_run_steps(statuses))
     niche = insert(:niche, run: run)
@@ -354,7 +405,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a crafted Niche id is ignored and the selected Niche is the one chosen", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     selected = insert(:niche, run: run, score: Decimal.new("6.0"))
     foreign = insert(:niche, run: scored_run(%{account: insert(:account)}), score: Decimal.new("7.0"))
@@ -369,7 +420,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a crafted Niche id on reject is ignored and the selected Niche is the one rejected", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     selected = insert(:niche, run: run, score: Decimal.new("6.0"))
     foreign = insert(:niche, run: scored_run(%{account: insert(:account)}), score: Decimal.new("7.0"))
@@ -382,7 +433,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a Niche that already has a page links to it instead of offering a choice", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     niche = insert(:niche, run: run, score: Decimal.new("6.0"), status: :chosen)
     page = insert(:page, run: run, niche: niche)
@@ -395,7 +446,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "rejecting the Niche takes it off the list, updates the counts and selects the next one", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     rejected = insert(:niche, run: run, score: Decimal.new("6.0"))
     next = insert(:niche, run: run, score: Decimal.new("5.0"), name: "Nisza następna testowa")
@@ -412,7 +463,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "rejecting the last Niche leaves an empty list", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
     insert(:niche, run: run, score: Decimal.new("6.0"))
 
@@ -425,7 +476,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "the CSV export is a real link to the run's export", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(scope)
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
@@ -434,7 +485,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "before Step 7 has finished the Phrases so far show without a Niche choice", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     statuses = 1..4 |> Map.new(&{&1, :done}) |> Map.put(5, :running)
     run = insert(:run, account: scope.account, status: :running, steps: build_run_steps(statuses))
     niche = insert(:niche, run: run)
@@ -452,7 +503,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "the results fill in when Step 7 finishes while the screen is open", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     statuses = 1..6 |> Map.new(&{&1, :done}) |> Map.put(7, :running)
     run = insert(:run, account: scope.account, status: :running, steps: build_run_steps(statuses))
     niche = insert(:niche, run: run, score: Decimal.new("5.0"))
@@ -473,7 +524,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "another Account's run sends the User back to the runs list", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     run = scored_run(%{account: insert(:account)})
 
     assert {:error, {:live_redirect, %{to: "/app/runs", flash: flash}}} = live(conn, ~p"/app/runs/#{run}/results")
@@ -481,7 +532,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   end
 
   test "a malformed run id sends the User back to the runs list", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     assert {:error, {:live_redirect, %{to: "/app/runs"}}} = live(conn, "/app/runs/nie-liczba/results")
   end
@@ -492,6 +543,142 @@ defmodule DirmoonWeb.ResultsLiveTest do
     assert {:error, {:redirect, %{to: "/users/log-in"}}} = live(conn, ~p"/app/runs/#{run}/results")
   end
 
+  test "choosing a Niche deleted meanwhile says it was not found", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+    Repo.delete!(niche)
+
+    view |> element("#choose-niche") |> render_click()
+
+    assert has_element?(view, "#flash-error", "Nie znaleziono niszy")
+    refute_enqueued(worker: WriteBrief)
+  end
+
+  test "choosing a Niche of a run stopped meanwhile says the research is not ready", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+    run |> Ecto.Changeset.change(status: :stopped) |> Repo.update!()
+
+    view |> element("#choose-niche") |> render_click()
+
+    assert has_element?(
+             view,
+             "#flash-error",
+             "Teraz nie wybierzesz niszy: research nie skończył oceniania albo jest zatrzymany"
+           )
+
+    assert Repo.get_by(Page, cluster_id: niche.id) == nil
+    refute_enqueued(worker: WriteBrief)
+  end
+
+  test "choosing a Niche rejected meanwhile says it can no longer be chosen", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+    niche |> Ecto.Changeset.change(status: :rejected) |> Repo.update!()
+
+    view |> element("#choose-niche") |> render_click()
+
+    assert has_element?(view, "#flash-error", "Tej niszy nie można już wybrać")
+    assert Repo.get_by(Page, cluster_id: niche.id) == nil
+  end
+
+  test "rejecting a Niche deleted meanwhile says it was not found", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+    Repo.delete!(niche)
+
+    view |> element("#reject-niche") |> render_click()
+
+    assert has_element?(view, "#flash-error", "Nie znaleziono niszy")
+  end
+
+  test "rejecting a Niche chosen meanwhile says it can no longer be rejected", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+    niche |> Ecto.Changeset.change(status: :chosen) |> Repo.update!()
+
+    view |> element("#reject-niche") |> render_click()
+
+    assert has_element?(view, "#flash-error", "Tej niszy nie można już odrzucić")
+    assert Repo.get!(Niche, niche.id).status == :chosen
+  end
+
+  test "a run deleted while the results are open sends the User back to the runs list", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+    Repo.delete!(run)
+
+    Research.broadcast_run_updated(run)
+
+    assert {"/app/runs", %{"error" => "Nie znaleziono researchu"}} = assert_redirect(view)
+  end
+
+  test "progress of a running Step leaves the results as they are", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    Research.broadcast_progress(run, %{step: 5, checked: 1, total: 2})
+
+    assert has_element?(view, "#niche-row-#{niche.id}")
+    assert has_element?(view, "#choose-niche")
+  end
+
+  test "more kept Phrases than the list shows say how many are shown and point to the CSV", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    insert_list(501, :run_phrase, run: run)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?view=phrases")
+
+    assert has_element?(view, "#results", "Pokazuję 500 z 501. Wszystkie są w eksporcie CSV.")
+  end
+
+  test "a kept Phrase without a Volume shows dashes for its Volume and CPC", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    kept = insert(:run_phrase, run: run)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?view=phrases")
+
+    assert has_element?(view, "#phrases-#{kept.id}", "— / mies. · CPC —")
+  end
+
+  test "a Niche without a Score reads as unscored", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    niche = insert(:niche, run: run, score: nil)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?niche=#{niche.id}")
+
+    assert has_element?(view, "#niche-row-#{niche.id}", "bez oceny")
+    assert has_element?(view, "#niche-detail", "bez oceny")
+  end
+
+  test "a Niche whose page failed offers the choice again instead of a link to the page", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"), status: :chosen)
+    insert(:page, run: run, niche: niche, status: :failed, brief: nil)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    refute has_element?(view, "#open-page")
+    assert has_element?(view, "#choose-niche")
+  end
+
   defp scored_run(%{account: account}, attrs \\ %{}) do
     steps = build_run_steps(Map.new(1..7, &{&1, :done}))
     insert(:run, Map.merge(%{account: account, status: :awaiting_choice, steps: steps}, attrs))
@@ -500,7 +687,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   defp phrase_in_niche(run, niche, metrics) do
     phrase = insert(:phrase, phrase: unique_phrase_text("fraza wyników"))
 
-    insert(:volume,
+    insert(:metrics,
       phrase: phrase,
       location_code: run.location_code,
       search_volume: metrics.volume,

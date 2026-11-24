@@ -4,7 +4,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.DeleteTest do
   alias Dirmoon.SearchConsole.Connection
 
   test "disconnecting removes the account's Search Console connection", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     connection = insert(:search_console_connection, account: scope.account)
     other = insert(:search_console_connection)
 

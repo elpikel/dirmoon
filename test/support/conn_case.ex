@@ -40,11 +40,11 @@ defmodule DirmoonWeb.ConnCase do
   @doc """
   Inserts a confirmed user with an Account and logs them into the conn.
 
-      %{conn: conn, user: user, scope: scope} = register_and_log_in_user(%{conn: conn})
+      %{conn: conn, user: user, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
 
   Pass `:token_authenticated_at` to backdate the sign-in (for sudo mode).
   """
-  def register_and_log_in_user(%{conn: conn} = context) do
+  def sign_up_and_log_in_user(%{conn: conn} = context) do
     user = Dirmoon.Factory.insert(:user)
     scope = Dirmoon.Accounts.scope_for_user(user)
     opts = context |> Map.take([:token_authenticated_at]) |> Enum.to_list()

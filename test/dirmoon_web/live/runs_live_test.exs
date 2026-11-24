@@ -4,7 +4,7 @@ defmodule DirmoonWeb.RunsLiveTest do
   import Phoenix.LiveViewTest
 
   test "the Account's runs are listed newest first", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     oldest = insert(:run, account: scope.account, inserted_at: ~U[2026-10-02 09:00:00Z])
     newest = insert(:run, account: scope.account, inserted_at: ~U[2026-11-20 09:00:00Z])
     middle = insert(:run, account: scope.account, inserted_at: ~U[2026-11-01 09:00:00Z])
@@ -23,7 +23,7 @@ defmodule DirmoonWeb.RunsLiveTest do
   end
 
   test "a row shows the description's first sentence, mode, location, status, date and cost", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
 
     run =
       insert(:run,
@@ -50,7 +50,7 @@ defmodule DirmoonWeb.RunsLiveTest do
   end
 
   test "an Existing Site run shows its domain next to the mode", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, mode: :existing_site, domain: "rowery-cargo.example")
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
@@ -60,7 +60,7 @@ defmodule DirmoonWeb.RunsLiveTest do
   end
 
   test "a run with no recorded requests shows zero dollars", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account)
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
@@ -69,7 +69,7 @@ defmodule DirmoonWeb.RunsLiveTest do
   end
 
   test "each status shows its Polish label", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
 
     labels = %{
       running: "W toku",
@@ -89,7 +89,7 @@ defmodule DirmoonWeb.RunsLiveTest do
   end
 
   test "runs before Step 7 has finished link to the run", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     runs = Enum.map([:running, :stopped, :failed], &insert(:run, account: scope.account, status: &1))
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
@@ -100,7 +100,7 @@ defmodule DirmoonWeb.RunsLiveTest do
   end
 
   test "runs whose Step 7 has finished link to their results, whatever their status", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     scored = 1..7 |> Map.new(&{&1, :done}) |> build_run_steps()
     writing_brief = 1..7 |> Map.new(&{&1, :done}) |> Map.put(8, :running) |> build_run_steps()
 
@@ -117,19 +117,22 @@ defmodule DirmoonWeb.RunsLiveTest do
     end
   end
 
-  test "the status row sums up the list in one sentence and the top bar counts the runs", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+  test "the status row sums up the list in one sentence and counts the runs", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     insert(:run, account: scope.account, status: :done)
     insert(:run, account: scope.account, status: :awaiting_choice)
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
 
     assert has_element?(view, "#runs-status-line", "Masz 2 researche: 1 czeka na wybór niszy.")
-    assert has_element?(view, "#runs-panel [data-part=note]", "2 researche")
+    assert has_element?(view, "#app-note", "2 researche")
+    assert has_element?(view, "#app-context", "/ wyniki")
+    assert has_element?(view, "#app-main #runs-screen #runs")
+    refute has_element?(view, "#runs-headline")
   end
 
   test "another Account's runs are not listed", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     own = insert(:run, account: scope.account)
     foreign = insert(:run)
 
@@ -140,7 +143,7 @@ defmodule DirmoonWeb.RunsLiveTest do
   end
 
   test "with no runs the list invites the User to start one", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     insert(:run)
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
@@ -151,7 +154,7 @@ defmodule DirmoonWeb.RunsLiveTest do
   end
 
   test "the Wyniki nav link is marked as the current page", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
 

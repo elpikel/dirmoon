@@ -4,18 +4,10 @@ defmodule DirmoonWeb.PageDisplayTest do
   alias Dirmoon.Pages.Page
   alias DirmoonWeb.PageDisplay
 
-  test "every page status has a label and a headline, whether or not its run is stopped" do
-    for status <- Page.statuses(), run_stopped? <- [true, false] do
+  test "every page status has a label" do
+    for status <- Page.statuses() do
       assert is_binary(PageDisplay.status_label(status))
-      assert %{lead: _lead, underline: _underline} = PageDisplay.headline(%{status: status, run_stopped?: run_stopped?})
     end
-  end
-
-  test "work waiting on a stopped run is headlined as waiting" do
-    assert PageDisplay.headline(%{status: :writing, run_stopped?: true}) == %{lead: "Brief", underline: "czeka."}
-    assert PageDisplay.headline(%{status: :publishing, run_stopped?: true}) == %{lead: "Publikacja", underline: "czeka."}
-    assert PageDisplay.headline(%{status: :writing, run_stopped?: false}) == %{lead: "Piszę", underline: "brief."}
-    assert PageDisplay.headline(%{status: :publishing, run_stopped?: false}) == %{lead: "Publikuję", underline: "stronę."}
   end
 
   test "every reason a Niche choice is refused has a message" do

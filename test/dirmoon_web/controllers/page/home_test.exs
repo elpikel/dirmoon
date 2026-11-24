@@ -38,18 +38,18 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     assert form |> LazyHTML.query("button[type=submit]") |> squish() == "Załóż konto"
   end
 
-  test "the dark how it works panel sums up the nine steps in four stages", %{conn: conn} do
+  test "the dark how it works panel sums up the nine Steps in four Step Groups", %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
     panel = LazyHTML.query(document, "#how-it-works[data-surface=dark]")
 
     assert panel |> LazyHTML.query("[data-part=context]") |> squish() == "dirmoon / jak to działa"
 
-    stage_names = panel |> LazyHTML.query("[data-part=stage-name]") |> Enum.map(&squish/1)
-    stage_steps = panel |> LazyHTML.query("[data-part=stage-steps]") |> Enum.map(&squish/1)
+    step_group_names = panel |> LazyHTML.query("[data-part=step-group-name]") |> Enum.map(&squish/1)
+    step_group_steps = panel |> LazyHTML.query("[data-part=step-group-steps]") |> Enum.map(&squish/1)
 
-    assert stage_names == ["Frazy", "Popyt", "Konkurencja", "Strona"]
-    assert stage_steps == ["01–02", "03–04", "05–07", "08–09"]
+    assert step_group_names == ["Frazy", "Popyt", "Konkurencja", "Strona"]
+    assert step_group_steps == ["01–02", "03–04", "05–07", "08–09"]
   end
 
   test "a signed-out visitor is offered sign-in in the nav", %{conn: conn} do
@@ -59,18 +59,27 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     assert document |> LazyHTML.query("#landing-nav a[href='/app']") |> Enum.count() == 0
   end
 
-  test "a signed-in user is offered the app instead of sign-in in the nav", %{conn: conn} do
-    user = insert(:user)
+  test "a signed-in user opening the landing page is redirected to the app", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
-    document =
-      conn
-      |> log_in_user(user)
-      |> get(~p"/")
-      |> html_response(200)
-      |> LazyHTML.from_document()
+    conn = get(conn, ~p"/")
 
-    assert document |> LazyHTML.query("#landing-nav a[href='/app']") |> squish() == "Przejdź do aplikacji"
-    assert document |> LazyHTML.query("#landing-nav a[href='/users/log-in']") |> Enum.count() == 0
+    assert redirected_to(conn) == ~p"/app"
+  end
+
+  test "after logging out the landing page shows the log-out notice with a close button", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+
+    conn = delete(conn, ~p"/users/log-out")
+
+    document = conn |> recycle() |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    notice = LazyHTML.query(document, "#flash-group #flash-info[role=alert]")
+
+    assert squish(notice) =~ "Wylogowano."
+    assert [close_command] = LazyHTML.attribute(notice, "phx-click")
+    assert close_command =~ "#flash-info"
+    assert notice |> LazyHTML.query("button[type=button][aria-label]") |> Enum.count() == 1
   end
 
   defp squish(node) do

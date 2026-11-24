@@ -39,6 +39,17 @@ defmodule DirmoonWeb.RunDisplayTest do
     assert RunDisplay.location(run) == "Polska · Toruń"
   end
 
+  test "the short description is the description's first sentence" do
+    assert RunDisplay.short_description("Hotel dla psów. Spacery i opieka.") == "Hotel dla psów"
+    assert RunDisplay.short_description("Hotel dla psów!\nSpacery") == "Hotel dla psów"
+  end
+
+  test "a first sentence longer than 48 characters is cut at a word boundary with an ellipsis" do
+    description = "Wypożyczalnia rowerów cargo z dostawą pod same drzwi klienta w całym mieście. Reszta."
+
+    assert RunDisplay.short_description(description) == "Wypożyczalnia rowerów cargo z dostawą pod same…"
+  end
+
   test "a run whose Step 7 has finished leads to its results" do
     run =
       insert(:run, status: :running, steps: 1..7 |> Map.new(&{&1, :done}) |> Map.put(8, :running) |> build_run_steps())

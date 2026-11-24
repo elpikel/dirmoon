@@ -1,8 +1,9 @@
 defmodule DirmoonWeb.ResultsHeadline do
   @moduledoc """
   The words of the results screen, built from counts and data, never by
-  the LLM: the headline stating the outcome ("Dziewięć nisz. Trzy warte
-  zajęcia.") and the first-person status sentence about the best Niche.
+  the LLM: the heading stating the outcome ("Dziewięć nisz. Trzy warte
+  zajęcia.") above the Niche list, and the first-person status sentence
+  about the best Niche.
   See `docs/design/README.md` section 8.3, screen 3.
   """
 
@@ -12,7 +13,7 @@ defmodule DirmoonWeb.ResultsHeadline do
   @niche_forms %{one: "nisza", few: "nisze", many: "nisz"}
   @worth_forms %{one: "warta", few: "warte", many: "wartych"}
   @worth_suffix "zajęcia."
-  @before_scoring %{lead: "Frazy", underline: "do tej pory."}
+  @before_scoring "Frazy do tej pory."
 
   @verdict_sentences %{
     weak: "Na pierwszej stronie przeważają słabe wyniki: %{holders}.",
@@ -21,21 +22,17 @@ defmodule DirmoonWeb.ResultsHeadline do
   }
 
   @doc """
-  The headline from the number of Niches on offer and of those worth going
-  after, split into its `lead` and the `underline`d second sentence; counts
-  up to twenty are words, larger ones digits. `:before_scoring` is the
-  headline of a run whose Niches aren't scored yet.
+  The heading from the number of Niches on offer and of those worth going
+  after, two sentences; counts up to twenty are words, larger ones digits.
+  `:before_scoring` is the heading of a run whose Niches aren't scored yet.
 
       iex> DirmoonWeb.ResultsHeadline.text(%{niches: 9, worth: 3})
-      %{lead: "Dziewięć nisz.", underline: "Trzy warte zajęcia."}
+      "Dziewięć nisz. Trzy warte zajęcia."
   """
   def text(:before_scoring), do: @before_scoring
 
   def text(%{niches: niches, worth: worth}) when is_integer(niches) and is_integer(worth) do
-    %{
-      lead: "#{count_word(niches)} #{Polish.plural(niches, @niche_forms)}.",
-      underline: worth_sentence(worth)
-    }
+    "#{count_word(niches)} #{Polish.plural(niches, @niche_forms)}. #{worth_sentence(worth)}"
   end
 
   @doc """

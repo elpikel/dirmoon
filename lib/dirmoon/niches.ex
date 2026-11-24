@@ -30,14 +30,14 @@ defmodule Dirmoon.Niches do
   an earlier pass stored: the run's Niches are deleted and its Phrases kept
   again first, so storing twice never duplicates anything.
 
-  `groups` is `%{niches: [%{name:, intent:, reading:, phrase_ids:}], rejected: [%{phrase_id:, reason:}]}`
+  `grouping` is `%{niches: [%{name:, intent:, reading:, phrase_ids:}], rejected: [%{phrase_id:, reason:}]}`
   with RunPhrase ids; Niches get their `position` from the list order.
-  Rejected Phrases get their reason, and every Phrase of the run the groups
-  don't mention is rejected as "#{@omitted_reason}".
+  Rejected Phrases get their reason, and every Phrase of the run the grouping
+  doesn't mention is rejected as "#{@omitted_reason}".
 
   Returns `{:ok, %{niches: count, kept: phrases_in_niches, rejected: rejected_phrases}}`.
   """
-  def store_groups(%Run{} = run, %{niches: niches, rejected: rejected}) when is_list(niches) and is_list(rejected) do
+  def store_grouping(%Run{} = run, %{niches: niches, rejected: rejected}) when is_list(niches) and is_list(rejected) do
     Repo.transact(fn ->
       delete_for_run(run)
       Phrases.clear_grouping(run)
@@ -87,7 +87,7 @@ defmodule Dirmoon.Niches do
   Returns `[%{niche: %Niche{}, volume: integer, cpc: Decimal | nil, competition: %{verdict: atom, holders: String.t()} | nil}]`.
   """
   def list_summaries(%Run{} = run) do
-    readings = Competition.readings_for_run(run)
+    assessment_summaries = Competition.assessment_summaries_for_run(run)
     market_totals = Phrases.market_totals_by_niche(run)
 
     run
@@ -99,7 +99,7 @@ defmodule Dirmoon.Niches do
         niche: niche,
         volume: totals.volume,
         cpc: totals.cpc,
-        competition: pooled_competition(totals.keyword_ids, readings)
+        competition: pooled_competition(totals.keyword_ids, assessment_summaries)
       }
     end)
   end
@@ -108,20 +108,22 @@ defmodule Dirmoon.Niches do
   What the results screen shows of one of the run's Niches: its kept
   Phrases, highest country Volume first, each with its country and city
   Volume, CPC, who holds its top 10 (nil when it wasn't checked) and the
-  site's Current Position; the most direct competitors found in one checked
-  Phrase's top 10 (nil when none was checked); the best Current Position of
-  its Phrases (nil when none ranks); and the Niche's page, if it has one.
+  site's Current Position and whether that makes it a Quick Win; the most
+  direct competitors found in one checked Phrase's top 10 (nil when none was
+  checked); the best Current Position of its Phrases (nil when none ranks);
+  how many of its Phrases are Quick Wins; and the Niche's page, if it has one.
 
-  Returns `%{phrases: [%{id:, phrase:, volume:, city_volume:, cpc:, currency:, holders:, current_position:}], direct_competitors: integer | nil, best_position: Decimal | nil, page: %Page{} | nil}`.
+  Returns `%{phrases: [%{id:, phrase:, volume:, city_volume:, cpc:, currency:, holders:, current_position:, quick_win?:}], direct_competitors: integer | nil, best_position: Decimal | nil, quick_win_count: integer, page: %Page{} | nil}`.
   """
   def niche_detail(%Run{id: run_id} = run, %Niche{id: niche_id, run_id: run_id} = niche) do
-    readings = Competition.readings_for_run(run)
+    assessment_summaries = Competition.assessment_summaries_for_run(run)
     run_phrases = Phrases.list_for_run(run, %{niche_id: niche_id})
 
     %{
-      phrases: Enum.map(run_phrases, &phrase_detail(&1, readings)),
-      direct_competitors: most_direct_competitors(run_phrases, readings),
+      phrases: Enum.map(run_phrases, &phrase_detail(&1, assessment_summaries)),
+      direct_competitors: most_direct_competitors(run_phrases, assessment_summaries),
       best_position: best_position(run_phrases),
+      quick_win_count: Enum.count(run_phrases, &Phrases.quick_win?(&1.current_position)),
       page: Pages.page_for_niche(niche)
     }
   end
@@ -321,8 +323,8 @@ defmodule Dirmoon.Niches do
     |> Competition.weak_share()
   end
 
-  defp pooled_competition(keyword_ids, readings) do
-    case readings_of(keyword_ids, readings) do
+  defp pooled_competition(keyword_ids, assessment_summaries) do
+    case assessments_of(keyword_ids, assessment_summaries) do
       [] ->
         nil
 
@@ -332,31 +334,32 @@ defmodule Dirmoon.Niches do
     end
   end
 
-  defp readings_of(keyword_ids, readings) do
+  defp assessments_of(keyword_ids, assessment_summaries) do
     keyword_ids
-    |> Enum.map(&Map.get(readings, &1))
+    |> Enum.map(&Map.get(assessment_summaries, &1))
     |> Enum.reject(&is_nil/1)
   end
 
-  defp phrase_detail(run_phrase, readings) do
-    reading = Map.get(readings, run_phrase.keyword_id)
+  defp phrase_detail(run_phrase, assessment_summaries) do
+    assessment = Map.get(assessment_summaries, run_phrase.keyword_id)
 
     %{
       id: run_phrase.id,
       phrase: run_phrase.phrase.phrase,
-      volume: run_phrase.volume && run_phrase.volume.search_volume,
-      city_volume: run_phrase.city_volume && run_phrase.city_volume.search_volume,
-      cpc: run_phrase.volume && run_phrase.volume.cpc,
-      currency: run_phrase.volume && run_phrase.volume.currency,
-      holders: reading && Competition.holders(reading.labels),
-      current_position: run_phrase.current_position
+      volume: run_phrase.metrics && run_phrase.metrics.search_volume,
+      city_volume: run_phrase.city_metrics && run_phrase.city_metrics.search_volume,
+      cpc: run_phrase.metrics && run_phrase.metrics.cpc,
+      currency: run_phrase.metrics && run_phrase.metrics.currency,
+      holders: assessment && Competition.holders(assessment.labels),
+      current_position: run_phrase.current_position,
+      quick_win?: Phrases.quick_win?(run_phrase.current_position)
     }
   end
 
-  defp most_direct_competitors(run_phrases, readings) do
+  defp most_direct_competitors(run_phrases, assessment_summaries) do
     run_phrases
     |> Enum.map(& &1.keyword_id)
-    |> readings_of(readings)
+    |> assessments_of(assessment_summaries)
     |> Enum.map(&Competition.direct_competitor_count(&1.labels))
     |> Enum.max(fn -> nil end)
   end

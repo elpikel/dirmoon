@@ -103,13 +103,15 @@ defmodule Dirmoon.CompetitionTest do
     assert Competition.fresh_snapshot(phrase.id, 2616) == nil
   end
 
-  test "the run's readings give each assessed Phrase's verdict and labels" do
+  test "the run's assessment summaries give each assessed Phrase's verdict and labels" do
     run = insert(:run)
     labels = labels(direct_competitor: 6, portal: 4)
     assessment = insert(:serp_assessment, run: run, phrase: insert(:phrase), labels: labels, verdict: :strong)
     insert(:serp_assessment, phrase: insert(:phrase))
 
-    assert Competition.readings_for_run(run) == %{assessment.keyword_id => %{verdict: :strong, labels: labels}}
+    assert Competition.assessment_summaries_for_run(run) == %{
+             assessment.keyword_id => %{verdict: :strong, labels: labels}
+           }
   end
 
   test "direct competitors in a top 10 are counted" do

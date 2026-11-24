@@ -13,7 +13,7 @@ defmodule DirmoonWeb.RunExportController do
   alias DirmoonWeb.RunDisplay
 
   @byte_order_mark <<0xEF, 0xBB, 0xBF>>
-  @header ~w(fraza nisza wolumen_kraj wolumen_miasto cpc waluta top10 werdykt pozycja odrzucona powod)
+  @header ~w(fraza nisza wolumen_kraj wolumen_miasto cpc waluta top10 werdykt pozycja szybka_wygrana odrzucona powod)
   @formula_triggers ["=", "+", "-", "@", "\t", "\r"]
 
   def show(conn, %{"id" => run_id}) do
@@ -48,10 +48,14 @@ defmodule DirmoonWeb.RunExportController do
       row.holders,
       row.verdict && RunDisplay.verdict_label(row.verdict),
       row.current_position,
-      if(row.rejected?, do: "tak", else: "nie"),
+      yes_no(row.quick_win?),
+      yes_no(row.rejected?),
       row.rejection_reason
     ]
   end
+
+  defp yes_no(true), do: "tak"
+  defp yes_no(false), do: "nie"
 
   defp to_csv(rows) do
     lines = Enum.map_join(rows, &line/1)

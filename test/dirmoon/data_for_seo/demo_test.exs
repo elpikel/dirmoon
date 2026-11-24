@@ -3,10 +3,10 @@ defmodule Dirmoon.DataForSEO.DemoTest do
 
   alias Dirmoon.DataForSEO.Demo
 
-  test "keyword ideas return the seed and fifteen demo phrases per seed with volume, cpc and twelve months, at no cost" do
+  test "phrase ideas return the seed and fifteen demo phrases per seed with volume, cpc and twelve months, at no cost" do
     request = %{seeds: ["hotel dla psów", "opieka nad psem"], location_code: 2616, language_code: "pl"}
 
-    assert {:ok, %{rows: rows, raw: %{"demo" => true}, cost: cost}} = Demo.keyword_ideas(request)
+    assert {:ok, %{rows: rows, raw: %{"demo" => true}, cost: cost}} = Demo.phrase_ideas(request)
 
     phrases = Enum.map(rows, & &1.phrase)
     assert Enum.count(rows) == 32
@@ -17,16 +17,16 @@ defmodule Dirmoon.DataForSEO.DemoTest do
     assert Enum.all?(rows, &(is_integer(&1.search_volume) and &1.search_volume > 0))
     assert Enum.all?(rows, &(%Decimal{} = &1.cpc))
     assert Enum.all?(rows, &(&1.currency == "USD"))
-    assert Enum.all?(rows, &(Enum.count(&1.monthly_searches) == 12))
+    assert Enum.all?(rows, &(Enum.count(&1.trend) == 12))
     assert Decimal.equal?(cost, 0)
-    assert Demo.keyword_ideas(request) == {:ok, %{rows: rows, raw: %{"demo" => true}, cost: cost}}
+    assert Demo.phrase_ideas(request) == {:ok, %{rows: rows, raw: %{"demo" => true}, cost: cost}}
   end
 
-  test "keyword ideas for more than twenty seeds fail like the real API" do
+  test "phrase ideas for more than twenty seeds fail like the real API" do
     seeds = Enum.map(1..21, &"fraza #{&1}")
 
-    assert Demo.keyword_ideas(%{seeds: seeds, location_code: 2616, language_code: "pl"}) ==
-             {:error, :too_many_keywords}
+    assert Demo.phrase_ideas(%{seeds: seeds, location_code: 2616, language_code: "pl"}) ==
+             {:error, :too_many_phrases}
   end
 
   test "search volumes return a row for each phrase asked, smaller for the demo city than for the country" do
@@ -49,9 +49,9 @@ defmodule Dirmoon.DataForSEO.DemoTest do
     assert Decimal.equal?(cost, 0)
   end
 
-  test "search volumes match the volumes keyword ideas gave for the same phrase and location" do
+  test "search volumes match the volumes phrase ideas gave for the same phrase and location" do
     {:ok, %{rows: [seed_row | _rows]}} =
-      Demo.keyword_ideas(%{seeds: ["hotel dla psów"], location_code: 2616, language_code: "pl"})
+      Demo.phrase_ideas(%{seeds: ["hotel dla psów"], location_code: 2616, language_code: "pl"})
 
     assert {:ok, %{rows: [volume_row]}} =
              Demo.search_volumes(%{phrases: ["hotel dla psów"], location_code: 2616, language_code: "pl"})
@@ -63,7 +63,7 @@ defmodule Dirmoon.DataForSEO.DemoTest do
     phrases = Enum.map(1..1001, &"fraza #{&1}")
 
     assert Demo.search_volumes(%{phrases: phrases, location_code: 2616, language_code: "pl"}) ==
-             {:error, :too_many_keywords}
+             {:error, :too_many_phrases}
   end
 
   test "the serp top 10 returns ten results on obviously fake demo domains" do

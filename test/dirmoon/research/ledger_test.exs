@@ -24,6 +24,16 @@ defmodule Dirmoon.Research.LedgerTest do
     assert api_request.request == %{"keywords" => ["adwokat gdańsk"], "location_code" => 2616}
   end
 
+  test "a request whose API reports no cost is recorded at zero cost" do
+    run = insert(:run)
+
+    assert {:ok, %{"items" => []}} = Ledger.fetch(run, volume_request(), fn -> {:ok, %{"items" => []}, nil} end)
+
+    assert [%ApiRequest{cost: cost}] = Repo.all_by(ApiRequest, run_id: run.id)
+    assert Decimal.equal?(cost, Decimal.new(0))
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new(0))
+  end
+
   test "a request the run already stored returns the stored response without calling the API" do
     run = insert(:run)
     {:ok, _response} = Ledger.fetch(run, volume_request(), fn -> {:ok, %{"items" => ["stored"]}, 0.05} end)
@@ -82,6 +92,19 @@ defmodule Dirmoon.Research.LedgerTest do
              Ledger.fetch(run, volume_request(), fn -> {:ok, %{items: [%{keyword: "adwokat"}]}, 0} end)
   end
 
+  test "decimals and dates in a request and its response are stored and returned as strings" do
+    run = insert(:run)
+    request = %{service: "llm", operation: "brief", request: %{"budget" => Decimal.new("0.10"), "day" => ~D[2026-11-24]}}
+
+    assert {:ok, %{"cpc" => "0.66", "verdict" => "weak"}} =
+             Ledger.fetch(run, request, fn -> {:ok, %{cpc: Decimal.new("0.66"), verdict: :weak}, 0} end)
+
+    ledger_row = %{table: "api_requests", where: "run_id = $1", value: run.id}
+
+    assert [%{"budget" => "0.10", "day" => "2026-11-24"}] = stored_json(Map.put(ledger_row, :column, "request"))
+    assert [%{"cpc" => "0.66", "verdict" => "weak"}] = stored_json(Map.put(ledger_row, :column, "response"))
+  end
+
   test "a request the run already stored is recorded, whatever its key order" do
     run = insert(:run)
     {:ok, _response} = Ledger.fetch(run, volume_request(), fn -> {:ok, %{"items" => []}, 0.05} end)
@@ -101,6 +124,20 @@ defmodule Dirmoon.Research.LedgerTest do
     {:error, :timeout} = Ledger.fetch(run, volume_request(), fn -> {:error, :timeout} end)
 
     refute Ledger.recorded?(run, volume_request())
+  end
+
+  test "a cost given as a decimal, a whole number or a float is recorded as that amount" do
+    decimal_run = insert(:run)
+    integer_run = insert(:run)
+    float_run = insert(:run)
+
+    {:ok, _response} = Ledger.fetch(decimal_run, volume_request(), fn -> {:ok, %{}, Decimal.new("0.0075")} end)
+    {:ok, _response} = Ledger.fetch(integer_run, volume_request(), fn -> {:ok, %{}, 2} end)
+    {:ok, _response} = Ledger.fetch(float_run, volume_request(), fn -> {:ok, %{}, 0.125} end)
+
+    assert Decimal.equal?(Research.run_cost(decimal_run), Decimal.new("0.0075"))
+    assert Decimal.equal?(Research.run_cost(integer_run), Decimal.new(2))
+    assert Decimal.equal?(Research.run_cost(float_run), Decimal.new("0.125"))
   end
 
   defp volume_request do

@@ -20,6 +20,24 @@ defmodule Dirmoon.Research.StepRunnerTest do
     assert step(run, 1).finished_at
   end
 
+  test "decimals, dates and atoms in a Step's output are stored as JSON strings" do
+    run = insert(:run, steps: build_run_steps())
+    output = %{"cost" => Decimal.new("0.66"), "day" => ~D[2026-11-24], "verdict" => :weak, "skipped" => nil}
+
+    :ok = StepRunner.run(job_for(run), 1, fn _run -> {:ok, %{result: "gotowe", output: output}} end)
+
+    assert [%{"cost" => "0.66", "day" => "2026-11-24", "verdict" => "weak", "skipped" => nil}] =
+             stored_json(%{table: "run_steps", column: "output", where: "run_id = $1 AND number = 1", value: run.id})
+  end
+
+  test "a skipped Step stores no output" do
+    run = insert(:run, steps: build_run_steps())
+
+    :ok = StepRunner.run(job_for(run), 1, fn _run -> {:skip, "pominięty"} end)
+
+    assert %RunStep{status: :skipped, output: nil} = step(run, 1)
+  end
+
   test "a finished Step enqueues the next Step" do
     run = insert(:run, steps: build_run_steps())
 
@@ -231,6 +249,45 @@ defmodule Dirmoon.Research.StepRunnerTest do
     StepRunner.run(job_for(run, attempt: 3), 1, fn _run -> raise ArgumentError, "zła odpowiedź" end)
 
     assert %RunStep{status: :failed, error: "Nieoczekiwany błąd: zła odpowiedź"} = step(run, 1)
+  end
+
+  test "a step function that raises before the last attempt returns the exception so the job is retried" do
+    run = insert(:run, steps: build_run_steps())
+
+    assert {:error, %ArgumentError{message: "zła odpowiedź"}} =
+             StepRunner.run(job_for(run, attempt: 1), 1, fn _run -> raise ArgumentError, "zła odpowiedź" end)
+
+    assert %RunStep{status: :running} = step(run, 1)
+    assert Repo.reload!(run).status == :running
+  end
+
+  test "a step function that raises on the last attempt fails the run" do
+    run = insert(:run, steps: build_run_steps())
+
+    assert {:cancel, %ArgumentError{}} =
+             StepRunner.run(job_for(run, attempt: 3), 1, fn _run -> raise ArgumentError, "zła odpowiedź" end)
+
+    assert Repo.reload!(run).status == :failed
+  end
+
+  test "a step function returning an unexpected value before the last attempt is retried" do
+    run = insert(:run, steps: build_run_steps())
+
+    assert {:error, _reason} = StepRunner.run(job_for(run, attempt: 1), 1, fn _run -> :unexpected end)
+
+    assert %RunStep{status: :running} = step(run, 1)
+    assert Repo.reload!(run).status == :running
+  end
+
+  test "a step function returning an unexpected value on the last attempt fails the Step and the run" do
+    run = insert(:run, steps: build_run_steps())
+
+    assert {:cancel, _reason} = StepRunner.run(job_for(run, attempt: 3), 1, fn _run -> :unexpected end)
+
+    assert %RunStep{status: :failed, error: "Nieoczekiwany błąd: {:unexpected_step_outcome, :unexpected}"} =
+             step(run, 1)
+
+    assert Repo.reload!(run).status == :failed
   end
 
   defp done_through(last_number), do: Map.new(1..last_number, &{&1, :done})

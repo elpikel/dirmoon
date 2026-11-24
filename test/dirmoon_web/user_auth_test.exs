@@ -29,7 +29,7 @@ defmodule DirmoonWeb.UserAuthTest do
   end
 
   test "an /app LiveView mounts with the user and the Account of their first Membership", %{conn: conn} do
-    %{conn: conn, user: user} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, user: user} = sign_up_and_log_in_user(%{conn: conn})
     first_account = Accounts.account_for_user(user)
     later_account = insert(:account)
 

@@ -2,8 +2,8 @@ defmodule Dirmoon.Phrases.Volumes do
   @moduledoc """
   Step 3: Volume, CPC and Trend for the run's kept Phrases in the country and,
   when the run has a city that resolves to a keyword API location, in the
-  city. Only Phrases without a fresh Volume for a location are requested
-  (fresh Volumes are shared across runs, ADR-0002), in batches of at most
+  city. Only Phrases without fresh Metrics for a location are requested
+  (fresh Metrics are shared across runs, ADR-0002), in batches of at most
   `Dirmoon.DataForSEO.max_phrases/0`, each through the run's ledger. The city
   is looked up once and its location code kept on the run; a city that
   doesn't resolve is recorded too, so it is never looked up again.
@@ -20,14 +20,14 @@ defmodule Dirmoon.Phrases.Volumes do
   @city_not_found_result "Brak danych dla miasta, używam wolumenu krajowego"
 
   @doc """
-  Fetches the missing Volumes of the run's kept Phrases for the country and
+  Fetches the missing Metrics of the run's kept Phrases for the country and
   the city.
 
   Returns `{:ok, %{result: "Polska i Gdańsk, trend 12 miesięcy", output: output}}`
   with `output` `%{"country" => coverage, "city" => coverage | nil, "city_location_code" => integer | nil}`,
   a coverage being `%{"location_code", "requested", "reused"}`, or the keyword
   API's `{:error, reason}` (batches fetched before it stay in the ledger and
-  their Volumes stay stored).
+  their Metrics stay stored).
   """
   def fetch(%Run{} = run) do
     with {:ok, city_location} <- city_location(run),
@@ -82,7 +82,7 @@ defmodule Dirmoon.Phrases.Volumes do
   defp cover_city(_run, _no_city_location), do: {:ok, nil}
 
   defp cover(run, location_code) do
-    phrases = Phrases.phrases_needing_volume(run, location_code)
+    phrases = Phrases.phrases_needing_metrics(run, location_code)
     batches = Enum.chunk_every(phrases, DataForSEO.max_phrases())
 
     with :ok <- fetch_batches(run, location_code, batches) do
@@ -111,7 +111,7 @@ defmodule Dirmoon.Phrases.Volumes do
 
     with {:ok, fetched} <-
            LedgerRows.fetch(run, %{operation: "search_volumes", request: request}, &DataForSEO.search_volumes/1),
-         {:ok, _count} <- Phrases.store_volumes(location_code, Map.put(fetched, :phrases, phrases)) do
+         {:ok, _count} <- Phrases.store_metrics(location_code, Map.put(fetched, :phrases, phrases)) do
       :ok
     end
   end

@@ -31,7 +31,7 @@ defmodule Dirmoon.AccountsTest do
     assert %User{email: ^email} = Accounts.get_user_by_magic_link_token(token)
   end
 
-  test "sign-up with a registered email answers the same and emails a sign-in link to the existing user" do
+  test "sign-up with an email that already has a User answers the same and emails a sign-in link to the existing user" do
     user = insert(:user)
     user_count = Repo.aggregate(User, :count)
     account_count = Repo.aggregate(Account, :count)
@@ -46,7 +46,7 @@ defmodule Dirmoon.AccountsTest do
     assert Repo.aggregate(Account, :count) == account_count
   end
 
-  test "sign-up with a registered email in different case reaches the existing user" do
+  test "sign-up with a known email in different case reaches the existing user" do
     user = insert(:user)
 
     assert :ok = Accounts.sign_up(%{"email" => String.upcase(user.email)}, &"/users/log-in/#{&1}")
@@ -64,47 +64,47 @@ defmodule Dirmoon.AccountsTest do
     assert_no_email_sent()
   end
 
-  test "register_user creates an unconfirmed User with an Account and their Membership" do
+  test "create_user_with_account creates an unconfirmed User with an Account and their Membership" do
     email = unique_user_email()
 
-    {:ok, user} = Accounts.register_user(%{email: email})
+    {:ok, user} = Accounts.create_user_with_account(%{email: email})
 
     assert user.email == email
     assert is_nil(user.confirmed_at)
     assert [%Membership{}] = Repo.all_by(Membership, user_id: user.id)
   end
 
-  test "register_user requires an email" do
-    {:error, changeset} = Accounts.register_user(%{})
+  test "create_user_with_account requires an email" do
+    {:error, changeset} = Accounts.create_user_with_account(%{})
 
     assert %{email: ["can't be blank"]} = errors_on(changeset)
   end
 
-  test "register_user rejects an email without @ or with spaces" do
-    {:error, changeset} = Accounts.register_user(%{email: "not valid"})
+  test "create_user_with_account rejects an email without @ or with spaces" do
+    {:error, changeset} = Accounts.create_user_with_account(%{email: "not valid"})
 
     assert %{email: ["musi zawierać @ i nie może mieć spacji"]} = errors_on(changeset)
   end
 
-  test "register_user rejects an email longer than 160 characters" do
-    {:error, changeset} = Accounts.register_user(%{email: String.duplicate("db", 100)})
+  test "create_user_with_account rejects an email longer than 160 characters" do
+    {:error, changeset} = Accounts.create_user_with_account(%{email: String.duplicate("db", 100)})
 
     assert "should be at most 160 character(s)" in errors_on(changeset).email
   end
 
-  test "register_user rejects a taken email regardless of case and creates no Account" do
+  test "create_user_with_account rejects a taken email regardless of case and creates no Account" do
     %{email: email} = insert(:user)
     account_count = Repo.aggregate(Account, :count)
 
-    {:error, changeset} = Accounts.register_user(%{email: email})
+    {:error, changeset} = Accounts.create_user_with_account(%{email: email})
     assert "has already been taken" in errors_on(changeset).email
 
-    {:error, changeset} = Accounts.register_user(%{email: String.upcase(email)})
+    {:error, changeset} = Accounts.create_user_with_account(%{email: String.upcase(email)})
     assert "has already been taken" in errors_on(changeset).email
     assert Repo.aggregate(Account, :count) == account_count
   end
 
-  test "get_user_by_email finds a registered user and nothing for an unknown email" do
+  test "get_user_by_email finds a signed-up user and nothing for an unknown email" do
     %{id: id} = user = insert(:user)
 
     assert %User{id: ^id} = Accounts.get_user_by_email(user.email)

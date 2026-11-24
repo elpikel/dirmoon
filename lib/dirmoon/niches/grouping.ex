@@ -65,7 +65,7 @@ defmodule Dirmoon.Niches.Grouping do
 
   @doc """
   Filters and groups the run's Phrases and stores the Niches
-  (`Dirmoon.Niches.store_groups/2`). Every Phrase of the run is sent,
+  (`Dirmoon.Niches.store_grouping/2`). Every Phrase of the run is sent,
   whatever an earlier pass decided about it, because storing decides them
   all again; so a re-run sends the same request and reuses the recorded
   answer.
@@ -81,9 +81,9 @@ defmodule Dirmoon.Niches.Grouping do
          request = request(run, phrases),
          {:ok, answer} <-
            Ledger.fetch(run, %{service: "llm", operation: "filter_and_group", request: request}, fn ->
-             cleaned_groups(request)
+             cleaned_grouping(request)
            end),
-         {:ok, counts} <- Niches.store_groups(run, groups(answer, phrases_beyond_limit)) do
+         {:ok, counts} <- Niches.store_grouping(run, grouping(answer, phrases_beyond_limit)) do
       {:ok, %{result: result_line(counts), output: output(counts)}}
     end
   end
@@ -96,17 +96,17 @@ defmodule Dirmoon.Niches.Grouping do
        %{
          id: run_phrase.id,
          phrase: run_phrase.phrase.phrase,
-         volume: run_phrase.volume && run_phrase.volume.search_volume
+         volume: run_phrase.metrics && run_phrase.metrics.search_volume
        }
      end)}
   end
 
   defp phrase_limit, do: Application.fetch_env!(:dirmoon, :grouping_phrase_limit)
 
-  defp cleaned_groups(%{input: %{phrases: phrases}} = request) do
+  defp cleaned_grouping(%{input: %{phrases: phrases}} = request) do
     with {:ok, answer, cost} <- LLM.structured(request),
-         {:ok, groups} <- clean_answer(answer, MapSet.new(phrases, & &1.id)),
-         do: {:ok, groups, cost}
+         {:ok, grouping} <- clean_answer(answer, MapSet.new(phrases, & &1.id)),
+         do: {:ok, grouping, cost}
   end
 
   defp request(run, phrases) do
@@ -228,7 +228,7 @@ defmodule Dirmoon.Niches.Grouping do
 
   defp trimmed(_not_text), do: nil
 
-  defp groups(%{"niches" => niches, "rejected" => rejected}, phrases_beyond_limit) do
+  defp grouping(%{"niches" => niches, "rejected" => rejected}, phrases_beyond_limit) do
     %{
       niches:
         Enum.map(niches, fn niche ->

@@ -1,8 +1,8 @@
 defmodule DirmoonWeb.PageDisplay do
   @moduledoc """
-  How a Produced Page reads on screen, shared by the page screen (`PageLive`),
+  How a Page reads on screen, shared by the page screen (`PageLive`),
   the pages list (`PagesLive`) and the results screen (`ResultsLive`, which
-  starts a page by choosing a Niche): its status labels and headline, its
+  starts a page by choosing a Niche): its status labels, its
   title, its address before it is published, and the Polish copy for each
   reason a Niche choice is refused.
   """
@@ -20,19 +20,6 @@ defmodule DirmoonWeb.PageDisplay do
     failed: "Błąd"
   }
 
-  @headlines %{
-    writing: %{lead: "Piszę", underline: "brief."},
-    ready: %{lead: "Brief gotowy.", underline: "Strona też."},
-    publishing: %{lead: "Publikuję", underline: "stronę."},
-    published: %{lead: "Brief gotowy.", underline: "Strona też."},
-    failed: %{lead: "Brief się", underline: "nie udał."}
-  }
-
-  @stopped_run_headlines %{
-    writing: %{lead: "Brief", underline: "czeka."},
-    publishing: %{lead: "Publikacja", underline: "czeka."}
-  }
-
   @choose_errors %{
     not_found: "Nie znaleziono niszy",
     run_not_ready: "Teraz nie wybierzesz niszy: research nie skończył oceniania albo jest zatrzymany",
@@ -46,18 +33,6 @@ defmodule DirmoonWeb.PageDisplay do
   `Page.statuses/0`.
   """
   def status_label(status), do: Map.fetch!(@status_labels, status)
-
-  @doc """
-  The page screen's headline for a page's status and whether its run is
-  stopped: `%{lead:, underline:}`, the underline being the phrase drawn over
-  the lime line. Work waiting on a stopped run reads as waiting ("Brief
-  czeka."), matching the panel.
-  """
-  def headline(%{status: status, run_stopped?: true}) when is_map_key(@stopped_run_headlines, status) do
-    Map.fetch!(@stopped_run_headlines, status)
-  end
-
-  def headline(%{status: status, run_stopped?: _run_stopped?}), do: Map.fetch!(@headlines, status)
 
   @doc """
   The Polish message for a reason `Dirmoon.Niches.choose/2` refused a Niche.

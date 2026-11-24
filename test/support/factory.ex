@@ -10,9 +10,9 @@ defmodule Dirmoon.Factory do
   alias Dirmoon.Niches.Niche
   alias Dirmoon.Pages.Brief
   alias Dirmoon.Pages.Page
+  alias Dirmoon.Phrases.Metrics
   alias Dirmoon.Phrases.Phrase
   alias Dirmoon.Phrases.RunPhrase
-  alias Dirmoon.Phrases.Volume
   alias Dirmoon.Research.ApiRequest
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
@@ -54,14 +54,6 @@ defmodule Dirmoon.Factory do
     }
   end
 
-  def run_step_factory do
-    %RunStep{
-      run: build(:run),
-      number: 1,
-      status: :waiting
-    }
-  end
-
   def api_request_factory do
     %ApiRequest{
       run: build(:run),
@@ -81,14 +73,14 @@ defmodule Dirmoon.Factory do
     }
   end
 
-  def volume_factory do
-    %Volume{
+  def metrics_factory do
+    %Metrics{
       phrase: build(:phrase),
       location_code: 2616,
       search_volume: sequence(:search_volume, &(&1 + 10)),
       cpc: Decimal.new("0.50"),
       currency: "USD",
-      monthly_searches: [],
+      trend: [],
       fetched_at: DateTime.utc_now(:second),
       raw: %{}
     }
@@ -98,7 +90,6 @@ defmodule Dirmoon.Factory do
     %RunPhrase{
       run: build(:run),
       phrase: build(:phrase),
-      origin: :expansion,
       status: :kept
     }
   end
@@ -131,10 +122,10 @@ defmodule Dirmoon.Factory do
       slug: sequence(:brief_slug, &"strona-testowa-#{&1}"),
       intro: "Wstęp testowy. Drugie zdanie wstępu.",
       cta_label: "Zapytaj o termin",
-      facts: [
-        %Brief.Fact{label: "Cena", value: "[CENA]"},
-        %Brief.Fact{label: "Telefon", value: "[TELEFON]"},
-        %Brief.Fact{label: "Obszar działania", value: "[OBSZAR]"}
+      fact_tiles: [
+        %Brief.FactTile{label: "Cena", value: "[CENA]"},
+        %Brief.FactTile{label: "Telefon", value: "[TELEFON]"},
+        %Brief.FactTile{label: "Obszar działania", value: "[OBSZAR]"}
       ],
       sections: [%Brief.Section{question: "Pytanie testowe?", answer: "Odpowiedź testowa."}],
       short_answer: "Krótka odpowiedź testowa.",

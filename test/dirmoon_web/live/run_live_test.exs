@@ -11,7 +11,7 @@ defmodule DirmoonWeb.RunLiveTest do
   alias Dirmoon.Workers.ExpandPhrases
 
   test "the nine Steps show with their number, name, result and status", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
 
     steps =
       %{1 => :done, 2 => :done, 3 => :done, 4 => :done, 5 => :running, 6 => :skipped}
@@ -35,7 +35,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "a queued Step shows as waiting", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     statuses = 1..7 |> Map.new(&{&1, :done}) |> Map.put(8, :queued)
     run = insert(:run, account: scope.account, status: :running, steps: build_run_steps(statuses))
 
@@ -45,7 +45,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "a Step that finishes while the screen is open updates its row without a reload", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :running}))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
@@ -57,7 +57,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "progress of Step 5 shows how many Phrases are checked and a progress bar", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
@@ -68,7 +68,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "the latest checked Phrases show who holds the top 10, coloured by verdict", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
@@ -83,11 +83,11 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "only the eight latest checked Phrases are listed, newest first", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    phrases = Enum.map(1..10, fn _number -> insert(:phrase, phrase: unique_phrase_text("łódź motorowa")) end)
+    phrases = Enum.map(1..10, fn _number -> insert(:phrase, phrase: unique_phrase_text("łódź motorowa") <> " rejs") end)
 
     phrases
     |> Enum.with_index(1)
@@ -104,7 +104,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "phrases checked again after a resume each keep their own row", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
     before_stop = insert(:phrase, phrase: unique_phrase_text("czarter jachtu"))
@@ -118,7 +118,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "a phrase checked twice is listed once, at the top", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
     repeated = insert(:phrase, phrase: unique_phrase_text("czarter jachtu"))
@@ -139,7 +139,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "the running Step 5 row counts the checked phrases as they come", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
@@ -152,7 +152,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "the status row shows the sentence built from the run's state", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
@@ -165,7 +165,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "the API Cost shows what the run's recorded requests cost so far", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :running}))
     insert(:api_request, run: run, cost: Decimal.new("0.075"))
     insert(:api_request, run: run, cost: Decimal.new("0.0025"))
@@ -177,7 +177,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "a run with no recorded requests costs zero dollars", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :running}))
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
@@ -186,7 +186,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "clicking stop stops the run and offers to resume it", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :done, 2 => :running}))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
@@ -198,7 +198,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "clicking resume on a stopped run runs it again from the Step it stopped at", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :done, 2 => :running}))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
     view |> element("#stop-run") |> render_click()
@@ -212,7 +212,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "when Step 7 finishes while the screen is open the User is taken to the results", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     statuses = 1..6 |> Map.new(&{&1, :done}) |> Map.put(7, :running)
     run = insert(:run, account: scope.account, steps: build_run_steps(statuses))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
@@ -225,20 +225,20 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "opening a run that already awaits a choice shows a way to the results instead of redirecting", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     statuses = Map.new(1..7, &{&1, :done})
     run = insert(:run, account: scope.account, status: :awaiting_choice, steps: build_run_steps(statuses))
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
     assert has_element?(view, "#run-detail #see-results[href='/app/runs/#{run.id}/results']", "Zobacz wyniki")
-    assert has_element?(view, "#run-headline", "Wybierz niszę.")
+    assert has_element?(view, "#run-status-line", "Nisze ocenione. Wybierz jedną, a napiszę dla niej stronę.")
     refute has_element?(view, "#stop-run")
     refute has_element?(view, "#resume-run")
   end
 
   test "a failed Step shows an error with its reason and the run offers to resume", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
 
     steps =
       %{1 => :done, 2 => :failed}
@@ -252,11 +252,11 @@ defmodule DirmoonWeb.RunLiveTest do
     assert has_element?(view, "#step-2-status", "Błąd")
     assert has_element?(view, "#step-2-error", "Brak danych logowania DataForSEO")
     assert has_element?(view, "#resume-run", "Wznów")
-    assert has_element?(view, "#run-headline", "Research przerwany błędem.")
+    assert has_element?(view, "#run-status-line", "Krok 2 się nie udał: Brak danych logowania DataForSEO.")
   end
 
   test "the phrases so far link to the run's results", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
@@ -264,8 +264,8 @@ defmodule DirmoonWeb.RunLiveTest do
     assert has_element?(view, "#show-phrases[href='/app/runs/#{run.id}/results']", "Pokaż dotychczasowe frazy")
   end
 
-  test "the hero names the run's description, country and city", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+  test "the top bar names the run's description, country and city, with no hero on the screen", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
 
     run =
       insert(:run,
@@ -277,13 +277,17 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#run-context", "Wypożyczalnia rowerów cargo · Polska · Toruń")
-    assert has_element?(view, "#run-headline", "Research w toku.")
-    assert has_element?(view, "#run-panel [data-part=context]", "dirmoon / Wypożyczalnia rowerów cargo")
+    assert has_element?(view, "#app-context", "/ Wypożyczalnia rowerów cargo · Polska · Toruń")
+    assert has_element?(view, "#app-note", "Nowy pomysł")
+    assert has_element?(view, "#app-nav #nav-runs[aria-current=page]")
+    assert has_element?(view, "#app-main #run #run-steps")
+    assert has_element?(view, "#app-main #run #run-detail")
+    refute has_element?(view, "#run-headline")
+    refute has_element?(view, "#run-panel")
   end
 
   test "a run in another Account is not found and nothing of it is shown", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, steps: build_run_steps(%{1 => :running}))
 
     assert {:error, {:live_redirect, %{to: "/app/runs", flash: flash}}} = live(conn, ~p"/app/runs/#{run}")
@@ -291,7 +295,7 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "a malformed run id is not found", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     assert {:error, {:live_redirect, %{to: "/app/runs", flash: flash}}} = live(conn, "/app/runs/nie-ma-takiego")
     assert flash["error"] == "Nie znaleziono researchu"
@@ -304,14 +308,132 @@ defmodule DirmoonWeb.RunLiveTest do
   end
 
   test "a run stopped elsewhere shows as stopped after the update arrives", %{conn: conn} do
-    %{conn: conn, scope: scope} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :done, 2 => :running}))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
     {:ok, %Run{}} = Research.stop_run(scope, run.id)
 
     assert has_element?(view, "#run-status-line", "Zatrzymałem research na kroku 2. Możesz go wznowić.")
-    assert has_element?(view, "#run-headline", "Research zatrzymany.")
+  end
+
+  test "progress of a Step other than Step 5 changes nothing on the screen", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, steps: build_run_steps(running_step(3)))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+
+    Research.broadcast_progress(run, progress(insert(:phrase), %{step: 3, checked: 2, total: 9}))
+
+    assert has_element?(view, "#run-status-line", "Sprawdzam wolumeny i CPC dla każdej frazy.")
+    refute has_element?(view, "#run-progress")
+  end
+
+  test "progress of Step 5 with nothing to check shows an empty progress bar", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+
+    Research.broadcast_progress(run, progress(insert(:phrase), %{checked: 0, total: 0}))
+
+    assert has_element?(view, "#run-progress[aria-valuemax='0'] > div[style='width: 0%']")
+  end
+
+  test "a running run with no Step at work says it is working on the research", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, steps: build_run_steps(Map.new(1..7, &{&1, :done})))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+
+    assert has_element?(view, "#run-detail", "Pracuję nad researchem")
+  end
+
+  test "a published run offers to open the published page", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+
+    steps =
+      1..9
+      |> Map.new(&{&1, :done})
+      |> build_run_steps()
+      |> Enum.map(&put_output(&1, 9, %{"url" => "https://strona-testowa.netlify.app"}))
+
+    run = insert(:run, account: scope.account, status: :done, steps: steps)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+
+    assert has_element?(view, "#run-status-line", "Strona opublikowana.")
+    assert has_element?(view, "#run-detail", "Strona opublikowana.")
+    assert has_element?(view, "#open-published-page[href='https://strona-testowa.netlify.app']", "Otwórz stronę")
+    assert has_element?(view, "#run-detail #see-results[href='/app/runs/#{run.id}/results']")
+  end
+
+  test "a done run whose Step 9 stored no url offers only the results", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, status: :done, steps: build_run_steps(Map.new(1..9, &{&1, :done})))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+
+    assert has_element?(view, "#run-detail #see-results")
+    refute has_element?(view, "#open-published-page")
+  end
+
+  test "a run stopped after its last chained Step offers to finish the research", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, status: :stopped, steps: build_run_steps(Map.new(1..7, &{&1, :done})))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+
+    assert has_element?(view, "#run-detail", "Wznów, a dokończę research.")
+    assert has_element?(view, "#resume-run")
+  end
+
+  test "clicking stop on a run that stopped meanwhile shows why and offers to resume", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :done, 2 => :running}))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+    set_status_quietly(run, :stopped)
+
+    view |> element("#stop-run") |> render_click()
+
+    assert has_element?(view, "#flash-error", "Research już nie trwa.")
+    assert has_element?(view, "#resume-run")
+  end
+
+  test "clicking resume on a run that is running again meanwhile shows why and offers to stop", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+
+    run =
+      insert(:run, account: scope.account, status: :stopped, steps: build_run_steps(%{1 => :done, 2 => :waiting}))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+    set_status_quietly(run, :running)
+
+    view |> element("#resume-run") |> render_click()
+
+    assert has_element?(view, "#flash-error", "Tego researchu nie da się teraz wznowić.")
+    assert has_element?(view, "#stop-run")
+    refute_enqueued(worker: ExpandPhrases)
+  end
+
+  test "clicking stop on a run deleted meanwhile goes back to the runs with a not-found error", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :running}))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+    Repo.delete!(run)
+
+    view |> element("#stop-run") |> render_click()
+
+    assert {"/app/runs", %{"error" => "Nie znaleziono researchu"}} = assert_redirect(view)
+  end
+
+  test "an update for a run deleted meanwhile goes back to the runs with a not-found error", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :running}))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+    Repo.delete!(run)
+
+    Research.broadcast_run_updated(run)
+
+    assert {"/app/runs", %{"error" => "Nie znaleziono researchu"}} = assert_redirect(view)
   end
 
   defp running_step(number) do
@@ -347,4 +469,11 @@ defmodule DirmoonWeb.RunLiveTest do
 
   defp put_error(%RunStep{number: number} = step, number, error), do: %{step | error: error}
   defp put_error(step, _number, _error), do: step
+
+  defp put_output(%RunStep{number: number} = step, number, output), do: %{step | output: output}
+  defp put_output(step, _number, _output), do: step
+
+  defp set_status_quietly(run, status) do
+    run |> Ecto.Changeset.change(status: status) |> Repo.update!()
+  end
 end

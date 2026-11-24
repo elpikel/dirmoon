@@ -12,6 +12,7 @@ defmodule Dirmoon.Research.RunStep do
   import Ecto.Changeset
   import Ecto.Query
 
+  alias Dirmoon.JsonSafe
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.Steps
 
@@ -59,7 +60,7 @@ defmodule Dirmoon.Research.RunStep do
     change(step,
       status: status,
       result: outcome.result,
-      output: Map.get(outcome, :output),
+      output: outcome |> Map.get(:output) |> JsonSafe.encode(),
       error: nil,
       finished_at: DateTime.utc_now(:second)
     )

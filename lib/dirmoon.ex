@@ -12,4 +12,10 @@ defmodule Dirmoon do
   "DANE TESTOWE" banner. Set by `config :dirmoon, :demo_data`.
   """
   def demo_data?, do: Application.get_env(:dirmoon, :demo_data, false)
+
+  @doc """
+  The prefix that marks Demo Data text as synthetic. It is lower case in
+  parentheses, so it is never mistaken for a Placeholder.
+  """
+  def demo_marker, do: "(demo)"
 end

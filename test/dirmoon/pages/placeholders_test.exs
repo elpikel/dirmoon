@@ -186,7 +186,7 @@ defmodule Dirmoon.Pages.PlaceholdersTest do
       closing_prompt: "Wpadnij na ul. Długa 5/7",
       short_answer: "Krótko: 600-100-200",
       nav_links: ["Cennik od 80 zł", "Kontakt"],
-      facts: [%Brief.Fact{label: "Cena 80 zł", value: "80 zł"}],
+      fact_tiles: [%Brief.FactTile{label: "Cena 80 zł", value: "80 zł"}],
       sections: [%Brief.Section{question: "Ile kosztuje usługa, 80 zł?", answer: "Koszt 1 200,50 PLN."}]
     }
 
@@ -200,7 +200,7 @@ defmodule Dirmoon.Pages.PlaceholdersTest do
              closing_prompt: "Wpadnij na [ADRES]",
              short_answer: "Krótko: [TELEFON]",
              nav_links: ["Cennik od [CENA]", "Kontakt"],
-             facts: [%Brief.Fact{label: "Cena [CENA]", value: "[CENA]"}],
+             fact_tiles: [%Brief.FactTile{label: "Cena [CENA]", value: "[CENA]"}],
              sections: [%Brief.Section{question: "Ile kosztuje usługa, [CENA]?", answer: "Koszt [CENA]."}]
            } = Placeholders.scrub_brief(brief, [])
   end
@@ -223,7 +223,7 @@ defmodule Dirmoon.Pages.PlaceholdersTest do
     params = %{
       "intro" => "Dzwoń 600 100 200 albo +48 500 000 001.",
       "nav_links" => ["Tel. 600 100 200"],
-      "facts" => [%{"label" => "Telefon", "value" => "600 100 200"}],
+      "fact_tiles" => [%{"label" => "Telefon", "value" => "600 100 200"}],
       "sections" => [%{"question" => "Czy 80 zł to dużo?", "answer" => "Pisz: biuro@firma.example"}],
       "slug" => "strona-testowa"
     }
@@ -231,10 +231,35 @@ defmodule Dirmoon.Pages.PlaceholdersTest do
     assert %{
              "intro" => "Dzwoń [TELEFON] albo +48 500 000 001.",
              "nav_links" => ["Tel. [TELEFON]"],
-             "facts" => [%{"label" => "Telefon", "value" => "[TELEFON]"}],
+             "fact_tiles" => [%{"label" => "Telefon", "value" => "[TELEFON]"}],
              "sections" => [%{"question" => "Czy [CENA] to dużo?", "answer" => "Pisz: [E-MAIL]"}],
              "slug" => "strona-testowa"
            } = Placeholders.scrub_brief(params, ["+48 500 000 001"])
+  end
+
+  test "atom-keyed Brief params have their free-text fields scrubbed and keep their keys" do
+    params = %{
+      intro: "Dzwoń 600 100 200.",
+      nav_links: ["Tel. 600 100 200"],
+      sections: [%{question: "Czy 80 zł to dużo?", answer: "Tak."}]
+    }
+
+    assert Placeholders.scrub_brief(params, []) == %{
+             intro: "Dzwoń [TELEFON].",
+             nav_links: ["Tel. [TELEFON]"],
+             sections: [%{question: "Czy [CENA] to dużo?", answer: "Tak."}]
+           }
+  end
+
+  test "nav links that are not text are left as they are" do
+    params = %{"nav_links" => [nil, "Tel. 600 100 200"]}
+
+    assert Placeholders.scrub_brief(params, []) == %{"nav_links" => [nil, "Tel. [TELEFON]"]}
+  end
+
+  test "an allowed value given as a number is compared as its text" do
+    assert Placeholders.scrub("Dzwoń 600 100 200 albo 600 100 300.", [600_100_200]) ==
+             "Dzwoń 600 100 200 albo [TELEFON]."
   end
 
   test "upper-case złoty forms are prices but words that only start with zł are not" do
@@ -283,14 +308,14 @@ defmodule Dirmoon.Pages.PlaceholdersTest do
     assert %Brief{phone: ^phone, intro: "Dzwoń [TELEFON]."} = scrubbed
   end
 
-  test "facts and sections given as form index maps are scrubbed and keep their shape" do
+  test "Fact Tiles and sections given as form index maps are scrubbed and keep their shape" do
     params = %{
-      "facts" => %{"0" => %{"label" => "Cena", "value" => "80 zł"}},
+      "fact_tiles" => %{"0" => %{"label" => "Cena", "value" => "80 zł"}},
       "sections" => %{"0" => %{"question" => "Czy 80 zł to dużo?", "answer" => "Dzwoń 600 100 200."}}
     }
 
     assert Placeholders.scrub_brief(params, []) == %{
-             "facts" => %{"0" => %{"label" => "Cena", "value" => "[CENA]"}},
+             "fact_tiles" => %{"0" => %{"label" => "Cena", "value" => "[CENA]"}},
              "sections" => %{"0" => %{"question" => "Czy [CENA] to dużo?", "answer" => "Dzwoń [TELEFON]."}}
            }
   end

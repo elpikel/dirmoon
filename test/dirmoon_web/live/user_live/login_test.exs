@@ -19,7 +19,7 @@ defmodule DirmoonWeb.UserLive.LoginTest do
     assert has_element?(view, "#sign-up-link[href='/#sign-up-form-hero']")
   end
 
-  test "a registered email gets a sign-in link", %{conn: conn} do
+  test "an email that already has a User gets a sign-in link", %{conn: conn} do
     user = insert(:user)
     {:ok, view, _html} = live(conn, ~p"/users/log-in")
 
@@ -48,7 +48,7 @@ defmodule DirmoonWeb.UserLive.LoginTest do
   end
 
   test "a signed-in user sees the re-authentication note with their email filled in", %{conn: conn} do
-    %{conn: conn, user: user} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, user: user} = sign_up_and_log_in_user(%{conn: conn})
 
     {:ok, view, _html} = live(conn, ~p"/users/log-in")
 
@@ -57,7 +57,7 @@ defmodule DirmoonWeb.UserLive.LoginTest do
     assert has_element?(view, ~s(#login-form input[name="user[email]"][value="#{user.email}"][readonly]))
   end
 
-  test "there is no registration page", %{conn: conn} do
+  test "there is no separate sign-up page under /users", %{conn: conn} do
     conn = get(conn, "/users/register")
 
     assert html_response(conn, 404)

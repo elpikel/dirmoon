@@ -33,6 +33,20 @@ defmodule Dirmoon.Workers.ScoreNichesTest do
     assert %{"niches" => 2, "worth" => 1, "weights" => %{"volume" => 0.4, "cpc" => 0.3, "weakness" => 0.3}} = output
   end
 
+  test "score components and the step output from decimal cpcs are stored as plain JSON numbers" do
+    run = insert(:run, steps: build_run_steps(done_through(6)))
+    niche = insert(:niche, run: run)
+    phrase_in_niche(run, niche, %{volume: 40, cpc: "0.66"})
+
+    assert :ok = perform_job(ScoreNiches, %{run_id: run.id})
+
+    assert [%{"volume" => 1.0, "cpc" => 1.0, "weakness" => 0.5}] =
+             stored_json(%{table: "clusters", column: "score_components", where: "id = $1", value: niche.id})
+
+    assert [%{"niches" => 1, "weights" => %{"volume" => 0.4, "cpc" => 0.3, "weakness" => 0.3}}] =
+             stored_json(%{table: "run_steps", column: "output", where: "run_id = $1 AND number = 7", value: run.id})
+  end
+
   test "rejected phrases and rejected niches are left out of the scoring" do
     run = insert(:run, steps: build_run_steps(done_through(6)))
     leader = insert(:niche, run: run)
@@ -104,7 +118,7 @@ defmodule Dirmoon.Workers.ScoreNichesTest do
   defp phrase_in_niche(run, niche, metrics) do
     phrase = insert(:phrase, phrase: unique_phrase_text("fraza do oceny"))
 
-    insert(:volume,
+    insert(:metrics,
       phrase: phrase,
       location_code: run.location_code,
       search_volume: metrics.volume,

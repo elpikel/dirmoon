@@ -138,6 +138,20 @@ defmodule DirmoonWeb.UserAuth do
     end
   end
 
+  @doc """
+  Plug for the signed-out pages (landing, sign-up): sends a signed-in user to
+  the app instead.
+  """
+  def redirect_if_user_is_authenticated(conn, _opts) do
+    if signed_in?(conn.assigns.current_scope) do
+      conn
+      |> redirect(to: ~p"/app")
+      |> halt()
+    else
+      conn
+    end
+  end
+
   defp signed_in?(%Scope{user: %User{}}), do: true
   defp signed_in?(_scope), do: false
 

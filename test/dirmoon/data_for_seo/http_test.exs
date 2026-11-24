@@ -8,11 +8,11 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
   @login "test-dataforseo-login"
   @password "test-dataforseo-password"
 
-  test "keyword ideas return the phrases with volume, cpc in USD, monthly trend, the raw response and the cost" do
+  test "phrase ideas return the phrases with volume, cpc in USD, monthly trend, the raw response and the cost" do
     stub_json(keywords_for_keywords_body())
 
     assert {:ok, %{rows: rows, raw: raw, cost: cost}} =
-             HTTP.keyword_ideas(%{seeds: ["buty do biegania"], location_code: 2616, language_code: "pl"})
+             HTTP.phrase_ideas(%{seeds: ["buty do biegania"], location_code: 2616, language_code: "pl"})
 
     assert [first, second] = rows
     assert first.phrase == "buty do biegania"
@@ -20,7 +20,7 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
     assert Decimal.equal?(first.cpc, Decimal.new("0.38"))
     assert first.currency == "USD"
 
-    assert first.monthly_searches == [
+    assert first.trend == [
              %{year: 2026, month: 10, search_volume: 22_200},
              %{year: 2026, month: 9, search_volume: 27_100}
            ]
@@ -30,17 +30,17 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
              search_volume: nil,
              cpc: nil,
              currency: "USD",
-             monthly_searches: []
+             trend: []
            }
 
     assert raw == keywords_for_keywords_body()
     assert Decimal.equal?(cost, Decimal.new("0.09"))
   end
 
-  test "keyword ideas post one task with the seeds, location and language to the keywords for keywords endpoint" do
+  test "phrase ideas post one task with the seeds, location and language to the keywords for keywords endpoint" do
     stub_json(keywords_for_keywords_body())
 
-    HTTP.keyword_ideas(%{seeds: ["buty do biegania", "buty trailowe"], location_code: 2616, language_code: "pl"})
+    HTTP.phrase_ideas(%{seeds: ["buty do biegania", "buty trailowe"], location_code: 2616, language_code: "pl"})
 
     assert_received {:request, %{method: "POST", path: path, body: body}}
     assert path == "/v3/keywords_data/google_ads/keywords_for_keywords/live"
@@ -50,12 +50,12 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
            ]
   end
 
-  test "keyword ideas for more than twenty seeds fail without a request" do
+  test "phrase ideas for more than twenty seeds fail without a request" do
     stub_json(keywords_for_keywords_body())
     seeds = Enum.map(1..21, &"fraza #{&1}")
 
-    assert HTTP.keyword_ideas(%{seeds: seeds, location_code: 2616, language_code: "pl"}) ==
-             {:error, :too_many_keywords}
+    assert HTTP.phrase_ideas(%{seeds: seeds, location_code: 2616, language_code: "pl"}) ==
+             {:error, :too_many_phrases}
 
     refute_received {:request, _request}
   end
@@ -72,7 +72,7 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
     assert Decimal.equal?(kup.cpc, Decimal.new("7.95"))
     assert kup.currency == "USD"
 
-    assert kup.monthly_searches == [
+    assert kup.trend == [
              %{year: 2026, month: 10, search_volume: 2400},
              %{year: 2026, month: 9, search_volume: 2900}
            ]
@@ -101,7 +101,7 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
     phrases = Enum.map(1..1001, &"fraza #{&1}")
 
     assert HTTP.search_volumes(%{phrases: phrases, location_code: 2616, language_code: "pl"}) ==
-             {:error, :too_many_keywords}
+             {:error, :too_many_phrases}
 
     refute_received {:request, _request}
   end
@@ -193,7 +193,7 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
       402
     )
 
-    assert HTTP.keyword_ideas(%{seeds: ["hotel dla psów"], location_code: 2616, language_code: "pl"}) ==
+    assert HTTP.phrase_ideas(%{seeds: ["hotel dla psów"], location_code: 2616, language_code: "pl"}) ==
              {:error, "DataForSEO: Payment Required."}
   end
 
@@ -216,7 +216,7 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
       update_in(failed_task_body(%{status_code: 40_503, status_message: nil}), ["tasks"], &task_without_message/1)
     )
 
-    assert HTTP.keyword_ideas(%{seeds: ["hotel dla psów"], location_code: 2616, language_code: "pl"}) ==
+    assert HTTP.phrase_ideas(%{seeds: ["hotel dla psów"], location_code: 2616, language_code: "pl"}) ==
              {:error, "DataForSEO: status 40503"}
   end
 
@@ -236,6 +236,57 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
              HTTP.find_location(%{city: "Gdańsk", country_code: "PL"})
   end
 
+  test "a successful top-level status without any task is an error" do
+    stub_json(%{"status_code" => 20_000, "status_message" => "Ok.", "cost" => 0, "tasks" => []})
+
+    assert HTTP.serp_top10(%{phrase: "hotel dla psów", location_code: 2616, language_code: "pl"}) ==
+             {:error, "DataForSEO: response without a task"}
+  end
+
+  test "an answer that is not JSON returns its HTTP status" do
+    Req.Test.stub(HTTP, &Plug.Conn.send_resp(&1, 502, "Bad Gateway"))
+
+    assert HTTP.phrase_ideas(%{seeds: ["hotel dla psów"], location_code: 2616, language_code: "pl"}) ==
+             {:error, "DataForSEO: HTTP 502"}
+  end
+
+  test "a transport failure carries the transport reason" do
+    Req.Test.stub(HTTP, &Req.Test.transport_error(&1, :timeout))
+
+    assert HTTP.search_volumes(%{phrases: ["hotel dla psów"], location_code: 2616, language_code: "pl"}) ==
+             {:error, "DataForSEO: timeout"}
+  end
+
+  test "an answer without a cost costs nothing" do
+    stub_json(Map.delete(search_volume_body(), "cost"))
+
+    assert {:ok, %{cost: cost}} =
+             HTTP.search_volumes(%{phrases: ["kup laptop"], location_code: 2616, language_code: "pl"})
+
+    assert Decimal.equal?(cost, Decimal.new(0))
+  end
+
+  test "a cost given as a whole number or a numeric string is read as a decimal" do
+    stub_json(Map.put(search_volume_body(), "cost", 1))
+
+    assert {:ok, %{cost: integer_cost}} =
+             HTTP.search_volumes(%{phrases: ["kup laptop"], location_code: 2616, language_code: "pl"})
+
+    stub_json(Map.put(search_volume_body(), "cost", "0.0075"))
+
+    assert {:ok, %{cost: string_cost}} =
+             HTTP.search_volumes(%{phrases: ["kup laptop"], location_code: 2616, language_code: "pl"})
+
+    assert Decimal.equal?(integer_cost, Decimal.new(1))
+    assert Decimal.equal?(string_cost, Decimal.new("0.0075"))
+  end
+
+  test "a serp answer without an items list returns no rows" do
+    stub_json(Map.update!(serp_body(), "tasks", fn [task] -> [Map.put(task, "result", [%{"items" => nil}])] end))
+
+    assert {:ok, %{rows: []}} = HTTP.serp_top10(%{phrase: "hotel dla psów", location_code: 2616, language_code: "pl"})
+  end
+
   test "requests use HTTP Basic auth with the configured credentials" do
     stub_json(search_volume_body())
 
@@ -251,7 +302,7 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
     success_log =
       capture_log(fn ->
         assert {:ok, %{raw: raw}} =
-                 HTTP.keyword_ideas(%{seeds: ["buty do biegania"], location_code: 2616, language_code: "pl"})
+                 HTTP.phrase_ideas(%{seeds: ["buty do biegania"], location_code: 2616, language_code: "pl"})
 
         refute inspect(raw) =~ @password
         refute inspect(raw) =~ @login

@@ -42,7 +42,7 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     assert brief.phrases == [primary, other]
 
-    assert Enum.map(brief.facts, &{&1.label, &1.value}) == [
+    assert Enum.map(brief.fact_tiles, &{&1.label, &1.value}) == [
              {"Cena za dobę", "[CENA]"},
              {"Telefon", "[TELEFON]"},
              {"Obszar", "[OBSZAR]"}
@@ -52,6 +52,35 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     assert %RunStep{status: :done, result: "Brief gotowy: Hotel dla psa"} = step(run, 8)
     assert %Run{status: :awaiting_choice} = Repo.get!(Run, run.id)
+  end
+
+  test "the brief, the ledger answer and the step output are stored as plain JSON for phrases with decimal metrics" do
+    run = run_awaiting_choice()
+    niche = insert(:niche, run: run)
+    primary = phrase_in_niche(run, niche, "hotel dla psa")
+    phrase = Repo.get_by!(Dirmoon.Phrases.Phrase, phrase: primary)
+    insert(:metrics, phrase: phrase, location_code: run.location_code, cpc: Decimal.new("0.66"))
+    {:ok, page} = Niches.choose(scope_for(run.account), niche.id)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn %{task: :brief} ->
+      {:ok, brief_answer(%{"phrases" => [primary], "primary_phrase" => primary}), Decimal.new("0.01")}
+    end)
+
+    assert :ok = perform_job(WriteBrief, %{run_id: run.id})
+
+    assert [%{"h1" => "Hotel dla psa", "primary_phrase" => ^primary, "fact_tiles" => fact_tiles} = stored_brief] =
+             stored_json(%{table: "pages", column: "brief", where: "id = $1", value: page.id})
+
+    assert [%{"label" => "Cena za dobę", "value" => "[CENA]"}, _phone, _area] = fact_tiles
+    assert stored_brief |> json_leaves() |> Enum.all?(&(is_binary(&1) or is_nil(&1)))
+
+    assert [%{"h1" => "Hotel dla psa", "phrases" => [^primary]}] =
+             stored_json(%{table: "api_requests", column: "response", where: "run_id = $1", value: run.id})
+
+    page_id = page.id
+
+    assert [%{"page_id" => ^page_id}] =
+             stored_json(%{table: "run_steps", column: "output", where: "run_id = $1 AND number = 8", value: run.id})
   end
 
   test "the model is asked about the niche's phrases, the customer questions and the business" do
@@ -133,7 +162,7 @@ defmodule Dirmoon.Workers.WriteBriefTest do
        brief_answer(%{
          "phrases" => [phrase],
          "primary_phrase" => phrase,
-         "facts" => [
+         "fact_tiles" => [
            %{"label" => "Cena za dobę", "value" => "80 zł"},
            %{"label" => "Telefon", "value" => "[TELEFON]"},
            %{"label" => "Obszar", "value" => "[OBSZAR]"}
@@ -149,7 +178,7 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     :ok = perform_job(WriteBrief, %{run_id: run.id})
 
-    assert %Brief{facts: [price | _other_facts], sections: [section], phone: nil, email: nil, address: nil} =
+    assert %Brief{fact_tiles: [price | _other_facts], sections: [section], phone: nil, email: nil, address: nil} =
              Repo.get!(Page, page.id).brief
 
     assert price.value == "[CENA]"
@@ -163,7 +192,7 @@ defmodule Dirmoon.Workers.WriteBriefTest do
     {:ok, page} = Niches.choose(scope_for(run.account), niche.id)
 
     expect(Dirmoon.LLMMock, :structured, 2, fn _request ->
-      {:ok, brief_answer(%{"phrases" => [phrase], "facts" => [%{"label" => "Cena", "value" => "[CENA]"}]}),
+      {:ok, brief_answer(%{"phrases" => [phrase], "fact_tiles" => [%{"label" => "Cena", "value" => "[CENA]"}]}),
        Decimal.new("0.01")}
     end)
 
@@ -175,6 +204,38 @@ defmodule Dirmoon.Workers.WriteBriefTest do
            |> Repo.all() == []
 
     assert {:error, "Model zwrócił niepoprawny brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 2)
+    assert %Page{status: :writing, brief: nil} = Repo.get!(Page, page.id)
+  end
+
+  test "a model answer that is not an object is an invalid brief and is not recorded" do
+    run = run_awaiting_choice()
+    niche = insert(:niche, run: run)
+    phrase_in_niche(run, niche, "hotel dla psa")
+    {:ok, page} = Niches.choose(scope_for(run.account), niche.id)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn _request -> {:ok, ["nie obiekt"], Decimal.new("0.01")} end)
+
+    assert {:error, "Model zwrócił niepoprawny brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 1)
+
+    assert Repo.all_by(ApiRequest, run_id: run.id) == []
+    assert %Page{status: :writing, brief: nil} = Repo.get!(Page, page.id)
+  end
+
+  test "a recorded brief that no longer passes validation fails the attempt without asking the model again" do
+    run = run_awaiting_choice()
+    niche = insert(:niche, run: run)
+    phrase = phrase_in_niche(run, niche, "hotel dla psa")
+    {:ok, page} = Niches.choose(scope_for(run.account), niche.id)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn _request ->
+      {:ok, brief_answer(%{"phrases" => [phrase], "primary_phrase" => phrase}), Decimal.new("0.01")}
+    end)
+
+    :ok = perform_job(WriteBrief, %{run_id: run.id})
+    record_invalid_brief_and_write_again(run, page)
+
+    assert {:error, "Model zwrócił niepoprawny brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 1)
+
     assert %Page{status: :writing, brief: nil} = Repo.get!(Page, page.id)
   end
 
@@ -265,6 +326,17 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
   defp scope_for(account), do: Scope.for_user(build(:user), account)
 
+  defp record_invalid_brief_and_write_again(run, page) do
+    ApiRequest
+    |> from(as: :api_request)
+    |> where([api_request: api_request], api_request.run_id == ^run.id)
+    |> Repo.update_all(set: [response: %{"h1" => "Brief bez sekcji"}])
+
+    Page |> Repo.get!(page.id) |> Ecto.Changeset.change(status: :writing, brief: nil) |> Repo.update!()
+    Run |> Repo.get!(run.id) |> Ecto.Changeset.change(status: :running) |> Repo.update!()
+    run |> step(8) |> Ecto.Changeset.change(status: :queued) |> Repo.update!()
+  end
+
   defp run_awaiting_choice(attrs \\ %{}) do
     insert(
       :run,
@@ -295,7 +367,7 @@ defmodule Dirmoon.Workers.WriteBriefTest do
         "breadcrumb" => "Strona główna / Hotel dla psa",
         "intro" => "Pies zostaje pod opieką. Ty jedziesz spokojnie.",
         "cta_label" => "Zapytaj o termin",
-        "facts" => [
+        "fact_tiles" => [
           %{"label" => "Cena za dobę", "value" => "[CENA]"},
           %{"label" => "Telefon", "value" => "[TELEFON]"},
           %{"label" => "Obszar", "value" => "[OBSZAR]"}
@@ -313,6 +385,10 @@ defmodule Dirmoon.Workers.WriteBriefTest do
       overrides
     )
   end
+
+  defp json_leaves(map) when is_map(map), do: map |> Map.values() |> Enum.flat_map(&json_leaves/1)
+  defp json_leaves(list) when is_list(list), do: Enum.flat_map(list, &json_leaves/1)
+  defp json_leaves(leaf), do: [leaf]
 
   defp step(run, number), do: Repo.get_by!(RunStep, run_id: run.id, number: number)
 end

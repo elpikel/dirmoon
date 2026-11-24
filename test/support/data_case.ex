@@ -43,6 +43,20 @@ defmodule Dirmoon.DataCase do
   end
 
   @doc """
+  The JSON text Postgres holds in the jsonb `column` of each `table` row
+  matching `where` (an SQL condition on `$1`), decoded, in row order. Reading
+  the text, not the Ecto field, shows exactly what was written.
+
+      stored_json(%{table: "keyword_metrics", column: "raw", where: "keyword_id = $1", value: phrase.id})
+  """
+  def stored_json(%{table: table, column: column, where: where, value: value}) do
+    %Postgrex.Result{rows: rows} =
+      Dirmoon.Repo.query!("SELECT #{column}::text FROM #{table} WHERE #{where} ORDER BY id", [value])
+
+    Enum.map(rows, fn [json] -> Jason.decode!(json) end)
+  end
+
+  @doc """
   A helper that transforms changeset errors into a map of messages.
 
       assert {:error, changeset} = Accounts.create_user(%{password: "short"})

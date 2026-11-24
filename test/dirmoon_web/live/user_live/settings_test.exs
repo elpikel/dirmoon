@@ -8,14 +8,15 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
   alias Dirmoon.Accounts
 
   test "the settings page shows the email form inside the app layout", %{conn: conn} do
-    %{conn: conn, user: user} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, user: user} = sign_up_and_log_in_user(%{conn: conn})
 
     {:ok, view, _html} = live(conn, ~p"/users/settings")
 
-    assert has_element?(view, "[data-layout=app]")
+    assert has_element?(view, "[data-layout=app] #app-context", "/ ustawienia")
+    assert has_element?(view, "#app-status", "Tu zmienisz adres e-mail")
     assert has_element?(view, "#settings-title", "Ustawienia")
     assert has_element?(view, ~s(#email-form input[name="user[email]"][value="#{user.email}"]))
-    assert has_element?(view, "#email-submit[data-variant=dark]", "Zmień e-mail")
+    assert has_element?(view, "#email-submit[data-variant=lime]", "Zmień e-mail")
   end
 
   test "a signed-out visitor is redirected to sign-in", %{conn: conn} do
@@ -27,7 +28,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
 
   test "a user who signed in more than 10 minutes ago must sign in again", %{conn: conn} do
     eleven_minutes_ago = DateTime.shift(DateTime.utc_now(:second), minute: -11)
-    %{conn: conn} = register_and_log_in_user(%{conn: conn, token_authenticated_at: eleven_minutes_ago})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn, token_authenticated_at: eleven_minutes_ago})
 
     assert {:error, {:redirect, %{to: path, flash: flash}}} = live(conn, ~p"/users/settings")
 
@@ -36,7 +37,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
   end
 
   test "submitting a new email sends a confirmation link to it and keeps the old email for now", %{conn: conn} do
-    %{conn: conn, user: user} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, user: user} = sign_up_and_log_in_user(%{conn: conn})
     new_email = unique_user_email()
     {:ok, view, _html} = live(conn, ~p"/users/settings")
 
@@ -48,7 +49,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
   end
 
   test "an invalid email shows an error while typing", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     {:ok, view, _html} = live(conn, ~p"/users/settings")
 
     view |> element("#email-form") |> render_change(%{"user" => %{"email" => "with spaces"}})
@@ -57,7 +58,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
   end
 
   test "submitting the same email shows an error", %{conn: conn} do
-    %{conn: conn, user: user} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, user: user} = sign_up_and_log_in_user(%{conn: conn})
     {:ok, view, _html} = live(conn, ~p"/users/settings")
 
     view |> form("#email-form", %{"user" => %{"email" => user.email}}) |> render_submit()
@@ -66,8 +67,8 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
     assert_no_email_sent()
   end
 
-  test "submitting an email another user registered shows the same confirmation message and no error", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+  test "submitting an email another user already has shows the same confirmation message and no error", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     other_user = insert(:user)
     {:ok, view, _html} = live(conn, ~p"/users/settings")
 
@@ -78,7 +79,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
   end
 
   test "a blank email shows the Polish required-field error while typing", %{conn: conn} do
-    %{conn: conn} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     {:ok, view, _html} = live(conn, ~p"/users/settings")
 
     view |> element("#email-form") |> render_change(%{"user" => %{"email" => ""}})
@@ -87,8 +88,8 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
     refute has_element?(view, "#email-form", "can't be blank")
   end
 
-  test "an email-change link for an address registered in the meantime changes nothing", %{conn: conn} do
-    %{conn: conn, user: user} = register_and_log_in_user(%{conn: conn})
+  test "an email-change link for an address another user took in the meantime changes nothing", %{conn: conn} do
+    %{conn: conn, user: user} = sign_up_and_log_in_user(%{conn: conn})
     new_email = unique_user_email()
 
     token =
@@ -106,7 +107,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
   end
 
   test "an email-change link changes the email once", %{conn: conn} do
-    %{conn: conn, user: user} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, user: user} = sign_up_and_log_in_user(%{conn: conn})
     new_email = unique_user_email()
 
     token =
@@ -125,7 +126,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
   end
 
   test "an invalid email-change link keeps the email", %{conn: conn} do
-    %{conn: conn, user: user} = register_and_log_in_user(%{conn: conn})
+    %{conn: conn, user: user} = sign_up_and_log_in_user(%{conn: conn})
 
     assert {:error, {:live_redirect, %{to: path, flash: flash}}} = live(conn, ~p"/users/settings/confirm-email/oops")
 

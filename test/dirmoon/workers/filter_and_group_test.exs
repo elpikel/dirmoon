@@ -282,6 +282,47 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     assert system =~ "identyfikator"
   end
 
+  test "the prompt of an existing site names its domain" do
+    run = insert(:run, mode: :existing_site, domain: "hotel-testowy.example", steps: build_run_steps())
+    kept = phrase_in_run(run, "hotel dla psów", 300)
+    test_process = self()
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn request ->
+      send(test_process, {:llm_request, request})
+      answer(%{"niches" => [niche_answer("Hotel dla psa", [kept.id])], "rejected" => []})
+    end)
+
+    :ok = perform_job(FilterAndGroup, %{run_id: run.id})
+
+    assert_received {:llm_request, %{prompt: prompt}}
+    assert prompt =~ "Tryb: istniejąca strona, domena: hotel-testowy.example."
+  end
+
+  test "a niche name or rejection reason that is not text counts as missing" do
+    run = insert(:run, steps: build_run_steps())
+    kept = phrase_in_run(run, "hotel dla psów", 300)
+    numbered = phrase_in_run(run, "hotel dla kotów", 200)
+    dropped = phrase_in_run(run, "hotel w górach", 100)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn _request ->
+      answer(%{
+        "niches" => [
+          niche_answer("Hotel dla psa", [kept.id]),
+          %{"name" => 42, "intent" => 7, "reading" => nil, "phrase_ids" => [numbered.id]}
+        ],
+        "rejected" => [%{"phrase_id" => dropped.id, "reason" => ["poza ofertą"]}]
+      })
+    end)
+
+    :ok = perform_job(FilterAndGroup, %{run_id: run.id})
+
+    assert [%Niche{name: "Hotel dla psa"}] =
+             Niche |> from(as: :niche) |> where([niche: niche], niche.run_id == ^run.id) |> Repo.all()
+
+    assert %RunPhrase{status: :rejected, rejection_reason: "pominięta przez model"} = Repo.get!(RunPhrase, numbered.id)
+    assert %RunPhrase{status: :rejected, rejection_reason: "odrzucona przez model"} = Repo.get!(RunPhrase, dropped.id)
+  end
+
   test "the competition step is enqueued after the phrases are grouped" do
     run = insert(:run, steps: build_run_steps(%{1 => :done, 2 => :done, 3 => :done}))
     kept = phrase_in_run(run, "hotel dla psów", 300)
@@ -370,7 +411,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
 
   defp phrase_in_run(run, text, search_volume) do
     phrase = insert(:phrase, phrase: unique_phrase_text(text))
-    insert(:volume, phrase: phrase, location_code: run.location_code, search_volume: search_volume)
+    insert(:metrics, phrase: phrase, location_code: run.location_code, search_volume: search_volume)
     insert(:run_phrase, run: run, phrase: phrase)
   end
 
