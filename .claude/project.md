@@ -7,7 +7,7 @@ The kit's commands, agents and skills are generic Elixir/Phoenix. Everything spe
 | Setting | Value |
 |---|---|
 | Name | dirmoon: turns a business description into scored search niches, then writes a brief and a landing page for the chosen niche |
-| Stage | new (no domain code yet) |
+| Stage | ongoing |
 | OTP app | `:dirmoon` |
 | Context root | `lib/dirmoon/` (`Dirmoon.*`) |
 | Web root | `lib/dirmoon_web/` (`DirmoonWeb.*`) |
@@ -39,11 +39,11 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 |---|---|
 | Formatter | `mix format` with Styler (and `Phoenix.LiveView.HTMLFormatter`) |
 | Linter | `mix credo --strict`, with ex_slop checks |
-| Background jobs | none (Oban planned for the nine pipeline steps; workers go in `lib/dirmoon/workers/` once added) |
-| Test data | none yet |
-| External API mocks | none (the LLM, DataForSEO, Search Console and Pagedock clients will each need a seam once added) |
+| Background jobs | Oban, workers in `lib/dirmoon/workers/`, queue `pipeline`, `testing: :manual` in test |
+| Test data | ExMachina factory `Dirmoon.Factory` in `test/support/factory.ex`, `insert(:factory)` |
+| External API mocks | Mox: mocks defined in `test/test_helper.exs` (added with each client) |
 | API spec | none |
-| Web UI | controller-rendered `phx.new` home page at `/`; the four screens will be LiveView |
+| Web UI | LiveView app under `/app` (`Layouts.app/1`, `DirmoonWeb.UI` components); controller-rendered landing page at `/`; controllers for downloads, CSV export and the Search Console OAuth |
 
 ## Tests
 
@@ -54,7 +54,7 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 | Endpoint test file | `test/dirmoon_web/controllers/<controller>/<action>_test.exs`, module `DirmoonWeb.Controllers.<Controller>.<Action>Test` |
 | LiveView test file | `test/dirmoon_web/live/<live_view>_test.exs` |
 | Module test file | `test/dirmoon/…` mirroring `lib/dirmoon/…` |
-| Test-data rules | Never use the numbers from the reference designs (volumes, CPC, scores) as if they were real data |
+| Test-data rules | Every value that must be unique (user emails, Phrase texts, request hashes) comes from an ExMachina sequence in `Dirmoon.Factory` (`insert(:user)`, `params_for(:user)`, `unique_user_email/0`); never a hardcoded address or `System.unique_integer`. Shared market-data rows (`keywords`) get per-test texts unless the test asserts the exact text. Never use the numbers from the reference designs (volumes, CPC, scores) as if they were real data |
 | Known flaky | none |
 
 ## Web
@@ -62,20 +62,22 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 | Setting | Value |
 |---|---|
 | Router | `lib/dirmoon_web/router.ex` |
-| Path prefixes | `/` (browser), `/dev` (LiveDashboard and mailbox preview, dev only) |
-| Pipelines (reviewer checks placement) | `:browser` (session, CSRF, secure headers), `:api` (JSON, no auth; not mounted) |
+| Path prefixes | `/` (landing, sign-up), `/users/*` (sign-in, settings), `/app` (signed-in app), `/dev` (LiveDashboard and mailbox preview, dev only) |
+| Pipelines (reviewer checks placement) | `:browser` (session, CSRF, secure headers, current scope), `:require_authenticated_user` (signed-in User; every `/app` route and Settings), `:api` (JSON, no auth; not mounted). `live_session :app` mounts `UserAuth :require_authenticated`. |
 | API docs for clients | none (no external API clients) |
 
 ## Access rules (reviewer fails on any leak)
 
-None yet: no authentication. Version 1 has one user (the owner), so there are no accounts or tenancy; the app is to sit behind a single shared password or network-level protection, which isn't built yet.
-
-Rules the reviewer does enforce on the pipeline and the produced pages:
-
-- API keys and OAuth tokens (LLM, DataForSEO, Search Console, Pagedock) come from runtime config, and never reach a template, a log line or a stored raw response.
-- A produced page contains no invented price, phone number, address or factual claim; a missing value is a visible `[PLACEHOLDER]`.
+- Every Research Run, Niche, Page and Search Console Connection belongs to one Account (ADR-0001). A User sees and changes only their Scope's Account's data: context functions take the `Scope` and filter by `scope.account`.
+- `account_id` is never cast from params; it comes from the Scope.
+- Ids from params (run, niche, page) are resolved through the Scope; a foreign id is "not found" and changes nothing.
+- Sign-up never reveals whether an email is already registered.
+- Shared market data (`keywords`, `keyword_metrics`, `serp_snapshots`) never holds anything that identifies an Account or its business: no description, domain, run id or Search Console figure (ADR-0002). Per-run choices (kept/rejected, Niche, Page Type labels, current positions) live in per-run tables.
+- API keys, the Netlify token and Google OAuth tokens come from runtime config or encrypted columns, and never reach a template, a log line, a CSV or a stored raw response. Google refresh tokens are stored encrypted.
+- The Search Console OAuth callback accepts only a `state` issued to the same session.
+- A Produced Page contains no invented price, phone, address or e-mail; a missing value is a visible Placeholder.
 - Final Phrases come from the keyword API, never from the LLM.
-- A step that already has stored output doesn't call a paid API again.
+- A paid request a run already stored is never sent again for that run; fresh (< 30 days) Volumes and SERP Snapshots are reused across runs.
 
 ## Style overrides
 
