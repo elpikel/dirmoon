@@ -1,0 +1,468 @@
+defmodule Dirmoon.ResearchTest do
+  use Dirmoon.DataCase, async: true
+  use Oban.Testing, repo: Dirmoon.Repo
+
+  alias Dirmoon.Accounts.Scope
+  alias Dirmoon.Research
+  alias Dirmoon.Research.Run
+  alias Dirmoon.Research.RunStep
+  alias Dirmoon.Workers.ExpandPhrases
+  alias Dirmoon.Workers.FetchVolumes
+  alias Dirmoon.Workers.GenerateSeeds
+  alias Dirmoon.Workers.PublishPage
+  alias Dirmoon.Workers.WriteBrief
+
+  test "starting a run creates it in the user's Account with nine waiting Steps" do
+    scope = scope_for(insert(:account))
+
+    assert {:ok, run} = Research.start_run(scope, valid_run_attrs())
+
+    assert run.account_id == scope.account.id
+    assert run.status == :running
+    assert run |> Repo.preload(:steps) |> Map.fetch!(:steps) |> Enum.map(& &1.status) == List.duplicate(:waiting, 9)
+  end
+
+  test "starting a run enqueues Step 1" do
+    scope = scope_for(insert(:account))
+
+    {:ok, run} = Research.start_run(scope, valid_run_attrs())
+
+    assert_enqueued(worker: GenerateSeeds, args: %{run_id: run.id}, queue: :pipeline)
+  end
+
+  test "starting a run derives the language and keyword location from the country" do
+    scope = scope_for(insert(:account))
+
+    {:ok, run} = Research.start_run(scope, valid_run_attrs())
+
+    assert %Run{country_code: "PL", language_code: "pl", location_code: 2616} = run
+  end
+
+  test "a run without a description is rejected with an error on the description" do
+    scope = scope_for(insert(:account))
+
+    assert {:error, changeset} = Research.start_run(scope, %{valid_run_attrs() | "description" => "  "})
+
+    assert %{description: [_message]} = errors_on(changeset)
+    refute_enqueued(worker: GenerateSeeds)
+  end
+
+  test "an Existing Site run without a domain is rejected with an error on the domain" do
+    scope = scope_for(insert(:account))
+    attrs = Map.merge(valid_run_attrs(), %{"mode" => "existing_site", "domain" => ""})
+
+    assert {:error, changeset} = Research.start_run(scope, attrs)
+
+    assert %{domain: [_message]} = errors_on(changeset)
+  end
+
+  test "the domain of an Existing Site run is stored normalised" do
+    scope = scope_for(insert(:account))
+    attrs = Map.merge(valid_run_attrs(), %{"mode" => "existing_site", "domain" => "https://www.KKadwokat.pl/"})
+
+    {:ok, run} = Research.start_run(scope, attrs)
+
+    assert Repo.reload!(run).domain == "kkadwokat.pl"
+  end
+
+  test "a run with six Priority Services is rejected with an error on the Priority Services" do
+    scope = scope_for(insert(:account))
+    services = Enum.map(1..6, &"usługa #{&1}")
+
+    assert {:error, changeset} = Research.start_run(scope, %{valid_run_attrs() | "priority_services" => services})
+
+    assert %{priority_services: [_message]} = errors_on(changeset)
+  end
+
+  test "blank Priority Services are dropped" do
+    scope = scope_for(insert(:account))
+    services = ["rozwody", " ", "", "alimenty"]
+
+    {:ok, run} = Research.start_run(scope, %{valid_run_attrs() | "priority_services" => services})
+
+    assert run.priority_services == ["rozwody", "alimenty"]
+  end
+
+  test "stopping a running run cancels its pending jobs" do
+    scope = scope_for(insert(:account))
+    {:ok, run} = Research.start_run(scope, valid_run_attrs())
+
+    assert {:ok, _run} = Research.stop_run(scope, run.id)
+
+    refute_enqueued(worker: GenerateSeeds, args: %{run_id: run.id})
+  end
+
+  test "stopping a running run marks it stopped" do
+    scope = scope_for(insert(:account))
+    {:ok, run} = Research.start_run(scope, valid_run_attrs())
+
+    assert {:ok, %Run{status: :stopped}} = Research.stop_run(scope, run.id)
+    assert Repo.reload!(run).status == :stopped
+  end
+
+  test "stopping a run leaves other runs' jobs enqueued" do
+    scope = scope_for(insert(:account))
+    {:ok, run} = Research.start_run(scope, valid_run_attrs())
+    {:ok, other_run} = Research.start_run(scope, valid_run_attrs())
+
+    {:ok, _run} = Research.stop_run(scope, run.id)
+
+    assert_enqueued(worker: GenerateSeeds, args: %{run_id: other_run.id})
+  end
+
+  test "stopping and then resuming a run returns it with its Steps in order each time" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :running, steps: build_run_steps(%{1 => :done, 2 => :running}))
+
+    assert {:ok, %Run{status: :stopped, steps: stopped_steps}} = Research.stop_run(scope_for(account), run.id)
+    assert Enum.map(stopped_steps, & &1.number) == Enum.to_list(1..9)
+
+    assert {:ok, %Run{status: :running, steps: resumed_steps}} = Research.resume_run(scope_for(account), run.id)
+    assert Enum.map(resumed_steps, & &1.number) == Enum.to_list(1..9)
+    assert_enqueued(worker: ExpandPhrases, args: %{run_id: run.id})
+  end
+
+  test "a run that is already stopped can't be stopped again and stays stopped" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :stopped, steps: build_run_steps(%{1 => :done}))
+
+    assert {:error, :not_running} = Research.stop_run(scope_for(account), run.id)
+    assert Repo.reload!(run).status == :stopped
+  end
+
+  test "resuming a failed run enqueues the first Step that isn't done and doesn't rerun the done ones" do
+    account = insert(:account)
+    steps = build_run_steps(%{1 => :done, 2 => :done, 3 => :failed})
+    run = insert(:run, account: account, status: :failed, steps: steps)
+
+    assert {:ok, %Run{status: :running}} = Research.resume_run(scope_for(account), run.id)
+
+    assert_enqueued(worker: FetchVolumes, args: %{run_id: run.id})
+    refute_enqueued(worker: GenerateSeeds)
+    refute_enqueued(worker: ExpandPhrases)
+    assert step_statuses(run) == [:done, :done, :waiting, :waiting, :waiting, :waiting, :waiting, :waiting, :waiting]
+  end
+
+  test "resuming a stopped run enqueues the Step that was running" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :stopped, steps: build_run_steps(%{1 => :done, 2 => :running}))
+
+    assert {:ok, %Run{status: :running}} = Research.resume_run(scope_for(account), run.id)
+
+    assert_enqueued(worker: ExpandPhrases, args: %{run_id: run.id})
+    refute_enqueued(worker: GenerateSeeds)
+  end
+
+  test "resuming a run whose Step 8 failed doesn't retry it and awaits a choice" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :failed, steps: build_run_steps(Map.put(done_through(7), 8, :failed)))
+
+    assert {:ok, %Run{status: :awaiting_choice}} = Research.resume_run(scope_for(account), run.id)
+
+    assert all_enqueued() == []
+    assert %RunStep{status: :waiting, error: nil} = Repo.get_by!(RunStep, run_id: run.id, number: 8)
+  end
+
+  test "resuming a run whose Step 9 failed doesn't retry it and awaits a choice" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :failed, steps: build_run_steps(Map.put(done_through(8), 9, :failed)))
+
+    assert {:ok, %Run{status: :awaiting_choice}} = Research.resume_run(scope_for(account), run.id)
+
+    assert all_enqueued() == []
+    assert %RunStep{status: :waiting, error: nil} = Repo.get_by!(RunStep, run_id: run.id, number: 9)
+  end
+
+  test "resuming a run stopped while Step 8 was running enqueues the brief writer again" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :stopped, steps: build_run_steps(Map.put(done_through(7), 8, :running)))
+
+    assert {:ok, %Run{status: :running}} = Research.resume_run(scope_for(account), run.id)
+
+    assert_enqueued(worker: WriteBrief, args: %{run_id: run.id})
+    assert %RunStep{status: :queued, started_at: nil} = Repo.get_by!(RunStep, run_id: run.id, number: 8)
+  end
+
+  test "resuming a run stopped before its queued Step 8 started enqueues the brief writer" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :stopped, steps: build_run_steps(Map.put(done_through(7), 8, :queued)))
+
+    assert {:ok, %Run{status: :running}} = Research.resume_run(scope_for(account), run.id)
+
+    assert_enqueued(worker: WriteBrief, args: %{run_id: run.id})
+    refute_enqueued(worker: PublishPage)
+  end
+
+  test "resuming a run stopped before its queued Step 9 started enqueues the page publisher" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :stopped, steps: build_run_steps(Map.put(done_through(8), 9, :queued)))
+
+    assert {:ok, %Run{status: :running}} = Research.resume_run(scope_for(account), run.id)
+
+    assert_enqueued(worker: PublishPage, args: %{run_id: run.id})
+    assert Repo.get_by!(RunStep, run_id: run.id, number: 9).status == :queued
+  end
+
+  test "stopping a run keeps its queued Step queued" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :running, steps: build_run_steps(Map.put(done_through(8), 9, :queued)))
+
+    {:ok, _run} = Research.stop_run(scope_for(account), run.id)
+
+    assert Repo.get_by!(RunStep, run_id: run.id, number: 9).status == :queued
+  end
+
+  test "resuming a stopped run whose Steps 8 and 9 were never started enqueues nothing and awaits a choice" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :stopped, steps: build_run_steps(done_through(7)))
+
+    {:ok, _run} = Research.resume_run(scope_for(account), run.id)
+
+    assert all_enqueued() == []
+    assert Repo.reload!(run).status == :awaiting_choice
+  end
+
+  test "a run awaiting a choice can't be resumed" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :awaiting_choice, steps: build_run_steps(done_through(7)))
+
+    assert {:error, :not_resumable} = Research.resume_run(scope_for(account), run.id)
+    assert all_enqueued() == []
+  end
+
+  test "a running run can't be resumed" do
+    account = insert(:account)
+    run = insert(:run, account: account, status: :running, steps: build_run_steps(%{1 => :running}))
+
+    assert {:error, :not_resumable} = Research.resume_run(scope_for(account), run.id)
+    refute_enqueued(worker: GenerateSeeds)
+  end
+
+  test "a run's API Cost is the sum of its recorded request costs" do
+    run = insert(:run)
+    insert(:api_request, run: run, cost: Decimal.new("0.075"))
+    insert(:api_request, run: run, cost: Decimal.new("0.0025"))
+    insert(:api_request, cost: Decimal.new("9"))
+
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new("0.0775"))
+  end
+
+  test "a run with no recorded requests costs nothing" do
+    run = insert(:run)
+
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new(0))
+  end
+
+  test "the API Costs of several runs come back per run, zero for a run with no requests" do
+    costly_run = insert(:run)
+    cheap_run = insert(:run)
+    free_run = insert(:run)
+    insert(:api_request, run: costly_run, cost: Decimal.new("0.075"))
+    insert(:api_request, run: costly_run, cost: Decimal.new("0.0025"))
+    insert(:api_request, run: cheap_run, cost: Decimal.new("0.01"))
+    insert(:api_request, cost: Decimal.new("9"))
+
+    costs = Research.run_costs([costly_run, cheap_run, free_run])
+
+    assert costs |> Map.keys() |> Enum.sort() == Enum.sort([costly_run.id, cheap_run.id, free_run.id])
+    assert Decimal.equal?(costs[costly_run.id], Decimal.new("0.0775"))
+    assert Decimal.equal?(costs[cheap_run.id], Decimal.new("0.01"))
+    assert Decimal.equal?(costs[free_run.id], Decimal.new(0))
+  end
+
+  test "getting a run returns it with its Steps in order" do
+    account = insert(:account)
+    run = insert(:run, account: account, steps: build_run_steps(%{1 => :done}))
+
+    assert %Run{steps: steps} = Research.get_run(scope_for(account), run.id)
+    assert Enum.map(steps, & &1.number) == Enum.to_list(1..9)
+  end
+
+  test "a run in another Account is not found" do
+    run = insert(:run, steps: build_run_steps())
+
+    assert Research.get_run(scope_for(insert(:account)), run.id) == nil
+  end
+
+  test "a malformed run id is not found" do
+    assert Research.get_run(scope_for(insert(:account)), "not-an-id") == nil
+  end
+
+  test "stopping a run in another Account is not found and leaves it running" do
+    run = insert(:run, status: :running, steps: build_run_steps(%{1 => :running}))
+
+    assert {:error, :not_found} = Research.stop_run(scope_for(insert(:account)), run.id)
+    assert Repo.reload!(run).status == :running
+  end
+
+  test "resuming a run in another Account is not found and changes nothing" do
+    run = insert(:run, status: :failed, steps: build_run_steps(%{1 => :failed}))
+
+    assert {:error, :not_found} = Research.resume_run(scope_for(insert(:account)), run.id)
+    assert Repo.reload!(run).status == :failed
+    assert hd(step_statuses(run)) == :failed
+    refute_enqueued(worker: GenerateSeeds)
+  end
+
+  test "listing runs returns the Account's runs newest first" do
+    account = insert(:account)
+    older = insert(:run, account: account, inserted_at: ~U[2026-11-01 10:00:00Z])
+    newer = insert(:run, account: account, inserted_at: ~U[2026-11-20 10:00:00Z])
+    insert(:run)
+
+    assert account |> scope_for() |> Research.list_runs() |> Enum.map(& &1.id) == [newer.id, older.id]
+  end
+
+  test "subscribers to a run are told about progress" do
+    run = insert(:run)
+    :ok = Research.subscribe(run)
+
+    :ok = Research.broadcast_progress(run, %{checked: 3, total: 30})
+
+    assert_receive {:run_progress, run_id, %{checked: 3, total: 30}}
+    assert run_id == run.id
+  end
+
+  test "a running run is running" do
+    run = insert(:run, status: :running)
+
+    assert Research.running?(run)
+  end
+
+  test "a run stopped since it was loaded is not running" do
+    run = insert(:run, status: :running)
+
+    Run
+    |> from(as: :run)
+    |> where([run: stored_run], stored_run.id == ^run.id)
+    |> Repo.update_all(set: [status: :stopped])
+
+    refute Research.running?(run)
+  end
+
+  test "a step's stored output is read for the run" do
+    run = insert(:run, steps: build_run_steps(%{1 => :done}, %{1 => %{"seeds" => ["hotel dla psów"]}}))
+    insert(:run, steps: build_run_steps(%{1 => :done}, %{1 => %{"seeds" => ["cudza fraza"]}}))
+
+    assert {:ok, %{"seeds" => ["hotel dla psów"]}} = Research.step_output(run, 1)
+  end
+
+  test "a step without output has no output to read" do
+    run = insert(:run, steps: build_run_steps(%{1 => :done}, %{1 => %{"seeds" => ["hotel dla psów"]}}))
+
+    assert :error = Research.step_output(run, 2)
+  end
+
+  test "a resolved city location is stored on the run" do
+    run = insert(:run, city: "Gdańsk")
+
+    assert {:ok, %Run{city_location_code: 1_000_123}} = Research.put_city_location(run, 1_000_123)
+    assert %Run{city_location_code: 1_000_123} = Repo.get!(Run, run.id)
+  end
+
+  test "the city location can't be set from the run form" do
+    scope = scope_for(insert(:account))
+
+    {:ok, run} = Research.start_run(scope, Map.put(valid_run_attrs(), "city_location_code", "1000123"))
+
+    assert run.city_location_code == nil
+  end
+
+  test "locking a run inside a transaction returns that run as stored" do
+    run = insert(:run, status: :awaiting_choice)
+
+    assert {:ok, %Run{id: run_id, status: :awaiting_choice}} =
+             Repo.transact(fn -> {:ok, Research.lock_run!(run.id)} end)
+
+    assert run_id == run.id
+  end
+
+  test "locking a run that no longer exists raises" do
+    run = insert(:run)
+    Repo.delete!(run)
+
+    assert_raise Ecto.NoResultsError, fn ->
+      Repo.transact(fn -> {:ok, Research.lock_run!(run.id)} end)
+    end
+  end
+
+  test "a running run is not idle" do
+    run = insert(:run, status: :running, steps: build_run_steps(Map.put(done_through(7), 8, :running)))
+
+    refute Research.idle?(run)
+  end
+
+  test "a stopped run with a queued Step is not idle" do
+    run = insert(:run, status: :stopped, steps: build_run_steps(Map.put(done_through(7), 8, :queued)))
+
+    refute Research.idle?(run)
+  end
+
+  test "a stopped run whose Steps are all finished or waiting is idle" do
+    run = insert(:run, status: :stopped, steps: build_run_steps(%{1 => :done, 2 => :skipped}))
+
+    assert Research.idle?(run)
+  end
+
+  test "a run awaiting a choice is idle" do
+    run = insert(:run, status: :awaiting_choice, steps: build_run_steps(done_through(7)))
+
+    assert Research.idle?(run)
+  end
+
+  test "a done run is idle" do
+    run = insert(:run, status: :done, steps: build_run_steps(done_through(9)))
+
+    assert Research.idle?(run)
+  end
+
+  test "the estimated cost adds keyword ideas, one volumes request, the SERP checks and the LLM allowance" do
+    prices = Application.fetch_env!(:dirmoon, :cost_estimates)
+    serp_phrase_limit = Application.fetch_env!(:dirmoon, :serp_phrase_limit)
+
+    expected =
+      prices.keyword_ideas
+      |> Decimal.new()
+      |> Decimal.add(Decimal.new(prices.search_volumes))
+      |> Decimal.add(Decimal.mult(Decimal.new(prices.serp_top10), serp_phrase_limit))
+      |> Decimal.add(Decimal.new(prices.llm_allowance))
+
+    assert Decimal.equal?(Research.estimated_cost(%{city?: false}), expected)
+  end
+
+  test "a city adds one more volumes request to the estimated cost" do
+    prices = Application.fetch_env!(:dirmoon, :cost_estimates)
+
+    difference = Decimal.sub(Research.estimated_cost(%{city?: true}), Research.estimated_cost(%{city?: false}))
+
+    assert Decimal.equal?(difference, Decimal.new(prices.search_volumes))
+  end
+
+  defp scope_for(account) do
+    Scope.for_user(build(:user), account)
+  end
+
+  defp valid_run_attrs do
+    %{
+      "description" => "Kancelaria adwokacka w Gdańsku, prawo rodzinne i karne",
+      "mode" => "new_idea",
+      "country_code" => "PL",
+      "city" => "Gdańsk",
+      "domain" => "",
+      "priority_services" => ["rozwody", "obrona karna"]
+    }
+  end
+
+  defp done_through(last_number) do
+    Map.new(1..last_number, &{&1, :done})
+  end
+
+  defp step_statuses(run) do
+    RunStep
+    |> from(as: :run_step)
+    |> where([run_step: run_step], run_step.run_id == ^run.id)
+    |> order_by([run_step: run_step], asc: run_step.number)
+    |> select([run_step: run_step], run_step.status)
+    |> Repo.all()
+  end
+end
