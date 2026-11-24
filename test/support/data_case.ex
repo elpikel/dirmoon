@@ -20,6 +20,7 @@ defmodule Dirmoon.DataCase do
   using do
     quote do
       import Dirmoon.DataCase
+      import Dirmoon.Factory
       import Ecto
       import Ecto.Changeset
       import Ecto.Query

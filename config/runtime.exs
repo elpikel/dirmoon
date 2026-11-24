@@ -1,5 +1,9 @@
 import Config
 
+alias Dirmoon.DataForSEO.HTTP
+alias Dirmoon.Hosting.Netlify
+alias Dirmoon.SearchConsole.Client.Google
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -20,7 +24,28 @@ if System.get_env("PHX_SERVER") do
   config :dirmoon, DirmoonWeb.Endpoint, server: true
 end
 
+data_for_seo_login = System.get_env("DATAFORSEO_LOGIN")
+data_for_seo_password = System.get_env("DATAFORSEO_PASSWORD")
+google_client_id = System.get_env("GOOGLE_CLIENT_ID")
+google_client_secret = System.get_env("GOOGLE_CLIENT_SECRET")
+netlify_token = System.get_env("NETLIFY_TOKEN")
+
 config :dirmoon, DirmoonWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+
+if config_env() != :test and is_binary(data_for_seo_login) and is_binary(data_for_seo_password) do
+  config :dirmoon, HTTP, login: data_for_seo_login, password: data_for_seo_password
+  config :dirmoon, data_for_seo_adapter: HTTP
+end
+
+if config_env() != :test and is_binary(google_client_id) and is_binary(google_client_secret) do
+  config :dirmoon, Google, client_id: google_client_id, client_secret: google_client_secret
+  config :dirmoon, search_console_adapter: Google
+end
+
+if config_env() != :test and is_binary(netlify_token) and netlify_token != "" do
+  config :dirmoon, Netlify, token: netlify_token
+  config :dirmoon, hosting_adapter: Netlify
+end
 
 if config_env() == :dev do
   # Reload browser tabs when matching files change.

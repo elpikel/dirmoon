@@ -1,5 +1,9 @@
 import Config
 
+alias Dirmoon.DataForSEO.HTTP
+alias Dirmoon.Hosting.Netlify
+alias Dirmoon.SearchConsole.Client.Google
+
 # In test we don't send emails
 config :dirmoon, Dirmoon.Mailer, adapter: Swoosh.Adapters.Test
 
@@ -22,6 +26,30 @@ config :dirmoon, DirmoonWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "Q4g8AbduLqSSlbzbFV0/whHt+kA3lyPWxFBTXXEDex3APJ4Ts3PxsW7wBb9Kx479",
   server: false
+
+config :dirmoon, Google,
+  client_id: "test-google-client-id",
+  client_secret: "test-google-client-secret",
+  req_options: [plug: {Req.Test, Google}]
+
+config :dirmoon, HTTP,
+  login: "test-dataforseo-login",
+  password: "test-dataforseo-password",
+  req_options: [plug: {Req.Test, HTTP}]
+
+config :dirmoon, Netlify,
+  token: "test-netlify-token",
+  req_options: [plug: {Req.Test, Netlify}],
+  poll_interval_ms: 0,
+  poll_attempts: 3
+
+config :dirmoon, Oban, testing: :manual
+
+config :dirmoon,
+  llm_adapter: Dirmoon.LLMMock,
+  data_for_seo_adapter: Dirmoon.DataForSEOMock,
+  search_console_adapter: Dirmoon.SearchConsoleMock,
+  hosting_adapter: Dirmoon.HostingMock
 
 # Print only warnings and errors during test
 config :logger, level: :warning
