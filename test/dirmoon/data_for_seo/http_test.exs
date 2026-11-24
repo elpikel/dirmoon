@@ -153,6 +153,56 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
     assert Enum.map(rows, & &1.position) == Enum.to_list(1..10)
   end
 
+  test "a result behind a Google redirect link gets its site from the breadcrumb, then from the website name" do
+    redirect = "https://google.com/goto?url=CAESZQHEIkXX&gsessionid=4Sety"
+
+    stub_json(
+      serp_body_with_items([
+        Map.merge(organic_item(1), %{
+          "url" => redirect,
+          "domain" => "google.com",
+          "breadcrumb" => "https://www.lodowisko-testowe.example › place › gdansk",
+          "website_name" => "Lodowisko Testowe"
+        }),
+        Map.merge(organic_item(2), %{
+          "url" => redirect,
+          "domain" => "google.com",
+          "breadcrumb" => "http://sam-adres.example",
+          "website_name" => nil
+        }),
+        Map.merge(organic_item(3), %{
+          "url" => redirect,
+          "domain" => "google.com",
+          "breadcrumb" => "Strona główna › Łyżwy",
+          "website_name" => "tylko-nazwa.example"
+        }),
+        Map.merge(organic_item(4), %{
+          "url" => redirect,
+          "domain" => "google.com",
+          "breadcrumb" => nil,
+          "website_name" => nil
+        }),
+        Map.merge(organic_item(5), %{"url" => "https://support.google.com/maps", "domain" => "support.google.com"})
+      ])
+    )
+
+    assert {:ok, %{rows: rows}} = HTTP.serp_top10(%{phrase: "gdzie na łyżwy", location_code: 2616, language_code: "pl"})
+
+    assert Enum.map(rows, &{&1.position, &1.domain, &1.url}) == [
+             {1, "lodowisko-testowe.example", "https://www.lodowisko-testowe.example"},
+             {2, "sam-adres.example", "http://sam-adres.example"},
+             {3, "tylko-nazwa.example", redirect},
+             {4, "google.com", redirect},
+             {5, "support.google.com", "https://support.google.com/maps"}
+           ]
+  end
+
+  test "the rows of a stored serp response are parsed like a fresh one" do
+    assert [%{position: 1, domain: "www.example.pl"}, %{position: 2}] = HTTP.serp_rows_from_raw(serp_body())
+    assert HTTP.serp_rows_from_raw(%{"tasks" => [%{"result" => nil}]}) == []
+    assert HTTP.serp_rows_from_raw(%{"demo" => true}) == []
+  end
+
   test "the serp top 10 with no search results returns no rows" do
     stub_json(failed_task_body(%{status_code: 40_102, status_message: "No Search Results."}))
 

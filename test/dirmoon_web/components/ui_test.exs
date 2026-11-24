@@ -9,6 +9,21 @@ defmodule DirmoonWeb.UITest do
   @crescent_path "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
   @underline_path "M4 14 C 120 4, 240 22, 360 12 S 540 6, 596 12"
 
+  @app_surface_tokens %{
+    "--app-bg" => "#222326",
+    "--app-chrome" => "#1C1D1F",
+    "--app-raised" => "#2A2B2F",
+    "--app-selected" => "#323338",
+    "--app-field" => "#1E1F22",
+    "--app-line" => "#36373C",
+    "--app-line-strong" => "#4A4B51",
+    "--on-app" => "#ECECED",
+    "--on-app-2" => "#C2C3C7",
+    "--on-app-muted" => "#8D8F95"
+  }
+
+  @slate_utility ~r/[a-z]-(?:on-)?slate\b/
+
   test "the moon mark draws the crescent from the reference as one path" do
     assigns = %{}
 
@@ -147,7 +162,8 @@ defmodule DirmoonWeb.UITest do
     assert ["button"] = document |> LazyHTML.query("button#stop") |> LazyHTML.attribute("type")
     assert ["outline"] = document |> LazyHTML.query("#stop") |> LazyHTML.attribute("data-variant")
     assert has_class?(document, "#stop", "min-h-target-min")
-    assert has_class?(document, "#stop", "border-slate-line-strong")
+    assert has_class?(document, "#stop", "border-app-line-strong")
+    assert has_class?(document, "#stop", "text-on-app")
   end
 
   test "a button with a destination renders as a link" do
@@ -163,6 +179,17 @@ defmodule DirmoonWeb.UITest do
     assert has_class?(document, "#go", "bg-accent")
     assert has_class?(document, "#go", "text-ink")
     assert ["/elsewhere"] = document |> LazyHTML.query("a#out") |> LazyHTML.attribute("href")
+    assert has_class?(document, "#out", "text-on-app-muted")
+  end
+
+  test "the dark button is an ink fill for the light pages" do
+    assigns = %{}
+
+    document = parse(~H|<UI.button id="sign-in" variant="dark" type="submit">Zaloguj</UI.button>|)
+
+    assert ["submit"] = document |> LazyHTML.query("button#sign-in") |> LazyHTML.attribute("type")
+    assert has_class?(document, "#sign-in", "bg-ink")
+    assert has_class?(document, "#sign-in", "text-white")
   end
 
   test "chips are 36px pill buttons and the dashed variant has a dashed outline" do
@@ -174,17 +201,18 @@ defmodule DirmoonWeb.UITest do
     assert has_class?(document, "#domain", "min-h-9")
     assert has_class?(document, "#domain", "rounded-pill")
     assert has_class?(document, "#domain", "border-dashed")
-    assert has_class?(document, "#domain", "border-line-dashed")
+    assert has_class?(document, "#domain", "border-app-line-strong")
+    assert has_class?(document, "#domain", "text-on-app-2")
   end
 
-  test "the slate chip is outlined on the dark surface" do
+  test "the outline chip is outlined on the app's grays" do
     assigns = %{}
 
-    document = parse(~H|<UI.chip id="example" variant="slate">Przykład</UI.chip>|)
+    document = parse(~H|<UI.chip id="example" variant="outline">Przykład</UI.chip>|)
 
     assert has_class?(document, "#example", "min-h-9")
-    assert has_class?(document, "#example", "border-slate-line-strong")
-    assert has_class?(document, "#example", "text-on-slate-2")
+    assert has_class?(document, "#example", "border-app-line-strong")
+    assert has_class?(document, "#example", "text-on-app-2")
     refute has_class?(document, "#example", "border-dashed")
   end
 
@@ -202,11 +230,11 @@ defmodule DirmoonWeb.UITest do
     end
 
     assert ["page"] = document |> LazyHTML.query("a#new") |> LazyHTML.attribute("aria-current")
-    assert has_class?(document, "#new", "bg-slate-selected")
-    assert has_class?(document, "#new", "border-slate-line-strong")
+    assert has_class?(document, "#new", "bg-app-selected")
+    assert has_class?(document, "#new", "border-app-line-strong")
     assert document |> LazyHTML.query("a#runs[aria-current]") |> Enum.count() == 0
     assert has_class?(document, "#runs", "border-transparent")
-    assert has_class?(document, "#runs", "text-on-slate-2")
+    assert has_class?(document, "#runs", "text-on-app-2")
   end
 
   test "a run status shows done in lime, failed in amber, stopped muted and the rest as a pill" do
@@ -224,8 +252,9 @@ defmodule DirmoonWeb.UITest do
     assert document |> LazyHTML.query("#done .hero-check-mini") |> Enum.count() == 1
     assert has_class?(document, "#failed", "text-warn")
     assert document |> LazyHTML.query("#failed .hero-exclamation-triangle") |> Enum.count() == 1
-    assert has_class?(document, "#stopped", "text-on-slate-muted")
+    assert has_class?(document, "#stopped", "text-on-app-muted")
     assert has_class?(document, "#running", "rounded-pill")
+    assert has_class?(document, "#running", "border-app-line-strong")
   end
 
   test "a stat tile shows its label above the value and can highlight the value" do
@@ -233,10 +262,57 @@ defmodule DirmoonWeb.UITest do
 
     document = parse(~H|<UI.stat_tile id="tile" label="Średni CPC" value="[CPC]" highlight />|)
 
-    assert has_class?(document, "#tile", "bg-slate-raised")
+    assert has_class?(document, "#tile", "bg-app-raised")
     assert document |> LazyHTML.query("#tile [data-part=label]") |> LazyHTML.text() == "Średni CPC"
     assert document |> LazyHTML.query("#tile [data-part=value]") |> LazyHTML.text() == "[CPC]"
     assert has_class?(document, "#tile [data-part=value]", "text-accent")
+  end
+
+  test "a stat tile without highlight draws the value in the app's primary text" do
+    assigns = %{}
+
+    document = parse(~H|<UI.stat_tile id="tile" label="Średni CPC" value="[CPC]" />|)
+
+    assert has_class?(document, "#tile [data-part=value]", "text-on-app")
+    refute has_class?(document, "#tile [data-part=value]", "text-accent")
+  end
+
+  test "the prompt box on the landing page is white with an ink border and the lime edge" do
+    assigns = %{}
+
+    document = parse(~H|<UI.prompt_box id="box">Treść</UI.prompt_box>|)
+
+    for class <- ~w(rounded-prompt bg-white border-ink shadow-prompt) do
+      assert has_class?(document, "#box", class)
+    end
+  end
+
+  test "the prompt box in the app is a raised gray card with no lime edge" do
+    assigns = %{}
+
+    document = parse(~H|<UI.prompt_box id="box" surface="app">Treść</UI.prompt_box>|)
+
+    for class <- ~w(rounded-prompt bg-app-raised border border-app-line-strong) do
+      assert has_class?(document, "#box", class)
+    end
+
+    refute has_class?(document, "#box", "shadow-prompt")
+    refute has_class?(document, "#box", "bg-white")
+  end
+
+  test "the run stopped note links to the run's screen in the accent on the app's grays" do
+    run = insert(:run)
+    assigns = %{run: run}
+
+    document =
+      parse(~H"""
+      <UI.run_stopped_note id="note" link_id="resume" run={@run}>
+        Research jest zatrzymany.
+      </UI.run_stopped_note>
+      """)
+
+    assert has_class?(document, "#note", "text-on-app-2")
+    assert ["/app/runs/#{run.id}"] == document |> LazyHTML.query("#resume") |> LazyHTML.attribute("href")
   end
 
   test "the stylesheet defines every design token with the value from the handover" do
@@ -250,15 +326,75 @@ defmodule DirmoonWeb.UITest do
     end
   end
 
+  test "the app surface tokens are an explicit allowance with pinned values, and no other colour token exists" do
+    handover = "docs/design/tokens.css" |> File.read!() |> css_variables()
+    stylesheet = "assets/css/tokens.css" |> File.read!() |> css_variables()
+
+    for {name, value} <- @app_surface_tokens do
+      assert Map.get(stylesheet, name) == value, "#{name} should be #{value}"
+      refute Map.has_key?(handover, name), "#{name} is a handover token, not an app allowance"
+    end
+
+    colour_tokens =
+      stylesheet
+      |> Enum.filter(fn {_name, value} -> value =~ ~r/^#[0-9a-fA-F]{3,8}$/ end)
+      |> Map.new()
+
+    handover_colour_tokens = Map.filter(handover, fn {_name, value} -> value =~ ~r/^#[0-9a-fA-F]{3,8}$/ end)
+
+    assert colour_tokens == Map.merge(handover_colour_tokens, @app_surface_tokens)
+  end
+
+  test "every app surface token is mapped to a Tailwind colour utility" do
+    stylesheet = File.read!("assets/css/app.css")
+
+    for {name, utility} <- [
+          {"--app-bg", "app"},
+          {"--app-chrome", "app-chrome"},
+          {"--app-raised", "app-raised"},
+          {"--app-selected", "app-selected"},
+          {"--app-field", "app-field"},
+          {"--app-line", "app-line"},
+          {"--app-line-strong", "app-line-strong"},
+          {"--on-app", "on-app"},
+          {"--on-app-2", "on-app-2"},
+          {"--on-app-muted", "on-app-muted"}
+        ] do
+      assert stylesheet =~ "--color-#{utility}: var(#{name});", "#{name} is not mapped to #{utility}"
+    end
+  end
+
+  test "no signed-in screen or the app shell uses a slate utility" do
+    live_sources = Path.wildcard("lib/dirmoon_web/live/**/*.ex")
+    sources = ["lib/dirmoon_web/components/layouts.ex" | live_sources]
+
+    assert "lib/dirmoon_web/live/new_research_live.ex" in live_sources
+
+    for path <- sources, source = File.read!(path) do
+      refute source =~ @slate_utility, "#{path} uses a slate utility"
+      refute source =~ ~r/"slate"/, "#{path} names the slate surface"
+    end
+  end
+
+  test "the landing page keeps the slate dark panel", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert has_class?(document, "#how-it-works[data-surface=dark]", "bg-slate")
+    assert has_class?(document, "#how-it-works [data-part=top-bar]", "border-slate-line")
+    assert "lib/dirmoon_web/components/ui.ex" |> File.read!() |> String.match?(@slate_utility)
+  end
+
   test "outside tokens.css no stylesheet or component holds a literal colour" do
-    sources = ~w(
-      assets/css/app.css
-      assets/css/fonts.css
-      lib/dirmoon_web/components/ui.ex
-      lib/dirmoon_web/components/layouts.ex
-      lib/dirmoon_web/components/layouts/root.html.heex
-      lib/dirmoon_web/components/core_components.ex
-    )
+    sources =
+      ~w(
+        assets/css/app.css
+        assets/css/fonts.css
+        lib/dirmoon_web/components/ui.ex
+        lib/dirmoon_web/components/layouts.ex
+        lib/dirmoon_web/components/layouts/root.html.heex
+        lib/dirmoon_web/components/core_components.ex
+        lib/dirmoon_web/run_display.ex
+      ) ++ Path.wildcard("lib/dirmoon_web/live/**/*.ex")
 
     for path <- sources, source = File.read!(path) do
       refute source =~ ~r/#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?\b(?![-\w])/,

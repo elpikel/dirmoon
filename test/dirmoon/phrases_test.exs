@@ -445,7 +445,7 @@ defmodule Dirmoon.PhrasesTest do
              city_volume: 6,
              currency: "USD",
              verdict: :weak,
-             holders: "blogi",
+             holders: "poradniki i blogi",
              rejected?: false,
              rejection_reason: nil
            } = kept_row

@@ -132,7 +132,7 @@ defmodule Dirmoon.Research.StepRunnerTest do
   end
 
   test "a client that is not configured reads as a message naming the missing setting" do
-    assert StepRunner.readable_reason(:llm_not_configured) == "Nie wybrano dostawcy LLM"
+    assert StepRunner.readable_reason(:llm_not_configured) == "Brak klucza API OpenAI"
     assert StepRunner.readable_reason(:data_for_seo_not_configured) == "Brak danych logowania DataForSEO"
     assert StepRunner.readable_reason(:hosting_not_configured) == "Brak tokenu Netlify"
   end
@@ -155,7 +155,7 @@ defmodule Dirmoon.Research.StepRunnerTest do
     assert {:cancel, :llm_not_configured} =
              StepRunner.run(job_for(run, attempt: 1), 1, fn _run -> {:error, :llm_not_configured} end)
 
-    assert %RunStep{status: :failed, error: "Nie wybrano dostawcy LLM"} = step(run, 1)
+    assert %RunStep{status: :failed, error: "Brak klucza API OpenAI"} = step(run, 1)
     assert Repo.reload!(run).status == :failed
   end
 

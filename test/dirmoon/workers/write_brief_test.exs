@@ -269,8 +269,8 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     assert {:cancel, :llm_not_configured} = perform_job(WriteBrief, %{run_id: run.id})
 
-    assert %RunStep{status: :failed, error: "Nie wybrano dostawcy LLM"} = step(run, 8)
-    assert %Page{status: :failed, error: "Nie wybrano dostawcy LLM"} = Repo.get!(Page, page.id)
+    assert %RunStep{status: :failed, error: "Brak klucza API OpenAI"} = step(run, 8)
+    assert %Page{status: :failed, error: "Brak klucza API OpenAI"} = Repo.get!(Page, page.id)
   end
 
   test "a brief stopped before its job started is written once the run is resumed" do

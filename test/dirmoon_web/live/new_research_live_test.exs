@@ -33,6 +33,29 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     assert has_element?(view, "#app-context", "/ nowy research")
   end
 
+  test "the prompt box is a gray card with no lime edge, and the lime start button is its one accent", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new")
+
+    assert has_element?(view, "#research-form #research-prompt-box.bg-app-raised.border-app-line-strong")
+    refute has_element?(view, "#research-prompt-box.shadow-prompt")
+    refute has_element?(view, "#research-prompt-box.bg-white")
+    assert has_element?(view, "#research-description.text-on-app.bg-transparent")
+    assert has_element?(view, "#research-mode.bg-app-selected")
+    assert has_element?(view, "#show-domain.border-dashed.border-app-line-strong")
+    assert has_element?(view, "#start-research.bg-accent")
+  end
+
+  test "the optional domain field sits on the app's grays", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new")
+    view |> element("#show-domain") |> render_click()
+
+    assert has_element?(view, "#research-domain.bg-app-field.text-on-app")
+  end
+
   test "the screen has no marketing: no hero, no pitch and no how it works", %{conn: conn} do
     %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 

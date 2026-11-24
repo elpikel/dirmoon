@@ -22,6 +22,19 @@ config :dirmoon, Dirmoon.Hosting.Netlify,
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
+# `prices` are USD per million tokens, from OpenAI's pricing page (November 2026).
+# A model missing here is refused, so a run never records an LLM call at no cost.
+config :dirmoon, Dirmoon.LLM.OpenAI,
+  base_url: "https://api.openai.com",
+  model: "gpt-6.2-sol",
+  req_options: [],
+  prices: %{
+    "gpt-6.2-astra" => %{input: "8.00", cached_input: "0.40", output: "40.00"},
+    "gpt-6.2-sol" => %{input: "2.00", cached_input: "0.10", output: "10.00"},
+    "gpt-6.1-terra" => %{input: "1.00", cached_input: "0.05", output: "5.00"},
+    "gpt-6-luna" => %{input: "0.10", cached_input: "0.01", output: "0.50"}
+  }
+
 config :dirmoon, Dirmoon.Mailer, adapter: Swoosh.Adapters.Local
 config :dirmoon, Dirmoon.Repo, types: Dirmoon.Repo.PostgrexTypes
 config :dirmoon, Dirmoon.SearchConsole.Client.Google, req_options: []
@@ -63,7 +76,6 @@ config :dirmoon,
   data_for_seo_adapter: Dirmoon.DataForSEO.NotConfigured,
   search_console_adapter: Dirmoon.SearchConsole.Client.NotConfigured,
   hosting_adapter: Dirmoon.Hosting.NotConfigured,
-  demo_data: false,
   grouping_phrase_limit: 400,
   serp_phrase_limit: 30,
   # Per-request USD prices for the estimate on the new research screen (unverified, see notes-dataforseo.md).

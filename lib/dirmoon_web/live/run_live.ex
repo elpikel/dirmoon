@@ -50,20 +50,20 @@ defmodule DirmoonWeb.RunLive do
         <h1 class="sr-only">Research: {@short_description}</h1>
         <ol
           id="run-steps"
-          class="m-0 min-w-0 list-none border-slate-line p-0 min-[1080px]:w-[min(42%,460px)] min-[1080px]:flex-none min-[1080px]:border-r max-[1079px]:border-b"
+          class="m-0 min-w-0 list-none border-app-line p-0 min-[1080px]:w-[min(42%,460px)] min-[1080px]:flex-none min-[1080px]:border-r max-[1079px]:border-b"
         >
           <li
             :for={step <- @step_rows}
             id={"step-#{step.number}"}
             data-status={step.status}
             class={[
-              "flex items-center gap-3.5 border-b border-slate-line px-5 py-[15px] last:border-b-0",
-              step.status == :running && "bg-slate-raised"
+              "flex items-center gap-3.5 border-b border-app-line px-5 py-[15px] last:border-b-0",
+              step.status == :running && "bg-app-raised"
             ]}
           >
             <span class={[
               "font-mono text-[11px]",
-              if(step.status == :running, do: "text-on-slate", else: "text-on-slate-muted")
+              if(step.status == :running, do: "text-on-app", else: "text-on-app-muted")
             ]}>
               {step.label_number}
             </span>
@@ -71,7 +71,7 @@ defmodule DirmoonWeb.RunLive do
               <span class={["text-sm", step_name_class(step.status)]}>{step.name}</span>
               <span class={[
                 "text-xs",
-                if(step.status == :running, do: "text-on-slate-2", else: "text-on-slate-muted")
+                if(step.status == :running, do: "text-on-app-2", else: "text-on-app-muted")
               ]}>
                 {step.summary}
               </span>
@@ -136,7 +136,7 @@ defmodule DirmoonWeb.RunLive do
             >
               Wznów
             </.button>
-            <span id="run-cost" class="ml-auto font-mono text-xs text-on-slate-muted">
+            <span id="run-cost" class="ml-auto font-mono text-xs text-on-app-muted">
               Koszt API: {Polish.usd(@cost)}
             </span>
           </div>
@@ -232,7 +232,7 @@ defmodule DirmoonWeb.RunLive do
 
   defp step_status(assigns) do
     ~H"""
-    <span id={@id} class="flex-none font-mono text-[11px] text-on-slate-muted">
+    <span id={@id} class="flex-none font-mono text-[11px] text-on-app-muted">
       {RunDisplay.step_status_label(@status)}
     </span>
     """
@@ -245,7 +245,7 @@ defmodule DirmoonWeb.RunLive do
   defp competition_detail(assigns) do
     ~H"""
     <div class="flex flex-col gap-2">
-      <span class="font-mono text-[11px] text-on-slate-muted">
+      <span class="font-mono text-[11px] text-on-app-muted">
         krok {@step.label_number} · {String.downcase(@step.name)}
       </span>
       <%= if @progress do %>
@@ -259,7 +259,7 @@ defmodule DirmoonWeb.RunLive do
           aria-valuemin="0"
           aria-valuemax={@progress.total}
           aria-valuenow={@progress.checked}
-          class="h-2 overflow-hidden rounded-pill bg-slate-line"
+          class="h-2 overflow-hidden rounded-pill bg-app-line"
         >
           <div class="h-full bg-accent" style={"width: #{progress_percent(@progress)}%"}></div>
         </div>
@@ -270,17 +270,17 @@ defmodule DirmoonWeb.RunLive do
       <% end %>
     </div>
     <div class="flex flex-col gap-2">
-      <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-on-slate-muted">
+      <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-on-app-muted">
         Ostatnio sprawdzone
       </span>
       <ul
         id="checked-phrases"
         phx-update="stream"
-        class="m-0 flex list-none flex-col rounded-tile border border-slate-line-strong bg-slate-raised p-0"
+        class="m-0 flex list-none flex-col rounded-tile border border-app-line-strong bg-app-raised p-0"
       >
         <li
           id="checked-phrases-empty"
-          class="hidden px-[18px] py-3.5 text-sm text-on-slate-muted only:block"
+          class="hidden px-[18px] py-3.5 text-sm text-on-app-muted only:block"
         >
           Czekam na pierwsze wyniki z Google.
         </li>
@@ -288,7 +288,7 @@ defmodule DirmoonWeb.RunLive do
           :for={{dom_id, entry} <- @checked_phrases}
           id={dom_id}
           data-verdict={entry.verdict}
-          class="flex flex-wrap justify-between gap-x-4 gap-y-1.5 border-t border-slate-line-strong px-[18px] py-3.5 first:border-t-0"
+          class="flex flex-wrap justify-between gap-x-4 gap-y-1.5 border-t border-app-line-strong px-[18px] py-3.5 first:border-t-0"
         >
           <span class="text-[15px] font-medium">{entry.phrase}</span>
           <span class={["text-[13px]", RunDisplay.verdict_class(entry.verdict)]}>{entry.holders}</span>
@@ -311,11 +311,11 @@ defmodule DirmoonWeb.RunLive do
   defp step_detail(assigns) do
     ~H"""
     <div class="flex flex-col gap-2">
-      <span class="font-mono text-[11px] text-on-slate-muted">
+      <span class="font-mono text-[11px] text-on-app-muted">
         krok {@step.label_number} · {String.downcase(@step.name)}
       </span>
       <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">{@step.name}</span>
-      <p class="m-0 text-[15px] leading-normal text-on-slate-2">{@step.summary}</p>
+      <p class="m-0 text-[15px] leading-normal text-on-app-2">{@step.summary}</p>
     </div>
     """
   end
@@ -329,7 +329,7 @@ defmodule DirmoonWeb.RunLive do
     ~H"""
     <div class="flex flex-col items-start gap-3">
       <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Nisze ocenione.</span>
-      <p class="m-0 text-[15px] leading-normal text-on-slate-2">
+      <p class="m-0 text-[15px] leading-normal text-on-app-2">
         Wybierz niszę, a napiszę dla niej brief i stronę.
       </p>
       <.button id="see-results" variant="lime" size="large" navigate={@results_path}>
@@ -370,7 +370,7 @@ defmodule DirmoonWeb.RunLive do
         Krok {@step.number} się nie udał.
       </span>
       <p id="run-failure-reason" class="m-0 text-[15px] leading-normal text-warn">{@step.error}</p>
-      <p class="m-0 text-[15px] leading-normal text-on-slate-2">
+      <p class="m-0 text-[15px] leading-normal text-on-app-2">
         Wznów, a zacznę od tego kroku. Gotowych kroków nie powtórzę.
       </p>
     </div>
@@ -381,7 +381,7 @@ defmodule DirmoonWeb.RunLive do
     ~H"""
     <div class="flex flex-col gap-3">
       <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Research zatrzymany.</span>
-      <p class="m-0 text-[15px] leading-normal text-on-slate-2">
+      <p class="m-0 text-[15px] leading-normal text-on-app-2">
         Wznów, a zacznę od kroku {@step.number}. Gotowych kroków nie powtórzę.
       </p>
     </div>
@@ -392,7 +392,7 @@ defmodule DirmoonWeb.RunLive do
     ~H"""
     <div class="flex flex-col gap-3">
       <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Research zatrzymany.</span>
-      <p class="m-0 text-[15px] leading-normal text-on-slate-2">
+      <p class="m-0 text-[15px] leading-normal text-on-app-2">
         Wznów, a dokończę research. Gotowych kroków nie powtórzę.
       </p>
     </div>
@@ -497,7 +497,7 @@ defmodule DirmoonWeb.RunLive do
 
   defp step_label_number(number), do: number |> Integer.to_string() |> String.pad_leading(2, "0")
 
-  defp step_name_class(:running), do: "font-bold text-on-slate"
-  defp step_name_class(status) when status in [:waiting, :queued, :skipped], do: "font-medium text-on-slate-2"
-  defp step_name_class(_done_or_failed), do: "font-medium text-on-slate"
+  defp step_name_class(:running), do: "font-bold text-on-app"
+  defp step_name_class(status) when status in [:waiting, :queued, :skipped], do: "font-medium text-on-app-2"
+  defp step_name_class(_done_or_failed), do: "font-medium text-on-app"
 end

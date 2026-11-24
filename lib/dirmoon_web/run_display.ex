@@ -122,14 +122,14 @@ defmodule DirmoonWeb.RunDisplay do
   def verdict_label(verdict), do: Map.fetch!(@verdict_labels, verdict)
 
   @doc """
-  The text colour of a competition verdict on slate: weak in the accent,
+  The text colour of a competition verdict in the app: weak in the accent,
   strong in the warning colour, medium in the secondary text colour, an
   unchecked one (nil) muted.
   """
   def verdict_class(:weak), do: "text-accent"
-  def verdict_class(:medium), do: "text-on-slate-2"
+  def verdict_class(:medium), do: "text-on-app-2"
   def verdict_class(:strong), do: "text-warn"
-  def verdict_class(nil), do: "text-on-slate-muted"
+  def verdict_class(nil), do: "text-on-app-muted"
 
   @doc """
   The day the run started, as Polish readers write it ("03.11.2026").

@@ -32,7 +32,8 @@ defmodule DirmoonWeb.CoreComponents do
 
   @doc """
   Renders flash notices. An info notice closes itself after five seconds; an
-  error notice stays until it is closed.
+  error notice stays until it is closed. `surface="app"` draws it in the
+  signed-in app's grays; the default is the white card of the light pages.
 
   ## Examples
 
@@ -50,6 +51,12 @@ defmodule DirmoonWeb.CoreComponents do
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
   attr :title, :string, default: nil
   attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
+
+  attr :surface, :string,
+    default: "light",
+    values: ~w(light app),
+    doc: "the background the notice sits on: light pages, or the signed-in app"
+
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
 
   slot :inner_block, doc: "the optional inner block that renders the flash message"
@@ -70,15 +77,16 @@ defmodule DirmoonWeb.CoreComponents do
       <div
         data-kind={@kind}
         class={[
-          "flex w-full items-start gap-3 rounded-tile border bg-white py-3 pr-1 pl-4 text-sm text-ink shadow-nav",
-          @kind == :info && "border-line",
+          "flex w-full items-start gap-3 rounded-tile border py-3 pr-1 pl-4 text-sm",
+          flash_card_class(@surface),
+          @kind == :info && flash_info_border_class(@surface),
           @kind == :error && "border-warn"
         ]}
       >
         <.icon
           :if={@kind == :info}
           name="hero-information-circle"
-          class="mt-0.5 size-5 shrink-0 text-ink"
+          class={["mt-0.5 size-5 shrink-0", text_class(@surface)]}
         />
         <.icon
           :if={@kind == :error}
@@ -87,14 +95,14 @@ defmodule DirmoonWeb.CoreComponents do
         />
         <div class="flex-1 text-wrap">
           <p :if={@title} class="font-semibold">{@title}</p>
-          <p class="text-body">{msg}</p>
+          <p class={flash_message_class(@surface)}>{msg}</p>
         </div>
         <button
           type="button"
           class="group -my-2 inline-flex size-target-min shrink-0 cursor-pointer items-center justify-center rounded-control"
           aria-label={gettext("close")}
         >
-          <.icon name="hero-x-mark" class="size-5 text-body-muted group-hover:text-ink" />
+          <.icon name="hero-x-mark" class={["size-5", flash_close_class(@surface)]} />
         </button>
       </div>
     </div>
@@ -141,12 +149,12 @@ defmodule DirmoonWeb.CoreComponents do
 
   ## Surface
 
-  On the app's dark slate shell pass `surface="slate"`: the label, the field
-  and its errors switch to the slate tokens and the field drops its bottom
+  In the signed-in app pass `surface="app"`: the label, the field and its
+  errors switch to the app's gray tokens and the field drops its bottom
   margin, so the form lays fields out with a gap.
 
   ```heex
-  <.input field={@form[:title]} label="Tytuł strony" surface="slate" />
+  <.input field={@form[:title]} label="Tytuł strony" surface="app" />
   ```
 
   ## Select type
@@ -175,8 +183,8 @@ defmodule DirmoonWeb.CoreComponents do
 
   attr :surface, :string,
     default: "light",
-    values: ~w(light slate),
-    doc: "the background the field sits on: light pages and cards, or the app's dark slate shell"
+    values: ~w(light app),
+    doc: "the background the field sits on: light pages and cards, or the signed-in app"
 
   attr :errors, :list, default: []
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
@@ -390,22 +398,34 @@ defmodule DirmoonWeb.CoreComponents do
   end
 
   defp field_class("light"), do: "mb-4 flex flex-col gap-1.5"
-  defp field_class("slate"), do: "flex flex-col gap-1.5"
+  defp field_class("app"), do: "flex flex-col gap-1.5"
 
   defp label_class("light"), do: "text-sm font-medium text-ink"
-  defp label_class("slate"), do: "text-[13px] font-medium text-on-slate-2"
+  defp label_class("app"), do: "text-[13px] font-medium text-on-app-2"
 
   defp text_class("light"), do: "text-ink"
-  defp text_class("slate"), do: "text-on-slate"
+  defp text_class("app"), do: "text-on-app"
 
   defp control_class("light"),
     do:
       "min-h-target-min w-full rounded-control border border-line bg-white px-3.5 text-[15px] text-ink transition-colors duration-150 placeholder:text-body-muted hover:border-line-strong focus:border-ink"
 
-  defp control_class("slate"),
+  defp control_class("app"),
     do:
-      "min-h-target-min w-full rounded-control border border-slate-line bg-slate-raised px-3.5 text-sm text-on-slate transition-colors duration-150 placeholder:text-on-slate-muted hover:border-slate-line-strong focus:border-on-slate-2 focus:outline-none"
+      "min-h-target-min w-full rounded-control border border-app-line bg-app-field px-3.5 text-sm text-on-app transition-colors duration-150 placeholder:text-on-app-muted hover:border-app-line-strong focus:border-on-app-2 focus:outline-none"
 
   defp textarea_height_class("light"), do: "min-h-[120px]"
-  defp textarea_height_class("slate"), do: "min-h-[96px]"
+  defp textarea_height_class("app"), do: "min-h-[96px]"
+
+  defp flash_card_class("light"), do: "bg-white text-ink shadow-nav"
+  defp flash_card_class("app"), do: "bg-app-raised text-on-app shadow-panel"
+
+  defp flash_info_border_class("light"), do: "border-line"
+  defp flash_info_border_class("app"), do: "border-app-line-strong"
+
+  defp flash_message_class("light"), do: "text-body"
+  defp flash_message_class("app"), do: "text-on-app-2"
+
+  defp flash_close_class("light"), do: "text-body-muted group-hover:text-ink"
+  defp flash_close_class("app"), do: "text-on-app-muted group-hover:text-on-app"
 end

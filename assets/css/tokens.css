@@ -27,6 +27,21 @@
   --on-slate-muted: #9AA7B0;
   --warn: #F2B66B;
   --accent: #B8F04A;          /* lime: one primary action per view, status 'done', the headline underline */
+
+  /* ---- App surface (owner-approved addition, 2026-11-24) ----
+     Neutral graphite grays for the signed-in app, which is no longer slate. The landing
+     page's dark panel and the produced page keep the --slate tokens above. */
+  --app-bg: #222326;          /* working area */
+  --app-chrome: #1C1D1F;      /* top bar, sidebar, demo strip */
+  --app-raised: #2A2B2F;      /* cards, status row, selected column */
+  --app-selected: #323338;    /* selected row, active nav item, chips */
+  --app-field: #1E1F22;       /* inputs */
+  --app-line: #36373C;        /* hairlines */
+  --app-line-strong: #4A4B51; /* control borders, hover */
+  --on-app: #ECECED;          /* primary text */
+  --on-app-2: #C2C3C7;        /* secondary text */
+  --on-app-muted: #8D8F95;    /* tertiary text, mono labels */
+
   --font-sans: Inter, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --target-min: 44px;         /* minimum height of buttons and links (chips and filter pills are 36px) */

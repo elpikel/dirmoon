@@ -74,12 +74,20 @@ defmodule DirmoonWeb.RunLiveTest do
 
     weak_phrase = insert(:phrase, phrase: unique_phrase_text("wynajem łodzi bez patentu"))
     strong_phrase = insert(:phrase, phrase: unique_phrase_text("wynajem łodzi cennik"))
-    Research.broadcast_progress(run, progress(weak_phrase, %{checked: 1, holders: "blogi, fora", verdict: :weak}))
-    Research.broadcast_progress(run, progress(strong_phrase, %{checked: 2, holders: "konkurenci", verdict: :strong}))
+
+    Research.broadcast_progress(
+      run,
+      progress(weak_phrase, %{checked: 1, holders: "poradniki i blogi, fora", verdict: :weak})
+    )
+
+    Research.broadcast_progress(
+      run,
+      progress(strong_phrase, %{checked: 2, holders: "firmy z Twojej branży", verdict: :strong})
+    )
 
     assert has_element?(view, "#checked-phrases [data-verdict=weak]", weak_phrase.phrase)
-    assert has_element?(view, "#checked-phrases [data-verdict=weak] .text-accent", "blogi, fora")
-    assert has_element?(view, "#checked-phrases [data-verdict=strong] .text-warn", "konkurenci")
+    assert has_element?(view, "#checked-phrases [data-verdict=weak] .text-accent", "poradniki i blogi, fora")
+    assert has_element?(view, "#checked-phrases [data-verdict=strong] .text-warn", "firmy z Twojej branży")
   end
 
   test "only the eight latest checked Phrases are listed, newest first", %{conn: conn} do
@@ -450,7 +458,7 @@ defmodule DirmoonWeb.RunLiveTest do
         total: 30,
         phrase: phrase.phrase,
         keyword_id: phrase.id,
-        holders: "blogi",
+        holders: "poradniki i blogi",
         verdict: :weak
       },
       overrides

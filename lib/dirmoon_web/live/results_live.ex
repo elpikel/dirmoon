@@ -15,6 +15,7 @@ defmodule DirmoonWeb.ResultsLive do
   """
   use DirmoonWeb, :live_view
 
+  alias Dirmoon.Competition.SerpAssessment
   alias Dirmoon.Niches
   alias Dirmoon.Niches.Niche
   alias Dirmoon.Niches.Scoring
@@ -24,6 +25,7 @@ defmodule DirmoonWeb.ResultsLive do
   alias Dirmoon.Research
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.StatusLine
+  alias DirmoonWeb.NicheAdvice
   alias DirmoonWeb.PageDisplay
   alias DirmoonWeb.ResultsHeadline
   alias DirmoonWeb.RunDisplay
@@ -32,8 +34,19 @@ defmodule DirmoonWeb.ResultsLive do
   @list_limit 500
   @niche_phrases_preview 10
   @missing "—"
+  @serp_size 10
+  @sites_in_row 3
+
+  @page_type_meanings [
+    direct_competitor: "Firmy oferujące to samo co Ty. Najtrudniej je wyprzedzić.",
+    portal: "Serwisy ogłoszeniowe, miejskie i informacyjne.",
+    directory: "Spisy firm i porównywarki.",
+    blog: "Artykuły i poradniki, a nie oferty. Strona firmy zwykle z nimi wygrywa.",
+    forum: "Fora oraz serwisy pytań i odpowiedzi. Strona firmy zwykle z nimi wygrywa."
+  ]
   @phrase_forms %{one: "fraza", few: "frazy", many: "fraz"}
   @niche_forms %{one: "nisza", few: "nisze", many: "nisz"}
+  @result_forms %{one: "wynik", few: "wyniki", many: "wyników"}
   @quick_win_forms %{one: "szybka wygrana", few: "szybkie wygrane", many: "szybkich wygranych"}
 
   @reject_errors %{
@@ -53,7 +66,7 @@ defmodule DirmoonWeb.ResultsLive do
     >
       <:status><span id="results-status-line">{@status_line}</span></:status>
       <section id="results" class="flex grow flex-col min-[860px]:flex-row min-[860px]:flex-wrap">
-        <div class="box-border flex flex-[1_1_190px] flex-col gap-5 border-slate-line px-3 py-4 min-[860px]:border-r max-[859px]:border-b">
+        <div class="box-border flex flex-[1_1_190px] flex-col gap-5 border-app-line px-3 py-4 min-[860px]:border-r max-[859px]:border-b">
           <nav id="results-views" aria-label="Widoki" class="flex flex-col gap-0.5">
             <.view_link
               id="view-niches"
@@ -78,27 +91,27 @@ defmodule DirmoonWeb.ResultsLive do
             />
           </nav>
           <div id="run-parameters" class="flex flex-col gap-2.5 px-3 font-mono text-xs">
-            <span class="text-[10px] uppercase tracking-[0.1em] text-on-slate-muted">
+            <span class="text-[10px] uppercase tracking-[0.1em] text-on-app-muted">
               Research
             </span>
-            <span class="text-on-slate-2">{@short_description}</span>
-            <span class="text-on-slate-2">{RunDisplay.country_and_language(@run)}</span>
-            <span :if={@run.city} class="text-on-slate-2">{@run.city}</span>
-            <span :if={@run.mode == :existing_site} class="text-on-slate-2">{@run.domain}</span>
+            <span class="text-on-app-2">{@short_description}</span>
+            <span class="text-on-app-2">{RunDisplay.country_and_language(@run)}</span>
+            <span :if={@run.city} class="text-on-app-2">{@run.city}</span>
+            <span :if={@run.mode == :existing_site} class="text-on-app-2">{@run.domain}</span>
           </div>
           <.link
             id="export-csv"
             href={~p"/app/runs/#{@run}/export.csv"}
-            class="mt-auto inline-flex min-h-target-min items-center justify-center rounded-control border border-slate-line-strong px-3 text-sm font-medium text-on-slate no-underline transition-colors duration-150 hover:bg-slate-raised"
+            class="mt-auto inline-flex min-h-target-min items-center justify-center rounded-control border border-app-line-strong px-3 text-sm font-medium text-on-app no-underline transition-colors duration-150 hover:bg-app-raised"
           >
             Eksport CSV
           </.link>
         </div>
 
-        <div class="flex min-w-0 flex-[3_1_250px] flex-col border-slate-line min-[860px]:border-r max-[859px]:border-b">
+        <div class="flex min-w-0 flex-[3_1_250px] flex-col border-app-line min-[860px]:border-r max-[859px]:border-b">
           <h1
             id="results-headline"
-            class="m-0 border-b border-slate-line px-[18px] py-3.5 text-[15px] leading-snug font-bold"
+            class="m-0 border-b border-app-line px-[18px] py-3.5 text-[15px] leading-snug font-bold"
           >
             {@headline}
           </h1>
@@ -134,7 +147,7 @@ defmodule DirmoonWeb.ResultsLive do
             class="flex flex-col gap-2"
           >
             <span class="text-[22px] leading-snug font-bold">Brak nisz do wyboru.</span>
-            <p class="m-0 text-[15px] leading-normal text-on-slate-muted">
+            <p class="m-0 text-[15px] leading-normal text-on-app-muted">
               Wszystkie frazy i powody odrzucenia są w widokach po lewej i w eksporcie CSV.
             </p>
           </div>
@@ -247,7 +260,7 @@ defmodule DirmoonWeb.ResultsLive do
     <span
       id={@id}
       aria-disabled="true"
-      class="flex min-h-target-min items-center justify-between rounded-[8px] px-3 text-sm font-medium text-on-slate-muted opacity-60"
+      class="flex min-h-target-min items-center justify-between rounded-[8px] px-3 text-sm font-medium text-on-app-muted opacity-60"
     >
       <span>{@label}</span>
       <span data-part="count" class="font-mono text-[11px]">{@count}</span>
@@ -264,8 +277,8 @@ defmodule DirmoonWeb.ResultsLive do
       class={[
         "flex min-h-target-min items-center justify-between rounded-[8px] px-3 text-sm font-medium no-underline transition-colors duration-150",
         if(@active,
-          do: "bg-slate-selected text-on-slate",
-          else: "text-on-slate-muted hover:bg-slate-raised hover:text-on-slate"
+          do: "bg-app-selected text-on-app",
+          else: "text-on-app-muted hover:bg-app-raised hover:text-on-app"
         )
       ]}
     >
@@ -290,27 +303,29 @@ defmodule DirmoonWeb.ResultsLive do
   defp niche_list(assigns) do
     ~H"""
     <ul id="niches" phx-update="stream" class="m-0 flex list-none flex-col p-0">
-      <li id="niches-empty" class="hidden px-[18px] py-4 text-sm text-on-slate-muted only:block">
+      <li id="niches-empty" class="hidden px-[18px] py-4 text-sm text-on-app-muted only:block">
         Żadna nisza nie ma oceny 4 lub wyższej.
       </li>
-      <li :for={{dom_id, row} <- @niches} id={dom_id} class="border-b border-slate-line">
+      <li :for={{dom_id, row} <- @niches} id={dom_id} class="border-b border-app-line">
         <.link
           patch={row.path}
           aria-current={row.selected? && "true"}
           data-selected={row.selected?}
           class={[
             "flex min-h-target-min flex-col gap-2 px-[18px] py-4 no-underline transition-colors duration-150",
-            if(row.selected?, do: "bg-slate-raised", else: "hover:bg-slate-raised")
+            if(row.selected?, do: "bg-app-raised", else: "hover:bg-app-raised")
           ]}
         >
-          <span class="font-mono text-[11px] text-on-slate-muted">{row.figures}</span>
+          <span data-part="advice" class={["text-xs font-medium", row.advice_class]}>
+            {row.advice}
+          </span>
           <span class={[
             "text-sm leading-snug font-medium",
-            if(row.selected?, do: "text-on-slate", else: "text-on-slate-2")
+            if(row.selected?, do: "text-on-app", else: "text-on-app-2")
           ]}>
             {row.name}
           </span>
-          <span class={["text-xs", RunDisplay.verdict_class(row.verdict)]}>{row.competition}</span>
+          <span data-part="figures" class="text-xs text-on-app-muted">{row.figures}</span>
         </.link>
       </li>
     </ul>
@@ -319,7 +334,7 @@ defmodule DirmoonWeb.ResultsLive do
       id="collapsed-niches"
       type="button"
       phx-click="show_low_niches"
-      class="min-h-12 cursor-pointer border-0 bg-transparent px-[18px] text-left font-mono text-xs text-on-slate-muted transition-colors duration-150 hover:text-on-slate"
+      class="min-h-12 cursor-pointer border-0 bg-transparent px-[18px] text-left font-mono text-xs text-on-app-muted transition-colors duration-150 hover:text-on-app"
     >
       + {@low_count} {low_niches_label(@low_count)}
     </button>
@@ -335,22 +350,22 @@ defmodule DirmoonWeb.ResultsLive do
   defp phrase_list(assigns) do
     ~H"""
     <ul id={@id} phx-update="stream" class="m-0 flex list-none flex-col p-0">
-      <li id={"#{@id}-empty"} class="hidden px-[18px] py-4 text-sm text-on-slate-muted only:block">
+      <li id={"#{@id}-empty"} class="hidden px-[18px] py-4 text-sm text-on-app-muted only:block">
         {@empty}
       </li>
       <li
         :for={{dom_id, row} <- @rows}
         id={dom_id}
-        class="flex flex-col gap-1.5 border-b border-slate-line px-[18px] py-3.5"
+        class="flex flex-col gap-1.5 border-b border-app-line px-[18px] py-3.5"
       >
-        <span class="text-sm leading-snug font-medium text-on-slate">{row.phrase}</span>
-        <span class="flex flex-wrap items-center gap-2 font-mono text-[11px] text-on-slate-muted">
+        <span class="text-sm leading-snug font-medium text-on-app">{row.phrase}</span>
+        <span class="flex flex-wrap items-center gap-2 font-mono text-[11px] text-on-app-muted">
           {row.figures}<.quick_win_pill :if={row.quick_win?} id={"#{dom_id}-quick-win"} />
         </span>
-        <span :if={row.note} class="text-xs text-on-slate-2">{row.note}</span>
+        <span :if={row.note} class="text-xs text-on-app-2">{row.note}</span>
       </li>
     </ul>
-    <p :if={@total > @shown} class="m-0 px-[18px] py-3.5 font-mono text-[11px] text-on-slate-muted">
+    <p :if={@total > @shown} class="m-0 px-[18px] py-3.5 font-mono text-[11px] text-on-app-muted">
       Pokazuję {@shown} z {@total}. Wszystkie są w eksporcie CSV.
     </p>
     """
@@ -376,7 +391,7 @@ defmodule DirmoonWeb.ResultsLive do
     ~H"""
     <div id="results-not-ready" class="flex flex-col items-start gap-3">
       <span class="text-[22px] leading-snug font-bold">Nisze jeszcze się układają.</span>
-      <p class="m-0 text-[15px] leading-normal text-on-slate-muted">
+      <p class="m-0 text-[15px] leading-normal text-on-app-muted">
         Pokazuję frazy zebrane do tej pory. Nisze do wyboru pojawią się tu, gdy skończę ocenianie (krok 7).
       </p>
       <.button id="back-to-run" variant="outline" size="large" navigate={~p"/app/runs/#{@run}"}>
@@ -399,12 +414,13 @@ defmodule DirmoonWeb.ResultsLive do
     open_page = open_page(page)
     phrase_noun = Polish.plural(phrase_total, @phrase_forms)
     score_label = score_label(niche.score)
-    assigns = assign(assigns, page: open_page, phrase_noun: phrase_noun, score_label: score_label)
+    advice = NicheAdvice.advice(assigns.selected)
+    assigns = assign(assigns, page: open_page, phrase_noun: phrase_noun, score_label: score_label, advice: advice)
 
     ~H"""
     <article id="niche-detail" data-niche-id={@selected.niche.id} class="flex flex-col gap-5">
       <div class="flex flex-col gap-2">
-        <span class="font-mono text-[11px] text-on-slate-muted">
+        <span class="font-mono text-[11px] text-on-app-muted">
           nisza · {@phrase_total} {@phrase_noun} · {@score_label}<span
             :if={@detail.quick_win_count > 0}
             id="niche-quick-win-count"
@@ -413,9 +429,33 @@ defmodule DirmoonWeb.ResultsLive do
         <h2 class="m-0 text-[22px] leading-snug font-bold tracking-[-0.01em]">
           {@selected.niche.name}
         </h2>
-        <p :if={@selected.niche.reading} class="m-0 text-[15px] leading-[1.55] text-on-slate-muted">
+        <p :if={@selected.niche.reading} class="m-0 text-[15px] leading-[1.55] text-on-app-muted">
           {@selected.niche.reading}
         </p>
+      </div>
+
+      <div
+        id="niche-advice"
+        data-kind={@advice.kind}
+        class="flex flex-col gap-3 rounded-tile border border-app-line-strong bg-app-raised px-4 py-4"
+      >
+        <span id="niche-advice-label" class={["text-[17px] leading-snug font-bold", @advice.class]}>
+          {@advice.label}
+        </span>
+        <dl class="m-0 flex flex-col gap-2.5 text-sm leading-normal">
+          <div class="flex flex-col gap-0.5">
+            <dt class="text-xs text-on-app-muted">Ile osób szuka</dt>
+            <dd id="niche-advice-demand" class="m-0 text-on-app-2">{@advice.demand}</dd>
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <dt class="text-xs text-on-app-muted">Ile wart jest klient</dt>
+            <dd id="niche-advice-value" class="m-0 text-on-app-2">{@advice.value}</dd>
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <dt class="text-xs text-on-app-muted">Kto odpowiada dziś</dt>
+            <dd id="niche-advice-competition" class="m-0 text-on-app-2">{@advice.competition}</dd>
+          </div>
+        </dl>
       </div>
 
       <div
@@ -424,39 +464,81 @@ defmodule DirmoonWeb.ResultsLive do
       >
         <.stat_tile
           id="niche-stat-volume"
-          label="Wyszukiwania / mies."
+          label="Wyszukiwania w miesiącu"
           value={Polish.integer(@selected.volume)}
         />
-        <.stat_tile id="niche-stat-cpc" label="Średni CPC" value={usd_or_missing(@selected.cpc)} />
+        <.stat_tile
+          id="niche-stat-cpc"
+          label="Cena kliknięcia reklamy"
+          value={usd_or_missing(@selected.cpc)}
+        />
         <.stat_tile
           :if={@run.mode == :new_idea}
           id="niche-stat-competitors"
-          label="Konkurenci w top 10 (maks.)"
-          value={count_or_missing(@detail.direct_competitors)}
+          label="Konkurenci na 1. stronie Google"
+          value={competitors_or_missing(@detail.direct_competitors)}
           highlight={@detail.direct_competitors == 0}
         />
         <.stat_tile
           :if={@run.mode == :existing_site}
           id="niche-stat-position"
-          label="Najlepsza obecna pozycja"
+          label="Twoja najlepsza pozycja w Google"
           value={position_or_missing(@detail.best_position)}
         />
       </div>
 
       <div class="flex flex-col gap-2">
-        <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-on-slate-muted">
-          Frazy w niszy
+        <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-on-app-muted">
+          Co ludzie wpisują w Google
         </span>
-        <div class="overflow-x-auto rounded-tile border border-slate-line-strong bg-slate-raised">
+        <div class="overflow-x-auto rounded-tile border border-app-line-strong bg-app-raised">
           <table class="w-full border-collapse text-sm max-[859px]:min-w-[560px]">
-            <thead>
-              <tr class="text-left font-mono text-[10px] uppercase tracking-[0.08em] text-on-slate-muted">
-                <th scope="col" class="border-b border-slate-line-strong px-4 py-3 font-medium">
+            <thead class="text-left font-mono text-[10px] uppercase tracking-[0.08em] text-on-app-muted">
+              <tr>
+                <th
+                  scope="col"
+                  rowspan="2"
+                  class="border-b border-app-line-strong px-4 py-3 align-bottom font-medium"
+                >
                   Fraza
                 </th>
                 <th
+                  id="niche-phrases-volumes"
+                  scope="colgroup"
+                  colspan={if(@run.city, do: 2, else: 1)}
+                  class="px-2.5 pt-3 pb-1 text-right font-medium normal-case tracking-normal"
+                >
+                  Ile razy w miesiącu ludzie to wpisują
+                </th>
+                <th
                   scope="col"
-                  class="border-b border-slate-line-strong px-2.5 py-3 text-right font-medium"
+                  rowspan="2"
+                  class="border-b border-app-line-strong px-2.5 py-3 text-right align-bottom font-medium"
+                >
+                  Cena kliknięcia
+                </th>
+                <th
+                  scope="col"
+                  rowspan="2"
+                  class="border-b border-app-line-strong px-4 py-3 align-bottom font-medium"
+                >
+                  Kto jest na 1. stronie Google
+                </th>
+                <th
+                  :if={@run.mode == :existing_site}
+                  id="niche-phrases-position"
+                  scope="col"
+                  rowspan="2"
+                  class="border-b border-app-line-strong px-4 py-3 text-right align-bottom font-medium"
+                >
+                  Twoja pozycja
+                </th>
+              </tr>
+              <tr>
+                <th
+                  id="niche-phrases-country"
+                  scope="col"
+                  class="border-b border-app-line-strong px-2.5 pb-3 text-right font-medium"
                 >
                   {RunDisplay.country_name(@run)}
                 </th>
@@ -464,55 +546,49 @@ defmodule DirmoonWeb.ResultsLive do
                   :if={@run.city}
                   id="niche-phrases-city"
                   scope="col"
-                  class="border-b border-slate-line-strong px-2.5 py-3 text-right font-medium"
+                  class="border-b border-app-line-strong px-2.5 pb-3 text-right font-medium"
                 >
                   {@run.city}
-                </th>
-                <th
-                  scope="col"
-                  class="border-b border-slate-line-strong px-2.5 py-3 text-right font-medium"
-                >
-                  CPC
-                </th>
-                <th scope="col" class="border-b border-slate-line-strong px-4 py-3 font-medium">
-                  Top 10
-                </th>
-                <th
-                  :if={@run.mode == :existing_site}
-                  id="niche-phrases-position"
-                  scope="col"
-                  class="border-b border-slate-line-strong px-4 py-3 text-right font-medium"
-                >
-                  Pozycja
                 </th>
               </tr>
             </thead>
             <tbody id="niche-phrases" phx-update="stream">
               <tr id="niche-phrases-empty" class="hidden only:table-row">
-                <td colspan="6" class="px-4 py-3.5 text-on-slate-muted">
+                <td colspan="6" class="px-4 py-3.5 text-on-app-muted">
                   Ta nisza nie ma już fraz.
                 </td>
               </tr>
               <tr :for={{dom_id, row} <- @niche_phrases} id={dom_id}>
-                <td class="border-t border-slate-line-strong px-4 py-3 font-medium">{row.phrase}</td>
-                <td class="border-t border-slate-line-strong px-2.5 py-3 text-right font-mono">
+                <td class="border-t border-app-line-strong px-4 py-3 font-medium">{row.phrase}</td>
+                <td class="border-t border-app-line-strong px-2.5 py-3 text-right font-mono">
                   {row.volume}
                 </td>
                 <td
                   :if={@run.city}
-                  class="border-t border-slate-line-strong px-2.5 py-3 text-right font-mono text-on-slate-2"
+                  class="border-t border-app-line-strong px-2.5 py-3 text-right font-mono text-on-app-2"
                 >
                   {row.city_volume}
                 </td>
-                <td class="border-t border-slate-line-strong px-2.5 py-3 text-right font-mono whitespace-nowrap">
+                <td class="border-t border-app-line-strong px-2.5 py-3 text-right font-mono whitespace-nowrap">
                   {row.cpc}
                 </td>
-                <td class="border-t border-slate-line-strong px-4 py-3 break-words text-on-slate-2">
-                  {row.holders}
+                <td class="border-t border-app-line-strong px-4 py-3 break-words text-on-app-2">
+                  <span :if={row.sites == []}>{row.holders}</span>
+                  <span :if={row.sites != []} class="flex flex-col gap-0.5">
+                    <span data-part="sites" class="text-on-app">{Enum.join(row.sites, ", ")}</span>
+                    <span class="text-xs text-on-app-muted">
+                      {row.holders}<a
+                        :if={row.more_sites > 0}
+                        data-part="more-sites"
+                        href={"#first-page-#{row.id}"}
+                        class="ml-1.5 text-on-app-2 underline decoration-app-line-strong underline-offset-2 hover:decoration-accent"
+                      >i {row.more_sites} więcej</a>
+                    </span>
+                  </span>
                 </td>
                 <td
                   :if={@run.mode == :existing_site}
-                  class="border-t border-slate-line-strong px-4 py-3 text-right font-mono whitespace-nowrap"
+                  class="border-t border-app-line-strong px-4 py-3 text-right font-mono whitespace-nowrap"
                 >
                   <span class="inline-flex items-center justify-end gap-2">
                     <.quick_win_pill :if={row.quick_win?} id={"#{dom_id}-quick-win"} />{row.position}
@@ -524,6 +600,87 @@ defmodule DirmoonWeb.ResultsLive do
         </div>
       </div>
 
+      <div :if={@detail.first_pages != []} id="first-pages" class="flex flex-col gap-2">
+        <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-on-app-muted">
+          Kto dziś jest na 1. stronie Google
+        </span>
+        <details
+          :for={{first_page, index} <- Enum.with_index(@detail.first_pages)}
+          id={"first-page-#{first_page.id}"}
+          open={index == 0}
+          class="rounded-tile border border-app-line-strong bg-app-raised"
+        >
+          <summary class="flex min-h-target-min cursor-pointer items-center justify-between gap-3 px-4 text-sm font-medium">
+            <span>{first_page.phrase}</span>
+            <span class="font-mono text-[11px] text-on-app-muted">
+              {result_count(first_page.results)}
+            </span>
+          </summary>
+          <p
+            :if={first_page.results == []}
+            class="m-0 border-t border-app-line-strong px-4 py-3 text-sm text-on-app-muted"
+          >
+            Google nie pokazał dla tej frazy żadnych wyników.
+          </p>
+          <ol class="m-0 flex list-none flex-col p-0">
+            <li
+              :for={result <- first_page.results}
+              data-part="first-page-result"
+              class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-t border-app-line-strong px-4 py-2.5 text-sm"
+            >
+              <span class="w-5 shrink-0 font-mono text-[11px] text-on-app-muted">{result.position}</span>
+              <span class="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
+                <.link
+                  :if={web_url?(result.url)}
+                  href={result.url}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  class="font-medium break-all text-on-app underline decoration-app-line-strong underline-offset-2 transition-colors duration-150 hover:decoration-accent"
+                >
+                  {result.domain}
+                </.link>
+                <span :if={not web_url?(result.url)} class="font-medium break-all">{result.domain}</span>
+                <span :if={result.title} class="text-xs break-words text-on-app-muted">{result.title}</span>
+              </span>
+              <span :if={result.page_type_name} data-part="page-type" class="text-xs text-on-app-2">
+                {result.page_type_name}
+              </span>
+            </li>
+          </ol>
+        </details>
+      </div>
+
+      <dl
+        id="page-type-legend"
+        class="m-0 grid grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))] gap-x-5 gap-y-2 text-xs leading-normal"
+      >
+        <div
+          :for={entry <- page_type_legend(@detail.first_pages)}
+          id={"page-type-#{entry.page_type}"}
+          class="flex flex-col gap-0.5"
+        >
+          <dt class="font-medium text-on-app-2">{entry.name}</dt>
+          <dd class="m-0 text-on-app-muted">{entry.meaning}</dd>
+          <dd :if={entry.sites != []} data-part="sites" class="m-0 mt-1 flex flex-col gap-0.5">
+            <span :for={site <- entry.sites} data-part="site" class="break-all text-on-app-2">
+              <.link
+                :if={web_url?(site.url)}
+                href={site.url}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                class="text-on-app underline decoration-app-line-strong underline-offset-2 transition-colors duration-150 hover:decoration-accent"
+              >
+                {site.domain}
+              </.link>
+              <span :if={not web_url?(site.url)}>{site.domain}</span>
+              <span :if={site.count > 1} class="font-mono text-[11px] text-on-app-muted">
+                ×{site.count}
+              </span>
+            </span>
+          </dd>
+        </div>
+      </dl>
+
       <.run_stopped_note
         :if={not @choosable?}
         id="results-run-stopped"
@@ -533,7 +690,15 @@ defmodule DirmoonWeb.ResultsLive do
         Research jest zatrzymany. Wznów go, żeby wybrać niszę.
       </.run_stopped_note>
 
-      <div class="mt-auto flex flex-wrap gap-2.5">
+      <p
+        :if={is_nil(@page) and @choosable?}
+        id="niche-next-step"
+        class="m-0 mt-auto text-sm leading-normal text-on-app-muted"
+      >
+        Po wyborze napiszę brief i treść strony pod te frazy. Przeczytasz ją i poprawisz, zanim cokolwiek opublikuję.
+      </p>
+
+      <div class={["flex flex-wrap gap-2.5", (@page || not @choosable?) && "mt-auto"]}>
         <.button
           :if={@page}
           id="open-page"
@@ -664,7 +829,8 @@ defmodule DirmoonWeb.ResultsLive do
         do: detail.phrases,
         else: Enum.take(detail.phrases, @niche_phrases_preview)
 
-    rows = Enum.map(shown_phrases, &niche_phrase_row/1)
+    results_by_phrase = Map.new(detail.first_pages, &{&1.id, &1.results})
+    rows = Enum.map(shown_phrases, &niche_phrase_row(&1, Map.get(results_by_phrase, &1.id, [])))
 
     socket
     |> assign(:detail, detail)
@@ -699,12 +865,14 @@ defmodule DirmoonWeb.ResultsLive do
   end
 
   defp niche_row(%{niche: niche} = summary, %{run: run, selected: selected}) do
+    advice = NicheAdvice.advice(summary)
+
     %{
       id: niche.id,
       name: niche.name,
-      figures: "#{score_label(niche.score)} · #{Polish.integer(summary.volume)} / mies.",
-      competition: ResultsHeadline.competition_line(summary.competition),
-      verdict: summary.competition && summary.competition.verdict,
+      advice: advice.label,
+      advice_class: advice.class,
+      figures: NicheAdvice.figures(summary),
       selected?: selected != nil and selected.niche.id == niche.id,
       path: view_path(run, %{view: "niches", niche: niche.id})
     }
@@ -715,7 +883,7 @@ defmodule DirmoonWeb.ResultsLive do
       id: run_phrase.id,
       phrase: run_phrase.phrase.phrase,
       figures:
-        "#{volume_or_missing(run_phrase.metrics)} / mies. · CPC #{cpc_or_missing(run_phrase.metrics)}" <>
+        "#{volume_or_missing(run_phrase.metrics)} / mies. · kliknięcie #{cpc_or_missing(run_phrase.metrics)}" <>
           position_figure(mode, run_phrase.current_position),
       quick_win?: Phrases.quick_win?(run_phrase.current_position),
       note: Map.get(names, run_phrase.cluster_id)
@@ -732,8 +900,12 @@ defmodule DirmoonWeb.ResultsLive do
     }
   end
 
-  defp niche_phrase_row(phrase) do
+  defp niche_phrase_row(phrase, first_page_results) do
+    domains = Enum.map(first_page_results, & &1.domain)
+
     %{
+      sites: Enum.take(domains, @sites_in_row),
+      more_sites: max(length(domains) - @sites_in_row, 0),
       id: phrase.id,
       phrase: phrase.phrase,
       volume: integer_or_missing(phrase.volume),
@@ -776,7 +948,7 @@ defmodule DirmoonWeb.ResultsLive do
 
   defp score_label(%Decimal{} = score) do
     rounded = score |> Decimal.round(0) |> Decimal.to_integer()
-    "szansa #{rounded}/10"
+    "ocena #{rounded}/10"
   end
 
   defp low_niches_label(count) do
@@ -800,8 +972,8 @@ defmodule DirmoonWeb.ResultsLive do
   defp usd_or_missing(nil), do: @missing
   defp usd_or_missing(amount), do: Polish.usd(amount)
 
-  defp count_or_missing(nil), do: @missing
-  defp count_or_missing(count), do: Integer.to_string(count)
+  defp competitors_or_missing(nil), do: @missing
+  defp competitors_or_missing(count), do: "#{count} z #{@serp_size}"
 
   defp position_figure(:existing_site, position), do: " · pozycja #{position_or_missing(position)}"
   defp position_figure(_mode, _position), do: ""
@@ -812,4 +984,35 @@ defmodule DirmoonWeb.ResultsLive do
   defp position_or_missing(position), do: Polish.decimal(position, 1)
 
   defp niche_phrases_preview, do: @niche_phrases_preview
+
+  defp result_count(results), do: "#{length(results)} #{Polish.plural(length(results), @result_forms)}"
+
+  defp web_url?("http://" <> _rest), do: true
+  defp web_url?("https://" <> _rest), do: true
+  defp web_url?(_other), do: false
+
+  # The five Page Types, what each means and the sites of that type found on
+  # the first pages of the Niche's checked Phrases, the most frequent first.
+  defp page_type_legend(first_pages) do
+    plurals = SerpAssessment.page_type_plurals()
+    results_by_page_type = first_pages |> Enum.flat_map(& &1.results) |> Enum.group_by(& &1.page_type)
+
+    Enum.map(@page_type_meanings, fn {page_type, meaning} ->
+      %{
+        page_type: page_type,
+        name: Map.fetch!(plurals, page_type),
+        meaning: meaning,
+        sites: results_by_page_type |> Map.get(page_type, []) |> sites()
+      }
+    end)
+  end
+
+  defp sites(results) do
+    results
+    |> Enum.group_by(& &1.domain)
+    |> Enum.map(fn {domain, [first | _rest] = of_domain} ->
+      %{domain: domain, url: first.url, count: length(of_domain)}
+    end)
+    |> Enum.sort_by(&{-&1.count, &1.domain})
+  end
 end

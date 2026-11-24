@@ -3,8 +3,8 @@ defmodule DirmoonWeb.PageLive do
   Screen 4, Brief and page (`/app/pages/:id`): the Brief as one editable form
   on the left with the actions (publish to Netlify, download the Content
   File; the primary one follows the run's Mode), and the Page
-  rendered from the form's current data inside a light browser frame on the
-  right. Typing re-renders the preview without saving; "Zapisz brief" saves.
+  rendered from the form's current data on the right: the Page keeps its own
+  light look inside a browser frame whose bar uses the app's gray tokens. Typing re-renders the preview without saving; "Zapisz brief" saves.
 
   While Step 8 writes the Brief it says so and turns into the editor when the
   page's PubSub topic reports it ready; a failed Brief can be started again
@@ -34,11 +34,11 @@ defmodule DirmoonWeb.PageLive do
     not_publishable: "Tej strony nie można teraz opublikować: brief jest niepełny albo strona już się publikuje."
   }
 
-  @mono_input_class "min-h-target-min w-full rounded-control border border-slate-line bg-slate-raised px-3.5 font-mono text-xs text-on-slate transition-colors duration-150 placeholder:text-on-slate-muted hover:border-slate-line-strong focus:border-on-slate-2 focus:outline-none"
-  @nested_input_class "min-h-target-min w-full rounded-control border border-slate-line-strong bg-slate px-3.5 text-sm text-on-slate transition-colors duration-150 placeholder:text-on-slate-muted hover:border-on-slate-muted focus:border-on-slate-2 focus:outline-none"
-  @nested_textarea_class "min-h-[96px] w-full rounded-control border border-slate-line-strong bg-slate px-3.5 py-3 text-sm leading-normal text-on-slate transition-colors duration-150 placeholder:text-on-slate-muted hover:border-on-slate-muted focus:border-on-slate-2 focus:outline-none"
-  @fieldset_label_class "text-[13px] font-medium text-on-slate-2"
-  @icon_button_class "inline-flex size-target-min cursor-pointer items-center justify-center rounded-control border border-slate-line-strong bg-transparent text-on-slate-2 transition-colors duration-150 hover:bg-slate-selected hover:text-on-slate"
+  @mono_input_class "min-h-target-min w-full rounded-control border border-app-line bg-app-field px-3.5 font-mono text-xs text-on-app transition-colors duration-150 placeholder:text-on-app-muted hover:border-app-line-strong focus:border-on-app-2 focus:outline-none"
+  @nested_input_class "min-h-target-min w-full rounded-control border border-app-line-strong bg-app-field px-3.5 text-sm text-on-app transition-colors duration-150 placeholder:text-on-app-muted hover:border-on-app-muted focus:border-on-app-2 focus:outline-none"
+  @nested_textarea_class "min-h-[96px] w-full rounded-control border border-app-line-strong bg-app-field px-3.5 py-3 text-sm leading-normal text-on-app transition-colors duration-150 placeholder:text-on-app-muted hover:border-on-app-muted focus:border-on-app-2 focus:outline-none"
+  @fieldset_label_class "text-[13px] font-medium text-on-app-2"
+  @icon_button_class "inline-flex size-target-min cursor-pointer items-center justify-center rounded-control border border-app-line-strong bg-transparent text-on-app-2 transition-colors duration-150 hover:bg-app-selected hover:text-on-app"
 
   @business_fields [
     :business_name,
@@ -74,8 +74,8 @@ defmodule DirmoonWeb.PageLive do
           run_stopped?={@run_stopped?}
         />
         <div :if={@form} class="flex grow flex-wrap items-stretch">
-          <div class="flex min-w-0 flex-[3_1_300px] flex-col gap-5 border-slate-line px-[22px] pt-6 pb-7 min-[860px]:border-r">
-            <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-on-slate-muted">
+          <div class="flex min-w-0 flex-[3_1_300px] flex-col gap-5 border-app-line px-[22px] pt-6 pb-7 min-[860px]:border-r">
+            <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-on-app-muted">
               Brief
             </span>
             <.run_stopped_note
@@ -197,7 +197,7 @@ defmodule DirmoonWeb.PageLive do
           field={@form[:title]}
           id="brief-title"
           label="Tytuł strony"
-          surface="slate"
+          surface="app"
           phx-debounce="300"
         />
         <.input
@@ -205,7 +205,7 @@ defmodule DirmoonWeb.PageLive do
           id="brief-slug"
           label={"Adres: #{PageDisplay.domain_placeholder()}/"}
           class={@mono_input_class}
-          surface="slate"
+          surface="app"
           autocomplete="off"
           phx-debounce="300"
         />
@@ -213,14 +213,14 @@ defmodule DirmoonWeb.PageLive do
           field={@form[:breadcrumb]}
           id="brief-breadcrumb"
           label="Ścieżka nad nagłówkiem"
-          surface="slate"
+          surface="app"
           phx-debounce="300"
         />
         <.input
           field={@form[:h1]}
           id="brief-h1"
           label="Nagłówek H1"
-          surface="slate"
+          surface="app"
           phx-debounce="300"
         />
         <.input
@@ -228,7 +228,7 @@ defmodule DirmoonWeb.PageLive do
           id="brief-intro"
           type="textarea"
           label="Wstęp"
-          surface="slate"
+          surface="app"
           phx-debounce="300"
         />
 
@@ -237,12 +237,12 @@ defmodule DirmoonWeb.PageLive do
           <ol
             id="brief-sections"
             aria-labelledby="brief-sections-label"
-            class="m-0 flex list-none flex-col rounded-tile border border-slate-line-strong bg-slate-raised p-0"
+            class="m-0 flex list-none flex-col rounded-tile border border-app-line-strong bg-app-raised p-0"
           >
             <.inputs_for :let={section} field={@form[:sections]}>
               <li
                 id={"brief-section-#{section.index}"}
-                class="flex flex-col gap-3 border-b border-slate-line-strong px-3.5 py-3.5 last:border-b-0"
+                class="flex flex-col gap-3 border-b border-app-line-strong px-3.5 py-3.5 last:border-b-0"
               >
                 <input type="hidden" name="brief[sections_sort][]" value={section.index} />
                 <div class="flex items-start gap-3">
@@ -254,7 +254,7 @@ defmodule DirmoonWeb.PageLive do
                       field={section[:question]}
                       label={"Pytanie #{section_number(section.index)}"}
                       class={@nested_input_class}
-                      surface="slate"
+                      surface="app"
                       phx-debounce="300"
                     />
                     <.input
@@ -262,7 +262,7 @@ defmodule DirmoonWeb.PageLive do
                       type="textarea"
                       label={"Odpowiedź #{section_number(section.index)}"}
                       class={@nested_textarea_class}
-                      surface="slate"
+                      surface="app"
                       phx-debounce="300"
                     />
                   </div>
@@ -316,7 +316,7 @@ defmodule DirmoonWeb.PageLive do
           >
             <p
               :for={message <- field_errors(@form[:sections])}
-              class="m-0 flex items-center gap-2 text-sm text-on-slate"
+              class="m-0 flex items-center gap-2 text-sm text-on-app"
             >
               <.icon name="hero-exclamation-circle" class="size-5 shrink-0 text-warn" />{message}
             </p>
@@ -327,7 +327,7 @@ defmodule DirmoonWeb.PageLive do
             name="brief[sections_sort][]"
             value="new"
             phx-click={JS.dispatch("change")}
-            class="inline-flex min-h-target-min cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-slate-line-strong bg-transparent px-4 text-sm font-medium text-on-slate-2 transition-colors duration-150 hover:bg-slate-raised hover:text-on-slate"
+            class="inline-flex min-h-target-min cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-app-line-strong bg-transparent px-4 text-sm font-medium text-on-app-2 transition-colors duration-150 hover:bg-app-raised hover:text-on-app"
           >
             <.icon name="hero-plus-mini" class="size-4" /> Dodaj pytanie
           </button>
@@ -338,7 +338,7 @@ defmodule DirmoonWeb.PageLive do
           id="brief-short-answer"
           type="textarea"
           label="W skrócie: odpowiedź na pierwsze pytanie w jednym zdaniu"
-          surface="slate"
+          surface="app"
           phx-debounce="300"
         />
 
@@ -355,13 +355,13 @@ defmodule DirmoonWeb.PageLive do
                 <.input
                   field={fact_tile[:label]}
                   label={"Kafelek #{fact_tile.index + 1}: etykieta"}
-                  surface="slate"
+                  surface="app"
                   phx-debounce="300"
                 />
                 <.input
                   field={fact_tile[:value]}
                   label={"Kafelek #{fact_tile.index + 1}: wartość"}
-                  surface="slate"
+                  surface="app"
                   phx-debounce="300"
                 />
               </div>
@@ -376,12 +376,12 @@ defmodule DirmoonWeb.PageLive do
             phx-click="toggle_business"
             aria-expanded={to_string(@business_open?)}
             aria-controls="brief-business"
-            class="inline-flex min-h-target-min cursor-pointer items-center justify-between gap-2 rounded-control border border-slate-line-strong bg-transparent px-3.5 text-sm font-medium text-on-slate transition-colors duration-150 hover:bg-slate-raised"
+            class="inline-flex min-h-target-min cursor-pointer items-center justify-between gap-2 rounded-control border border-app-line-strong bg-transparent px-3.5 text-sm font-medium text-on-app transition-colors duration-150 hover:bg-app-raised"
           >
             Dane firmy
             <.icon
               name={if(@business_open?, do: "hero-chevron-up-mini", else: "hero-chevron-down-mini")}
-              class="size-4 text-on-slate-muted"
+              class="size-4 text-on-app-muted"
             />
           </button>
           <div
@@ -392,7 +392,7 @@ defmodule DirmoonWeb.PageLive do
               field={@form[:business_name]}
               id="brief-business-name"
               label="Nazwa firmy"
-              surface="slate"
+              surface="app"
               phx-debounce="300"
             />
             <.input
@@ -400,7 +400,7 @@ defmodule DirmoonWeb.PageLive do
               id="brief-phone"
               type="tel"
               label="Telefon"
-              surface="slate"
+              surface="app"
               phx-debounce="300"
             />
             <.input
@@ -408,28 +408,28 @@ defmodule DirmoonWeb.PageLive do
               id="brief-email"
               label="E-mail"
               inputmode="email"
-              surface="slate"
+              surface="app"
               phx-debounce="300"
             />
             <.input
               field={@form[:address]}
               id="brief-address"
               label="Adres firmy"
-              surface="slate"
+              surface="app"
               phx-debounce="300"
             />
             <.input
               field={@form[:cta_label]}
               id="brief-cta-label"
               label="Tekst przycisku"
-              surface="slate"
+              surface="app"
               phx-debounce="300"
             />
             <.input
               field={@form[:closing_prompt]}
               id="brief-closing-prompt"
               label="Zachęta na końcu strony"
-              surface="slate"
+              surface="app"
               phx-debounce="300"
             />
             <.input
@@ -438,7 +438,7 @@ defmodule DirmoonWeb.PageLive do
               name="brief[nav_links][]"
               value={nav_link}
               label={"Link w menu #{position}"}
-              surface="slate"
+              surface="app"
               phx-debounce="300"
             />
             <.input
@@ -446,7 +446,7 @@ defmodule DirmoonWeb.PageLive do
               id="brief-plausible-domain"
               label="Domena w Plausible"
               class={@mono_input_class}
-              surface="slate"
+              surface="app"
               autocomplete="off"
               phx-debounce="300"
             />
@@ -467,13 +467,13 @@ defmodule DirmoonWeb.PageLive do
                 "inline-flex min-h-9 items-center rounded-chip px-2.5",
                 if(phrase == @brief.primary_phrase,
                   do: "bg-accent text-ink",
-                  else: "border border-slate-line-strong text-on-slate"
+                  else: "border border-app-line-strong text-on-app"
                 )
               ]}
             >
               {phrase}
             </li>
-            <li :if={@brief.phrases == []} class="text-on-slate-muted">Brak fraz w briefie.</li>
+            <li :if={@brief.phrases == []} class="text-on-app-muted">Brak fraz w briefie.</li>
           </ul>
         </div>
       </fieldset>
@@ -489,7 +489,7 @@ defmodule DirmoonWeb.PageLive do
     ~H"""
     <div
       id="page-actions"
-      class="sticky bottom-0 z-10 -mx-[22px] -mb-7 mt-auto flex flex-wrap items-center gap-2.5 border-t border-slate-line bg-slate px-[22px] pt-4 pb-5"
+      class="sticky bottom-0 z-10 -mx-[22px] -mb-7 mt-auto flex flex-wrap items-center gap-2.5 border-t border-app-line bg-app px-[22px] pt-4 pb-5"
     >
       <%= if @page.run.mode == :new_idea do %>
         <.publish_button page={@page} variant="lime" class="basis-full" />
@@ -516,7 +516,7 @@ defmodule DirmoonWeb.PageLive do
         data-saved={@saved?}
         class={[
           "flex basis-full items-center gap-1.5 font-mono text-[11px]",
-          if(@saved?, do: "text-on-slate-muted", else: "text-warn")
+          if(@saved?, do: "text-on-app-muted", else: "text-warn")
         ]}
       >
         <.icon
@@ -525,7 +525,7 @@ defmodule DirmoonWeb.PageLive do
         />
         {if(@saved?, do: "Zapisano", else: "Niezapisane zmiany")}
       </span>
-      <p :if={@page.published_url} class="m-0 basis-full text-sm leading-normal text-on-slate-2">
+      <p :if={@page.published_url} class="m-0 basis-full text-sm leading-normal text-on-app-2">
         Strona działa pod adresem
         <a
           id="published-url"
@@ -540,7 +540,7 @@ defmodule DirmoonWeb.PageLive do
       <p
         :if={@page.error && @page.status in Page.publishable_statuses()}
         id="publish-error"
-        class="m-0 flex basis-full items-start gap-2 text-sm leading-normal text-on-slate"
+        class="m-0 flex basis-full items-start gap-2 text-sm leading-normal text-on-app"
       >
         <.icon name="hero-exclamation-triangle" class="mt-0.5 size-4 shrink-0 text-warn" />
         <span>Ostatnia publikacja się nie udała: {@page.error}</span>
@@ -592,18 +592,24 @@ defmodule DirmoonWeb.PageLive do
 
   defp preview(assigns) do
     ~H"""
-    <div class="flex min-w-0 flex-[7_1_496px] flex-col gap-3 border-slate-line px-6 pt-6 pb-7 max-[859px]:border-t max-sm:px-4">
-      <div class="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-on-slate-muted">
+    <div class="flex min-w-0 flex-[7_1_496px] flex-col gap-3 border-app-line px-6 pt-6 pb-7 max-[859px]:border-t max-sm:px-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-on-app-muted">
         <span class="uppercase tracking-[0.08em]">Podgląd strony</span>
         <span>Szablon stały, treść z briefu</span>
       </div>
-      <div class="flex flex-col overflow-hidden rounded-[14px] bg-white text-ink min-[860px]:max-h-[2400px] min-[860px]:flex-1">
-        <div class="flex items-center gap-2.5 bg-chip px-3.5 py-2.5">
+      <div
+        id="preview-frame"
+        class="flex flex-col overflow-hidden rounded-[14px] border border-app-line-strong bg-white text-ink min-[860px]:max-h-[2400px] min-[860px]:flex-1"
+      >
+        <div
+          id="preview-frame-bar"
+          class="flex items-center gap-2.5 border-b border-app-line bg-app-chrome px-3.5 py-2.5"
+        >
           <span
             id="preview-address"
-            class="flex min-w-0 flex-1 items-center gap-2 rounded-[8px] bg-white px-3 py-[7px] font-mono text-xs text-body"
+            class="flex min-w-0 flex-1 items-center gap-2 rounded-[8px] border border-app-line bg-app-field px-3 py-[7px] font-mono text-xs text-on-app-2"
           >
-            <.icon name="hero-lock-closed-mini" class="size-3 shrink-0 text-body-muted" />
+            <.icon name="hero-lock-closed-mini" class="size-3 shrink-0 text-on-app-muted" />
             <span class="truncate">{@address}</span>
           </span>
         </div>
@@ -626,7 +632,7 @@ defmodule DirmoonWeb.PageLive do
         <.icon name="hero-arrow-path" class="size-5 motion-safe:animate-spin text-accent" />
         Piszę brief dla tej niszy.
       </span>
-      <p class="m-0 max-w-[560px] text-[15px] leading-normal text-on-slate-2">
+      <p class="m-0 max-w-[560px] text-[15px] leading-normal text-on-app-2">
         Tytuł, nagłówek, pytania klientów z odpowiedziami i frazy do pokrycia. Ten ekran sam zamieni się w edytor, gdy skończę.
       </p>
     </div>
@@ -659,7 +665,7 @@ defmodule DirmoonWeb.PageLive do
     ~H"""
     <div id="page-failed" class="flex flex-col items-start gap-3 px-7 py-10 max-sm:px-5">
       <span class="text-[22px] leading-snug font-bold">Nie udało mi się napisać briefu.</span>
-      <p id="page-error" class="m-0 max-w-[560px] text-[15px] leading-normal text-on-slate-2">
+      <p id="page-error" class="m-0 max-w-[560px] text-[15px] leading-normal text-on-app-2">
         {@page.error || "Nie znam powodu."}
       </p>
       <.run_stopped_note

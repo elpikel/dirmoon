@@ -40,3 +40,6 @@ npm-debug.log
 # Claude kit: local working docs and personal settings
 /.claude/work/
 /.claude/settings.local.json
+
+# Local credentials for real runs (source it before mix phx.server)
+/.env

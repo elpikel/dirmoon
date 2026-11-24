@@ -131,18 +131,25 @@ defmodule Dirmoon.Competition.Check do
     if Ledger.recorded?(run, top10_request) do
       buy_snapshot(run, %{phrase: phrase, top10_request: top10_request})
     else
-      case Competition.fresh_snapshot(phrase.id, run.location_code) do
+      case Competition.fresh_snapshot(phrase.id, serp_location_code(run)) do
         nil -> buy_snapshot(run, %{phrase: phrase, top10_request: top10_request})
         snapshot -> {:ok, %{snapshot: snapshot, reused?: true}}
       end
     end
   end
 
+  # A business in one city competes on the first page its customers see there,
+  # so a run with a city asks Google as someone in that city.
+  defp serp_location_code(%Run{city_location_code: city_location_code}) when is_integer(city_location_code),
+    do: city_location_code
+
+  defp serp_location_code(%Run{location_code: location_code}), do: location_code
+
   defp top10_request(run, phrase) do
     %{
       service: "dataforseo",
       operation: "serp_top10",
-      request: %{phrase: phrase.phrase, location_code: run.location_code, language_code: run.language_code}
+      request: %{phrase: phrase.phrase, location_code: serp_location_code(run), language_code: run.language_code}
     }
   end
 
@@ -154,7 +161,7 @@ defmodule Dirmoon.Competition.Check do
       snapshot =
         Competition.store_snapshot(%{
           keyword_id: phrase.id,
-          location_code: run.location_code,
+          location_code: serp_location_code(run),
           language_code: run.language_code,
           fetched_at: fetched_at,
           results: results,

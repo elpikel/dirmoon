@@ -8,7 +8,6 @@ defmodule DirmoonWeb.ResultsHeadline do
   """
 
   alias Dirmoon.Polish
-  alias DirmoonWeb.RunDisplay
 
   @niche_forms %{one: "nisza", few: "nisze", many: "nisz"}
   @worth_forms %{one: "warta", few: "warte", many: "wartych"}
@@ -49,16 +48,6 @@ defmodule DirmoonWeb.ResultsHeadline do
   def status_line(%{name: name, competition: %{verdict: verdict, holders: holders}}) do
     verdict_sentence = @verdict_sentences |> Map.fetch!(verdict) |> String.replace("%{holders}", holders)
     "Najlepsza szansa to #{name}. #{verdict_sentence}"
-  end
-
-  @doc """
-  One line about a Niche's competition: "Słaba konkurencja: blogi, fora",
-  or that it wasn't checked.
-  """
-  def competition_line(nil), do: "Konkurencja niesprawdzona"
-
-  def competition_line(%{verdict: verdict, holders: holders}) do
-    "#{RunDisplay.verdict_label(verdict)} konkurencja: #{holders}"
   end
 
   defp worth_sentence(0), do: "Żadna nie jest warta " <> @worth_suffix

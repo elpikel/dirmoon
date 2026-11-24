@@ -23,6 +23,9 @@ defmodule Dirmoon.Competition do
   @no_holders "brak wyników"
   @direct_competitor Atom.to_string(SerpAssessment.direct_competitor())
   @weak_page_types Enum.map(SerpAssessment.weak_page_types(), &Atom.to_string/1)
+  @names_by_page_type Map.new(SerpAssessment.page_type_names(), fn {page_type, name} ->
+                        {Atom.to_string(page_type), {page_type, name}}
+                      end)
   @plurals_by_page_type Map.new(SerpAssessment.page_type_plurals(), fn {page_type, plural} ->
                           {Atom.to_string(page_type), plural}
                         end)
@@ -148,6 +151,32 @@ defmodule Dirmoon.Competition do
     |> Enum.sort_by(fn {_page_type, positions} -> {-length(positions), Enum.min(positions)} end)
     |> Enum.take(2)
     |> Enum.map_join(", ", fn {page_type, _positions} -> Map.fetch!(@plurals_by_page_type, page_type) end)
+  end
+
+  @doc """
+  Google's first page as a SERP Assessment (with its `serp_snapshot` loaded)
+  saw it: the snapshot's results in position order, each with the Page Type
+  the run gave it and its Polish name (both nil for a result left unlabelled).
+
+  Returns `[%{position:, domain:, url:, title:, page_type: atom | nil, page_type_name: String.t() | nil}]`.
+  """
+  def first_page(%SerpAssessment{labels: labels, serp_snapshot: %SerpSnapshot{results: results}}) do
+    page_types = Map.new(labels, &{&1["position"], &1["page_type"]})
+
+    results
+    |> Enum.sort_by(& &1["position"])
+    |> Enum.map(fn result ->
+      {page_type, name} = Map.get(@names_by_page_type, Map.get(page_types, result["position"]), {nil, nil})
+
+      %{
+        position: result["position"],
+        domain: result["domain"],
+        url: result["url"],
+        title: result["title"],
+        page_type: page_type,
+        page_type_name: name
+      }
+    end)
   end
 
   @doc """

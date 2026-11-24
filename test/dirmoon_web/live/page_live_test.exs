@@ -83,6 +83,17 @@ defmodule DirmoonWeb.PageLiveTest do
     assert Repo.get!(Page, page.id).brief.h1 == page.brief.h1
   end
 
+  test "the preview keeps the page's light look inside a browser frame drawn in the app's grays", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    page = insert(:page, run: brief_run(scope))
+
+    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
+
+    assert has_element?(view, "#preview-frame.border-app-line-strong #preview-frame-bar.bg-app-chrome")
+    assert has_element?(view, "#preview-frame-bar #preview-address.bg-app-field.text-on-app-2")
+    assert has_element?(view, "#preview-frame iframe#page-preview.bg-white")
+  end
+
   test "saving the Brief persists the edit", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: brief_run(scope))

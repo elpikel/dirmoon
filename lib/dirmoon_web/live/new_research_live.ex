@@ -50,7 +50,7 @@ defmodule DirmoonWeb.NewResearchLive do
       <div id="new-research" class="flex grow flex-col min-[1080px]:flex-row">
         <div
           id="new-research-tool"
-          class="flex min-w-0 flex-col min-[1080px]:flex-[3_1_0%] gap-5 border-slate-line px-7 pt-6 pb-8 max-sm:px-4 min-[1080px]:border-r max-[1079px]:border-b"
+          class="flex min-w-0 flex-col min-[1080px]:flex-[3_1_0%] gap-5 border-app-line px-7 pt-6 pb-8 max-sm:px-4 min-[1080px]:border-r max-[1079px]:border-b"
         >
           <h1
             id="new-research-heading"
@@ -65,7 +65,11 @@ defmodule DirmoonWeb.NewResearchLive do
             phx-submit="start"
             class="w-full max-w-[900px]"
           >
-            <.prompt_box class="flex flex-col overflow-hidden">
+            <.prompt_box
+              id="research-prompt-box"
+              surface="app"
+              class="flex flex-col overflow-hidden transition-colors duration-150 has-[#research-description:focus-visible]:border-on-app-2"
+            >
               <div
                 id="research-description-field"
                 class="flex flex-col gap-2.5 px-[26px] pt-6 pb-[18px] max-sm:px-5 *:mb-0"
@@ -77,17 +81,18 @@ defmodule DirmoonWeb.NewResearchLive do
                   field={@form[:description]}
                   id="research-description"
                   type="textarea"
+                  surface="app"
                   rows="3"
                   phx-hook=".AutoGrow"
                   placeholder="Czym się zajmujesz, gdzie i dla kogo?"
-                  class="min-h-[92px] w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[21px] font-medium leading-[1.45] tracking-[-0.01em] text-ink placeholder:text-body-muted focus-visible:outline-none"
+                  class="min-h-[92px] w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[21px] font-medium leading-[1.45] tracking-[-0.01em] text-on-app placeholder:text-on-app-muted focus-visible:outline-none"
                 />
               </div>
 
               <div
                 :if={@domain_shown? or @services_shown?}
                 id="research-optional-fields"
-                class="flex flex-col gap-5 border-t border-line px-[26px] py-[18px] max-sm:px-5"
+                class="flex flex-col gap-5 border-t border-app-line px-[26px] py-[18px] max-sm:px-5"
               >
                 <div
                   :if={@domain_shown?}
@@ -105,7 +110,7 @@ defmodule DirmoonWeb.NewResearchLive do
                     autocomplete="url"
                     spellcheck="false"
                     required={@mode == :existing_site}
-                    class={text_field_class()}
+                    surface="app"
                   />
                   <.search_console_note
                     :if={@mode == :existing_site}
@@ -129,20 +134,20 @@ defmodule DirmoonWeb.NewResearchLive do
                         name={@form[:priority_services].name <> "[]"}
                         value={Enum.at(@service_values, number - 1)}
                         type="text"
-                        class={text_field_class()}
+                        surface="app"
                       />
                     </div>
                   </div>
                   <p
                     :for={error <- @service_errors}
-                    class="m-0 flex items-center gap-2 text-sm text-ink"
+                    class="m-0 flex items-center gap-2 text-sm text-on-app"
                   >
                     <.icon name="hero-exclamation-circle" class="size-5 shrink-0 text-warn" />{error}
                   </p>
                 </fieldset>
               </div>
 
-              <div class="flex flex-wrap items-center gap-3 border-t border-line bg-page-alt py-3 pr-3.5 pl-5 max-sm:pl-3.5">
+              <div class="flex flex-wrap items-center gap-3 border-t border-app-line bg-app-field py-3 pr-3.5 pl-5 max-sm:pl-3.5">
                 <div class="flex min-w-0 flex-[1_1_320px] flex-wrap gap-2">
                   <div class="relative *:mb-0">
                     <label for="research-mode" class="sr-only">Tryb</label>
@@ -150,24 +155,26 @@ defmodule DirmoonWeb.NewResearchLive do
                       field={@form[:mode]}
                       id="research-mode"
                       type="select"
+                      surface="app"
                       options={mode_options()}
-                      class="min-h-9 cursor-pointer appearance-none rounded-pill border-0 bg-ink pr-8 pl-3 font-sans text-[13px] font-medium text-white hover:bg-slate"
+                      class={[chip_field_class(), "cursor-pointer appearance-none pr-8 pl-3"]}
                     />
                     <.icon
                       name="hero-chevron-down-mini"
-                      class="pointer-events-none absolute top-[11px] right-3 size-3.5 text-white"
+                      class="pointer-events-none absolute top-[11px] right-3 size-3.5 text-on-app-2"
                     />
                   </div>
                   <div class="relative *:mb-0">
                     <label for="research-country" class="sr-only">Kraj i język</label>
                     <.icon
                       name="hero-globe-alt"
-                      class="pointer-events-none absolute top-[11px] left-3 size-3.5 text-body-muted"
+                      class="pointer-events-none absolute top-[11px] left-3 size-3.5 text-on-app-muted"
                     />
                     <.input
                       field={@form[:country_code]}
                       id="research-country"
                       type="select"
+                      surface="app"
                       options={location_options()}
                       class={[chip_field_class(), "cursor-pointer appearance-none pr-3 pl-8"]}
                     />
@@ -176,15 +183,16 @@ defmodule DirmoonWeb.NewResearchLive do
                     <label for="research-city" class="sr-only">Miasto</label>
                     <.icon
                       name="hero-map-pin"
-                      class="pointer-events-none absolute top-[11px] left-3 size-3.5 text-body-muted"
+                      class="pointer-events-none absolute top-[11px] left-3 size-3.5 text-on-app-muted"
                     />
                     <.input
                       field={@form[:city]}
                       id="research-city"
                       type="text"
+                      surface="app"
                       placeholder="Miasto (opcjonalnie)"
                       autocomplete="address-level2"
-                      class={[chip_field_class(), "w-[190px] pr-3 pl-8 placeholder:text-body-muted"]}
+                      class={[chip_field_class(), "w-[190px] pr-3 pl-8 placeholder:text-on-app-muted"]}
                     />
                   </div>
                   <.chip
@@ -219,18 +227,18 @@ defmodule DirmoonWeb.NewResearchLive do
           </.form>
 
           <div class="flex max-w-[900px] flex-wrap items-center gap-x-2.5 gap-y-2">
-            <span class="text-[13px] text-on-slate-muted">Albo zacznij od przykładu:</span>
+            <span class="text-[13px] text-on-app-muted">Albo zacznij od przykładu:</span>
             <.chip
               :for={{example, number} <- Enum.with_index(@example_prompts, 1)}
               id={"example-prompt-#{number}"}
-              variant="slate"
+              variant="outline"
               phx-click="use_example"
               phx-value-number={number}
             >
               {example.label}
             </.chip>
           </div>
-          <span id="estimated-cost" class="font-mono text-xs text-on-slate-muted">
+          <span id="estimated-cost" class="font-mono text-xs text-on-app-muted">
             Szacowany koszt API: ok. {Polish.usd(@estimated_cost)}
           </span>
         </div>
@@ -242,18 +250,18 @@ defmodule DirmoonWeb.NewResearchLive do
         >
           <h2
             id="recent-runs-heading"
-            class="m-0 font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-on-slate-muted"
+            class="m-0 font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-on-app-muted"
           >
             Ostatnie researche
           </h2>
           <ul
             id="recent-runs"
             phx-update="stream"
-            class="m-0 flex list-none flex-col rounded-tile border border-slate-line-strong p-0"
+            class="m-0 flex list-none flex-col rounded-tile border border-app-line-strong p-0"
           >
             <li
               id="recent-runs-empty"
-              class="hidden px-[18px] py-4 text-sm leading-normal text-on-slate-2 only:block"
+              class="hidden px-[18px] py-4 text-sm leading-normal text-on-app-2 only:block"
             >
               Nie masz jeszcze żadnego researchu. Zacznij od opisu po lewej.
             </li>
@@ -261,14 +269,14 @@ defmodule DirmoonWeb.NewResearchLive do
               :for={{dom_id, row} <- @streams.recent_runs}
               id={dom_id}
               data-status={row.status}
-              class="border-t border-slate-line-strong first:border-t-0"
+              class="border-t border-app-line-strong first:border-t-0"
             >
               <.link
                 navigate={row.path}
-                class="flex min-h-target-min flex-col gap-1.5 px-[18px] py-3.5 text-on-slate no-underline transition-colors duration-150 hover:bg-slate-raised focus-visible:bg-slate-raised focus-visible:outline-none"
+                class="flex min-h-target-min flex-col gap-1.5 px-[18px] py-3.5 text-on-app no-underline transition-colors duration-150 hover:bg-app-raised focus-visible:bg-app-raised focus-visible:outline-none"
               >
                 <span class="text-sm font-medium">{row.short_description}</span>
-                <span class="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-on-slate-muted">
+                <span class="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-on-app-muted">
                   <.run_status id={"#{dom_id}-status"} status={row.status} label={row.status_label} />
                   <span>{row.date}</span>
                 </span>
@@ -278,7 +286,7 @@ defmodule DirmoonWeb.NewResearchLive do
           <.link
             id="all-runs-link"
             navigate={~p"/app/runs"}
-            class="inline-flex min-h-target-min items-center gap-1.5 self-start text-sm font-medium text-on-slate-2 no-underline transition-colors duration-150 hover:text-on-slate"
+            class="inline-flex min-h-target-min items-center gap-1.5 self-start text-sm font-medium text-on-app-2 no-underline transition-colors duration-150 hover:text-on-app"
           >
             Wszystkie wyniki <.icon name="hero-arrow-right-mini" class="size-4" />
           </.link>
@@ -364,14 +372,14 @@ defmodule DirmoonWeb.NewResearchLive do
 
   defp search_console_note(%{connection: nil} = assigns) do
     ~H"""
-    <p id="search-console-note" class="m-0 text-[13px] leading-normal text-body">
+    <p id="search-console-note" class="m-0 text-[13px] leading-normal text-on-app-2">
       Bez Search Console krok 6 (obecne pozycje strony) zostanie pominięty.
       <.link
         id="connect-search-console"
         href={
           ~p"/app/search-console/connect?#{[return_to: ~p"/app/research/new?#{[mode: :existing_site]}"]}"
         }
-        class="inline-flex min-h-target-min items-center font-semibold text-ink underline"
+        class="inline-flex min-h-target-min items-center font-semibold text-on-app underline underline-offset-4"
       >
         Połącz Search Console
       </.link>
@@ -381,8 +389,8 @@ defmodule DirmoonWeb.NewResearchLive do
 
   defp search_console_note(assigns) do
     ~H"""
-    <p id="search-console-connected" class="m-0 flex items-center gap-2 text-[13px] text-body">
-      <.icon name="hero-check-circle" class="size-4 shrink-0 text-ink" />
+    <p id="search-console-connected" class="m-0 flex items-center gap-2 text-[13px] text-on-app-2">
+      <.icon name="hero-check-circle" class="size-4 shrink-0 text-on-app" />
       Search Console połączone ({@connection.google_email})
     </p>
     """
@@ -484,13 +492,9 @@ defmodule DirmoonWeb.NewResearchLive do
     Enum.to_list(1..last_number)
   end
 
-  defp field_label_class, do: "font-mono text-[11px] uppercase tracking-[0.1em] text-body-muted"
+  defp field_label_class, do: "font-mono text-[11px] uppercase tracking-[0.1em] text-on-app-muted"
 
   defp chip_field_class do
-    "min-h-9 rounded-pill border border-line-strong bg-white font-sans text-[13px] font-medium text-ink hover:border-ink"
-  end
-
-  defp text_field_class do
-    "min-h-target-min w-full rounded-control border border-line-strong bg-white px-3.5 text-[15px] text-ink placeholder:text-body-muted hover:border-ink focus:border-ink"
+    "min-h-9 rounded-pill border border-app-line-strong bg-app-selected font-sans text-[13px] font-medium text-on-app transition-colors duration-150 hover:border-on-app-muted"
   end
 end

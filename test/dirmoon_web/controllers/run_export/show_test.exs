@@ -36,7 +36,8 @@ defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
 
     lines = export_lines(conn, run)
 
-    assert Enum.at(lines, 1) == "#{phrase.phrase},Nisza testowa eksportu,1234,17,0.73,USD,blogi,Słaba,12.5,tak,nie,"
+    assert Enum.at(lines, 1) ==
+             "#{phrase.phrase},Nisza testowa eksportu,1234,17,0.73,USD,poradniki i blogi,Słaba,12.5,tak,nie,"
   end
 
   test "Rejected Phrases come with their reason", %{conn: conn} do

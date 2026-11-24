@@ -31,7 +31,7 @@ defmodule DirmoonWeb.Router do
     get "/runs/:id/export.csv", RunExportController, :show
 
     live_session :app,
-      on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}, {DirmoonWeb.Layouts, :slate_body}] do
+      on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}, {DirmoonWeb.Layouts, :app_body}] do
       live "/research/new", NewResearchLive
       live "/runs", RunsLive
       live "/runs/:id", RunLive
@@ -45,7 +45,7 @@ defmodule DirmoonWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
-      on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}, {DirmoonWeb.Layouts, :slate_body}] do
+      on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}, {DirmoonWeb.Layouts, :app_body}] do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end

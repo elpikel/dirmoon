@@ -21,7 +21,7 @@ defmodule Dirmoon.Research.StepRunner do
   alias Dirmoon.Research.RunStep
 
   @not_configured_messages %{
-    llm_not_configured: "Nie wybrano dostawcy LLM",
+    llm_not_configured: "Brak klucza API OpenAI",
     data_for_seo_not_configured: "Brak danych logowania DataForSEO",
     hosting_not_configured: "Brak tokenu Netlify"
   }

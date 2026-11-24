@@ -25,7 +25,7 @@ defmodule DirmoonWeb.UI do
       <.moon_mark />
       <.moon_mark tone="accent" size={14} />
   """
-  attr :tone, :string, default: "ink", values: ~w(ink accent), doc: "ink on light, accent on slate"
+  attr :tone, :string, default: "ink", values: ~w(ink accent), doc: "ink on light, accent on dark"
   attr :size, :integer, default: 24, doc: "width and height in pixels"
 
   def moon_mark(assigns) do
@@ -118,7 +118,7 @@ defmodule DirmoonWeb.UI do
   end
 
   @doc """
-  Renders a link in the app shell's sidebar, on slate. The `action` variant
+  Renders a link in the app shell's sidebar, on the app chrome. The `action` variant
   is outlined (the "Nowy research" entry), the `link` variant is plain text.
   The active one is the current page: filled and marked `aria-current`.
 
@@ -141,8 +141,8 @@ defmodule DirmoonWeb.UI do
         "transition-colors duration-150",
         sidebar_variant_class(@variant),
         if(@active,
-          do: "bg-slate-selected font-semibold text-on-slate",
-          else: "text-on-slate-2 hover:bg-slate-raised hover:text-on-slate"
+          do: "bg-app-selected font-semibold text-on-app",
+          else: "text-on-app-2 hover:bg-app-raised hover:text-on-app"
         ),
         @class
       ]}
@@ -219,7 +219,8 @@ defmodule DirmoonWeb.UI do
   end
 
   @doc """
-  Renders the landing page's dark slate panel: a mono top bar with
+  Renders the landing page's dark slate panel (the signed-in app uses the
+  gray app tokens instead): a mono top bar with
   `dirmoon / <context>` on the left and a note on the right, then the inner
   block.
 
@@ -258,8 +259,9 @@ defmodule DirmoonWeb.UI do
   Renders a button, or a link styled as a button when given `href` or
   `navigate`. Always at least 44px tall.
 
-  Variants: `dark` (ink fill, on light), `lime` (the one primary action on
-  slate), `outline` (on slate) and `ghost` (text only, on slate).
+  Variants: `dark` (ink fill, on light), `lime` (the one primary action in
+  the app), `outline` (on the app's grays) and `ghost` (text only, on the
+  app's grays).
 
       <.button variant="dark" href="/app/research/new">Nowy research</.button>
       <.button variant="lime" size="large" phx-click="choose">Wybierz niszę</.button>
@@ -304,15 +306,15 @@ defmodule DirmoonWeb.UI do
   end
 
   @doc """
-  Renders a 36px pill chip as a button.
+  Renders a 36px pill chip as a button, on the signed-in app's grays.
 
   Variants: `dashed` (optional fields in the prompt box footer, "+ Domena")
-  and `slate` (outlined on slate, the example prompts).
+  and `outline` (the example prompts).
 
       <.chip variant="dashed" phx-click="show_domain">+ Domena</.chip>
-      <.chip variant="slate" phx-click="use_example" phx-value-number="1">Przykład</.chip>
+      <.chip variant="outline" phx-click="use_example" phx-value-number="1">Przykład</.chip>
   """
-  attr :variant, :string, required: true, values: ~w(dashed slate)
+  attr :variant, :string, required: true, values: ~w(dashed outline)
   attr :rest, :global
   slot :inner_block, required: true
 
@@ -334,11 +336,16 @@ defmodule DirmoonWeb.UI do
   end
 
   @doc """
-  Renders the white prompt box: a 1.5px ink border, radius 22 and the lime
-  edge under it. The inner block lays out its content.
+  Renders the prompt box, radius 22. On the light landing page it is white
+  with a 1.5px ink border and the lime edge under it; in the signed-in app
+  (`surface="app"`) it is a raised gray card with a 1px strong hairline and no
+  edge, so the lime submit button stays the one accent. The inner block lays
+  out its content.
 
       <.prompt_box class="flex flex-col">...</.prompt_box>
+      <.prompt_box surface="app" class="flex flex-col">...</.prompt_box>
   """
+  attr :surface, :string, default: "light", values: ~w(light app), doc: "the landing page or the signed-in app"
   attr :class, :any, default: nil
   attr :rest, :global
   slot :inner_block, required: true
@@ -346,7 +353,7 @@ defmodule DirmoonWeb.UI do
   def prompt_box(assigns) do
     ~H"""
     <div
-      class={["rounded-prompt border-[1.5px] border-ink bg-white text-left shadow-prompt", @class]}
+      class={["rounded-prompt text-left", prompt_box_surface_class(@surface), @class]}
       {@rest}
     >
       {render_slot(@inner_block)}
@@ -395,7 +402,7 @@ defmodule DirmoonWeb.UI do
   end
 
   @doc """
-  Renders a Research Run's status label on slate, as in the runs list:
+  Renders a Research Run's status label in the app, as in the runs list:
   done with a lime check, failed with a warning icon, stopped muted, and
   running or awaiting a choice as an outlined pill. The caller passes the
   Polish label.
@@ -424,7 +431,7 @@ defmodule DirmoonWeb.UI do
 
   def run_status(%{status: :stopped} = assigns) do
     ~H"""
-    <span id={@id} class="text-on-slate-muted">{@label}</span>
+    <span id={@id} class="text-on-app-muted">{@label}</span>
     """
   end
 
@@ -432,7 +439,7 @@ defmodule DirmoonWeb.UI do
     ~H"""
     <span
       id={@id}
-      class="rounded-pill border border-slate-line-strong px-[9px] py-[3px] text-on-slate"
+      class="rounded-pill border border-app-line-strong px-[9px] py-[3px] text-on-app"
     >
       {@label}
     </span>
@@ -440,7 +447,7 @@ defmodule DirmoonWeb.UI do
   end
 
   @doc """
-  Renders a stat tile on slate: a small label above a large value.
+  Renders a stat tile in the app: a small label above a large value.
   `highlight` draws the value in the accent.
 
       <.stat_tile label="Wyszukiwania / mies." value={@volume} />
@@ -454,15 +461,15 @@ defmodule DirmoonWeb.UI do
   def stat_tile(assigns) do
     ~H"""
     <div
-      class="flex flex-col gap-1.5 rounded-tile border border-slate-line-strong bg-slate-raised px-4 py-3.5"
+      class="flex flex-col gap-1.5 rounded-tile border border-app-line-strong bg-app-raised px-4 py-3.5"
       {@rest}
     >
-      <span data-part="label" class="text-xs text-on-slate-2">{@label}</span>
+      <span data-part="label" class="text-xs text-on-app-2">{@label}</span>
       <span
         data-part="value"
         class={[
           "text-[26px] font-extrabold tracking-[-0.03em]",
-          if(@highlight, do: "text-accent", else: "text-on-slate")
+          if(@highlight, do: "text-accent", else: "text-on-app")
         ]}
       >{@value}</span>
     </div>
@@ -470,7 +477,7 @@ defmodule DirmoonWeb.UI do
   end
 
   @doc """
-  Renders the note on slate that the research is stopped and must be resumed
+  Renders the note in the app that the research is stopped and must be resumed
   before the screen can go on, with a link to the run's screen, where the User
   resumes it. The inner block says what waits for the resume.
 
@@ -486,7 +493,7 @@ defmodule DirmoonWeb.UI do
 
   def run_stopped_note(assigns) do
     ~H"""
-    <p id={@id} class={["m-0 text-[15px] leading-normal text-on-slate-2", @class]}>
+    <p id={@id} class={["m-0 text-[15px] leading-normal text-on-app-2", @class]}>
       {render_slot(@inner_block)}
       <.link
         id={@link_id}
@@ -538,16 +545,20 @@ defmodule DirmoonWeb.UI do
   defp button_variant_class("lime"), do: "border-0 bg-accent font-semibold text-ink hover:brightness-105"
 
   defp button_variant_class("outline"),
-    do: "border border-slate-line-strong bg-transparent font-medium text-on-slate hover:bg-slate-raised"
+    do: "border border-app-line-strong bg-transparent font-medium text-on-app hover:bg-app-raised"
 
-  defp button_variant_class("ghost"), do: "border-0 bg-transparent font-medium text-on-slate-muted hover:text-on-slate"
+  defp button_variant_class("ghost"), do: "border-0 bg-transparent font-medium text-on-app-muted hover:text-on-app"
 
-  defp sidebar_variant_class("action"), do: "border border-slate-line-strong font-semibold"
+  defp sidebar_variant_class("action"), do: "border border-app-line-strong font-semibold"
   defp sidebar_variant_class("link"), do: "border border-transparent font-medium"
 
   defp chip_variant_class("dashed"),
-    do: "border border-dashed border-line-dashed bg-transparent px-3 font-medium text-body-muted hover:text-ink"
+    do:
+      "border border-dashed border-app-line-strong bg-transparent px-3 font-medium text-on-app-2 hover:border-on-app-muted hover:text-on-app"
 
-  defp chip_variant_class("slate"),
-    do: "border border-slate-line-strong bg-transparent px-3.5 text-on-slate-2 hover:bg-slate-raised hover:text-on-slate"
+  defp chip_variant_class("outline"),
+    do: "border border-app-line-strong bg-transparent px-3.5 text-on-app-2 hover:bg-app-raised hover:text-on-app"
+
+  defp prompt_box_surface_class("light"), do: "border-[1.5px] border-ink bg-white shadow-prompt"
+  defp prompt_box_surface_class("app"), do: "border border-app-line-strong bg-app-raised"
 end

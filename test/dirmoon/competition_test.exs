@@ -42,15 +42,60 @@ defmodule Dirmoon.CompetitionTest do
   test "who holds the top 10 names the two most common page types, the higher ranked first on a tie" do
     labels = labels(portal: 2, forum: 3, blog: 3, direct_competitor: 2)
 
-    assert Competition.holders(labels) == "fora, blogi"
+    assert Competition.holders(labels) == "fora, poradniki i blogi"
   end
 
   test "who holds the top 10 names one page type when only one holds it" do
-    assert Competition.holders(labels(direct_competitor: 10)) == "konkurenci"
+    assert Competition.holders(labels(direct_competitor: 10)) == "firmy z Twojej branży"
   end
 
   test "who holds an empty top 10 says there are no results" do
     assert Competition.holders([]) == "brak wyników"
+  end
+
+  test "the first page lists the snapshot's results in position order with the name of each one's page type" do
+    results = [
+      %{"position" => 2, "url" => "https://drugi.example/", "domain" => "drugi.example", "title" => "Drugi"},
+      %{"position" => 1, "url" => "https://pierwszy.example/", "domain" => "pierwszy.example", "title" => "Pierwszy"},
+      %{"position" => 3, "url" => "https://trzeci.example/", "domain" => "trzeci.example", "title" => nil}
+    ]
+
+    assessment =
+      build(:serp_assessment,
+        serp_snapshot: build(:serp_snapshot, results: results),
+        labels: [%{"position" => 1, "page_type" => "directory"}, %{"position" => 2, "page_type" => "forum"}]
+      )
+
+    assert Competition.first_page(assessment) == [
+             %{
+               position: 1,
+               domain: "pierwszy.example",
+               url: "https://pierwszy.example/",
+               title: "Pierwszy",
+               page_type: :directory,
+               page_type_name: "katalog firm"
+             },
+             %{
+               position: 2,
+               domain: "drugi.example",
+               url: "https://drugi.example/",
+               title: "Drugi",
+               page_type: :forum,
+               page_type_name: "forum"
+             },
+             %{
+               position: 3,
+               domain: "trzeci.example",
+               url: "https://trzeci.example/",
+               title: nil,
+               page_type: nil,
+               page_type_name: nil
+             }
+           ]
+  end
+
+  test "every page type has a Polish name for one result" do
+    assert SerpAssessment.page_type_names() |> Map.keys() |> Enum.sort() == Enum.sort(SerpAssessment.page_types())
   end
 
   test "every page type has a Polish plural for the holders summary" do

@@ -26,18 +26,16 @@ defmodule Dirmoon.LLMTest do
     assert LLM.tasks() == [:seeds, :filter_and_group, :label_serp, :brief]
   end
 
-  test "without a provider the production config uses the not-configured adapter and no demo data" do
+  test "without a provider the production config uses the not-configured adapter" do
     config = Config.Reader.read!("config/config.exs", env: :prod)
 
     assert get_in(config, [:dirmoon, :llm_adapter]) == Dirmoon.LLM.NotConfigured
-    assert get_in(config, [:dirmoon, :demo_data]) == false
   end
 
-  test "dev answers with the demo adapter and turns demo data on" do
+  test "dev answers with the demo adapter" do
     config = Config.Reader.read!("config/config.exs", env: :dev)
 
     assert get_in(config, [:dirmoon, :llm_adapter]) == Dirmoon.LLM.Demo
-    assert get_in(config, [:dirmoon, :demo_data]) == true
   end
 
   defp seeds_request do

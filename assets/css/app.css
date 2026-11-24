@@ -52,6 +52,18 @@
      --warn               -> warn
      --accent             -> accent
 
+   App surface colour (the signed-in app's neutral grays)
+     --app-bg             -> app
+     --app-chrome         -> app-chrome
+     --app-raised         -> app-raised
+     --app-selected       -> app-selected
+     --app-field          -> app-field
+     --app-line           -> app-line
+     --app-line-strong    -> app-line-strong
+     --on-app             -> on-app
+     --on-app-2           -> on-app-2
+     --on-app-muted       -> on-app-muted
+
    Font family: font-sans (the default body font) and font-mono read
    --font-sans and --font-mono from tokens.css directly.
 
@@ -83,6 +95,16 @@
   --color-on-slate-muted: var(--on-slate-muted);
   --color-warn: var(--warn);
   --color-accent: var(--accent);
+  --color-app: var(--app-bg);
+  --color-app-chrome: var(--app-chrome);
+  --color-app-raised: var(--app-raised);
+  --color-app-selected: var(--app-selected);
+  --color-app-field: var(--app-field);
+  --color-app-line: var(--app-line);
+  --color-app-line-strong: var(--app-line-strong);
+  --color-on-app: var(--on-app);
+  --color-on-app-2: var(--on-app-2);
+  --color-on-app-muted: var(--on-app-muted);
 
   --radius-chip: var(--radius-chip);
   --radius-control: var(--radius-control);

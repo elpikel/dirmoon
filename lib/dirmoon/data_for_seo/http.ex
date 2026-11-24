@@ -23,6 +23,8 @@ defmodule Dirmoon.DataForSEO.HTTP do
   @serp_depth 10
   @organic_type "organic"
   @city_location_type "City"
+  @google_redirect_prefix "https://google.com/goto?"
+  @breadcrumb_separator "›"
 
   @impl DataForSEO
   def phrase_ideas(%{seeds: seeds, location_code: location_code, language_code: language_code}) do
@@ -134,15 +136,55 @@ defmodule Dirmoon.DataForSEO.HTTP do
     %{year: month["year"], month: month["month"], search_volume: month["search_volume"]}
   end
 
+  @doc """
+  The top-10 rows of a stored SERP response body (a snapshot's `raw`), parsed
+  as `serp_top10/1` parses a fresh one, so a change in the parsing can be
+  applied to stored snapshots without buying them again.
+  """
+  def serp_rows_from_raw(%{"tasks" => [%{"result" => result} | _rest]}), do: result |> List.wrap() |> serp_rows()
+  def serp_rows_from_raw(_raw), do: []
+
   defp serp_rows([%{"items" => items} | _rest]) when is_list(items) do
     items
     |> Enum.filter(&(&1["type"] == @organic_type))
     |> Enum.sort_by(& &1["rank_group"])
     |> Enum.take(@serp_depth)
-    |> Enum.map(&%{position: &1["rank_group"], url: &1["url"], domain: &1["domain"], title: &1["title"]})
+    |> Enum.map(&serp_row/1)
   end
 
   defp serp_rows(_result), do: []
+
+  # Google sometimes wraps every result in a `google.com/goto?url=…` redirect,
+  # and DataForSEO then reports `google.com` as the domain. The real site is
+  # in the breadcrumb ("https://www.site.pl › path") or the website name.
+  defp serp_row(%{"url" => @google_redirect_prefix <> _token} = item) do
+    site = breadcrumb_site(item["breadcrumb"])
+
+    %{
+      position: item["rank_group"],
+      url: (site && site.url) || item["url"],
+      domain: (site && site.domain) || item["website_name"] || item["domain"],
+      title: item["title"]
+    }
+  end
+
+  defp serp_row(item) do
+    %{position: item["rank_group"], url: item["url"], domain: item["domain"], title: item["title"]}
+  end
+
+  defp breadcrumb_site(breadcrumb) when is_binary(breadcrumb) do
+    address = breadcrumb |> String.split(@breadcrumb_separator, parts: 2) |> List.first() |> String.trim()
+
+    case URI.parse(address) do
+      %URI{scheme: scheme, host: host} when scheme in ["http", "https"] and is_binary(host) and host != "" ->
+        %{url: address, domain: String.replace_prefix(host, "www.", "")}
+
+      _not_an_address ->
+        nil
+    end
+  end
+
+  defp breadcrumb_site(_missing), do: nil
 
   defp find_city(locations, city) do
     wanted = comparable(city)

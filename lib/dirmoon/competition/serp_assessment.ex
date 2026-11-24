@@ -18,11 +18,19 @@ defmodule Dirmoon.Competition.SerpAssessment do
   @weak_page_types [:blog, :forum, :directory]
   @verdicts [:weak, :medium, :strong]
   @page_type_plurals %{
-    direct_competitor: "konkurenci",
-    directory: "katalogi",
+    direct_competitor: "firmy z Twojej branży",
+    directory: "katalogi firm",
     forum: "fora",
-    portal: "portale",
-    blog: "blogi"
+    portal: "duże portale",
+    blog: "poradniki i blogi"
+  }
+
+  @page_type_names %{
+    direct_competitor: "firma z Twojej branży",
+    directory: "katalog firm",
+    forum: "forum",
+    portal: "duży portal",
+    blog: "poradnik lub blog"
   }
 
   schema "serp_assessments" do
@@ -49,4 +57,7 @@ defmodule Dirmoon.Competition.SerpAssessment do
 
   @doc "The Polish plural of each Page Type, as screens name who holds a top 10 (`blog` → \"blogi\")."
   def page_type_plurals, do: @page_type_plurals
+
+  @doc "The Polish name of each Page Type for one result (`blog` → \"poradnik lub blog\")."
+  def page_type_names, do: @page_type_names
 end

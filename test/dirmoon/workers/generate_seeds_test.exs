@@ -155,7 +155,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
 
     assert {:cancel, :llm_not_configured} = perform_job(GenerateSeeds, %{run_id: run.id})
 
-    assert %RunStep{status: :failed, error: "Nie wybrano dostawcy LLM"} = step(run, 1)
+    assert %RunStep{status: :failed, error: "Brak klucza API OpenAI"} = step(run, 1)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
     assert Enum.map(2..9, &step(run, &1).status) == List.duplicate(:waiting, 8)
     assert all_enqueued() == []

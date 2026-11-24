@@ -35,6 +35,34 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
     refute Repo.get_by(SerpAssessment, run_id: run.id, keyword_id: without_volume.keyword_id)
   end
 
+  test "a run with a city asks for the top 10 seen in that city, stores it for the city and reuses the city's snapshot" do
+    run = insert(:run, city: "Płock", city_location_code: 9_990_555, steps: build_run_steps())
+    niche = insert(:niche, run: run)
+    bought = phrase_in_niche(run, niche, "fraza miejska kupiona", 500)
+    reused = phrase_in_niche(run, niche, "fraza miejska gotowa", 400)
+    insert(:serp_snapshot, phrase: bought.phrase, location_code: run.location_code)
+    city_snapshot = insert(:serp_snapshot, phrase: reused.phrase, location_code: 9_990_555)
+    test_process = self()
+
+    expect(Dirmoon.DataForSEOMock, :serp_top10, 1, fn request ->
+      send(test_process, {:serp_request, request})
+      serp_answer(serp_rows(["blog.example.pl"]))
+    end)
+
+    stub(Dirmoon.LLMMock, :structured, &label_all(&1, "blog"))
+
+    assert :ok = perform_job(CheckCompetition, %{run_id: run.id})
+
+    assert [%{phrase: phrase, location_code: 9_990_555}] = received_serp_requests()
+    assert phrase == bought.phrase.phrase
+    assert Repo.get_by!(SerpSnapshot, keyword_id: bought.keyword_id, location_code: 9_990_555)
+
+    assert %SerpAssessment{serp_snapshot_id: snapshot_id, reused_snapshot: true} =
+             Repo.get_by!(SerpAssessment, run_id: run.id, keyword_id: reused.keyword_id)
+
+    assert snapshot_id == city_snapshot.id
+  end
+
   test "decimals in the top 10's raw answer are stored as decimal strings in the snapshot and the ledger" do
     run = insert(:run, steps: build_run_steps())
     run_phrase = phrase_in_niche(run, insert(:niche, run: run), "fraza z kosztem", 500)
@@ -330,7 +358,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
                        total: 2,
                        phrase: ^first_text,
                        keyword_id: ^first_keyword_id,
-                       holders: "blogi, fora",
+                       holders: "poradniki i blogi, fora",
                        verdict: :weak
                      }}
 
@@ -341,7 +369,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
                        total: 2,
                        phrase: ^second_text,
                        keyword_id: ^second_keyword_id,
-                       holders: "blogi, fora",
+                       holders: "poradniki i blogi, fora",
                        verdict: :weak
                      }}
   end

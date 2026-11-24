@@ -2,6 +2,7 @@ import Config
 
 alias Dirmoon.DataForSEO.HTTP
 alias Dirmoon.Hosting.Netlify
+alias Dirmoon.LLM.OpenAI
 alias Dirmoon.SearchConsole.Client.Google
 
 # In test we don't send emails
@@ -44,6 +45,10 @@ config :dirmoon, Netlify,
   poll_attempts: 3
 
 config :dirmoon, Oban, testing: :manual
+
+config :dirmoon, OpenAI,
+  api_key: "test-openai-key",
+  req_options: [plug: {Req.Test, OpenAI}]
 
 config :dirmoon,
   llm_adapter: Dirmoon.LLMMock,

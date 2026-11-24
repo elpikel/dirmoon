@@ -7,14 +7,15 @@ defmodule DirmoonWeb.LayoutsTest do
   alias Dirmoon.Accounts.Scope
   alias DirmoonWeb.Layouts
 
-  test "the app layout is a full-screen dark shell, not the dotted page with a nav card" do
+  test "the app layout is a full-screen dark gray shell, not the dotted page with a nav card" do
     assigns = %{}
 
     document = parse(~H|<Layouts.app flash={%{}} context="wyniki">
   <p id="content">Treść</p>
 </Layouts.app>|)
 
-    assert has_class?(document, "[data-layout=app][data-surface=dark]", "bg-slate")
+    assert has_class?(document, "[data-layout=app][data-surface=dark]", "bg-app")
+    assert has_class?(document, "[data-layout=app]", "text-on-app")
     assert has_class?(document, "[data-layout=app]", "min-h-screen")
     refute has_class?(document, "[data-layout=app]", "page-dots")
     refute has_class?(document, "main", "max-w-content")
@@ -61,7 +62,7 @@ defmodule DirmoonWeb.LayoutsTest do
       document = parse(~H|<Layouts.app flash={%{}} context="wyniki" active={@active}>Treść</Layouts.app>|)
 
       assert ["page"] = document |> LazyHTML.query("#app-nav ##{id}") |> LazyHTML.attribute("aria-current")
-      assert has_class?(document, "##{id}", "bg-slate-selected")
+      assert has_class?(document, "##{id}", "bg-app-selected")
       assert document |> LazyHTML.query("#app-nav [aria-current]") |> Enum.count() == 1
     end
   end
@@ -94,6 +95,25 @@ defmodule DirmoonWeb.LayoutsTest do
     assert link_text(document, "#app-status #app-note") == "3 researche"
   end
 
+  test "the chrome is the darkest gray, the working area one step lighter and the status row lighter again" do
+    assigns = %{}
+
+    document =
+      parse(~H"""
+      <Layouts.app flash={%{}} context="wyniki" demo_services={["Search Console"]}>
+        <:status>Masz 3 researche.</:status>
+        Treść
+      </Layouts.app>
+      """)
+
+    assert has_class?(document, "#app-top-bar", "bg-app-chrome")
+    assert has_class?(document, "#app-nav", "bg-app-chrome")
+    assert has_class?(document, "#demo-data-banner", "bg-app-chrome")
+    assert has_class?(document, "[data-layout=app]", "bg-app")
+    assert has_class?(document, "#app-status", "bg-app-raised")
+    assert has_class?(document, "#app-top-bar", "border-app-line")
+  end
+
   test "a screen with no status sentence and no note has no status row" do
     assigns = %{}
 
@@ -105,17 +125,26 @@ defmodule DirmoonWeb.LayoutsTest do
   test "the app layout shows the DANE TESTOWE strip at the very top when demo data is on" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.app flash={%{}} context="wyniki" demo_data>Treść</Layouts.app>|)
+    document =
+      parse(~H|<Layouts.app
+  flash={%{}}
+  context="wyniki"
+  demo_services={["Search Console", "publikacja (Netlify)"]}
+>
+  Treść
+</Layouts.app>|)
 
     banner_text = link_text(document, "[data-layout=app] > #demo-data-banner:first-child")
     assert banner_text =~ "DANE TESTOWE"
-    assert banner_text =~ "Aplikacja używa danych demonstracyjnych, nie prawdziwych wyników"
+
+    assert link_text(document, "#demo-data-services") ==
+             "Dane demonstracyjne zamiast prawdziwych: Search Console, publikacja (Netlify)."
   end
 
-  test "the app layout has no DANE TESTOWE strip when demo data is off" do
+  test "the app layout has no DANE TESTOWE strip when no service is on demo data" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.app flash={%{}} context="wyniki" demo_data={false}>Treść</Layouts.app>|)
+    document = parse(~H|<Layouts.app flash={%{}} context="wyniki" demo_services={[]}>Treść</Layouts.app>|)
 
     assert document |> LazyHTML.query("#demo-data-banner") |> Enum.count() == 0
   end
@@ -178,6 +207,32 @@ defmodule DirmoonWeb.LayoutsTest do
     refute has_class?(document, "#flash-info", "fixed")
   end
 
+  test "in the app the flash notices are drawn in the app's grays" do
+    assigns = %{}
+
+    document =
+      parse(~H|<Layouts.app flash={%{"info" => "Zapisano", "error" => "Błąd"}} context="wyniki">
+  Treść
+</Layouts.app>|)
+
+    assert has_class?(document, "#flash-info [data-kind=info]", "bg-app-raised")
+    assert has_class?(document, "#flash-info [data-kind=info]", "border-app-line-strong")
+    assert has_class?(document, "#flash-info [data-kind=info] p", "text-on-app-2")
+    assert has_class?(document, "#flash-error [data-kind=error]", "border-warn")
+    refute has_class?(document, "#flash-info [data-kind=info]", "bg-white")
+  end
+
+  test "on the landing and sign-in pages the flash notices stay white cards" do
+    assigns = %{}
+
+    document = parse(~H|<Layouts.auth flash={%{"info" => "Zapisano"}}>Treść</Layouts.auth>|)
+
+    assert has_class?(document, "#flash-info [data-kind=info]", "bg-white")
+    assert has_class?(document, "#flash-info [data-kind=info]", "border-line")
+    assert has_class?(document, "#flash-info [data-kind=info] p", "text-body")
+    refute has_class?(document, "#flash-info [data-kind=info]", "bg-app-raised")
+  end
+
   test "on the landing and sign-in pages the flash group sits below the nav card on desktop" do
     assigns = %{}
 
@@ -229,13 +284,13 @@ defmodule DirmoonWeb.LayoutsTest do
     refute document |> LazyHTML.query("script") |> LazyHTML.text() =~ "phx:theme"
   end
 
-  test "signed-in app screens and settings paint the page body slate behind the dark shell", %{conn: conn} do
+  test "signed-in app screens and settings paint the page body the app's gray behind the dark shell", %{conn: conn} do
     %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     for path <- [~p"/app/runs", ~p"/app/research/new", ~p"/users/settings"] do
       document = conn |> get(path) |> html_response(200) |> LazyHTML.from_document()
 
-      assert has_class?(document, "body", "bg-slate"), "#{path} body is not slate"
+      assert has_class?(document, "body", "bg-app"), "#{path} body is not the app's gray"
       refute has_class?(document, "body", "bg-page")
     end
   end
@@ -245,7 +300,7 @@ defmodule DirmoonWeb.LayoutsTest do
       document = conn |> get(path) |> html_response(200) |> LazyHTML.from_document()
 
       assert has_class?(document, "body", "bg-page"), "#{path} body is not light"
-      refute has_class?(document, "body", "bg-slate")
+      refute has_class?(document, "body", "bg-app")
     end
   end
 

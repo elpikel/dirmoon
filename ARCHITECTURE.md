@@ -84,7 +84,7 @@ flowchart LR
   Pages --> TAccount
   SearchConsole --> TAccount
 
-  LLM -.-> XLLM["LLM provider (no adapter yet)"]
+  LLM -.-> XLLM["OpenAI Responses API"]
   DFS -.-> XDFS["DataForSEO API"]
   GSC -.-> XGoogle["Google OAuth and Search Console API"]
   Hosting -.-> XNetlify["Netlify API"]
@@ -97,7 +97,7 @@ flowchart LR
 - Oban (`Oban.Engines.Basic`, one queue `pipeline` with 5 workers, `Oban.Plugins.Pruner`)
 - Phoenix.PubSub (`Dirmoon.PubSub`) for run and page updates
 - Req for every HTTP client; Swoosh for email
-- Tailwind v4 and esbuild; design tokens in `assets/css/tokens.css`, fonts in `assets/css/fonts.css`; no daisyUI
+- Tailwind v4 and esbuild; design tokens in `assets/css/tokens.css` (the handover tokens plus the app surface tokens `--app-*`/`--on-app*`), mapped to utilities in `assets/css/app.css`; fonts in `assets/css/fonts.css`; no daisyUI
 - Gettext with default locale `pl` (Ecto error messages); screen copy is Polish, written in the templates
 - Tests: ExUnit, Mox, ExMachina, `Req.Test`, LazyHTML
 - Styler, Credo (`--strict`) and ex_slop, all run by `mix precommit`, which also runs `mix test --cover` and fails below the line-coverage threshold in `mix.exs` (`test_coverage`; generated boilerplate and test support are ignored)
@@ -122,7 +122,7 @@ Seam modules and helpers at the same level:
 |---|---|
 | `Dirmoon.LLM`, `Dirmoon.DataForSEO`, `Dirmoon.Hosting`, `Dirmoon.SearchConsole.Client` | Behaviour plus dispatch to the adapter in app config (see External services) |
 | `Dirmoon.Polish` | Polish plurals and number, decimal and money formatting (`plural/2`, `usd/1`, `money/2`, `integer/1`, `feminine_number/1`) |
-| `Dirmoon.demo_data?/0` | Whether Demo Data is on (`config :dirmoon, :demo_data`) |
+| `Dirmoon.demo_services/0`, `Dirmoon.demo_data?/0` | The services answered by a `Demo` adapter right now (read from the adapter config keys), and whether there is any; the "DANE TESTOWE" strip lists them |
 | `Dirmoon.Workers.*` | The nine Oban workers (see Background work) |
 
 Schemas reference each other across contexts (`RunPhrase` belongs to a `Niche`, `Page` belongs to a `Niche` and a `Run`, the SERP schemas belong to a `Phrase`); queries on another context's table go through that context's functions.
@@ -141,7 +141,7 @@ Schemas reference each other across contexts (`RunPhrase` belongs to a `Niche`, 
 
 **Auth and the Scope.** `DirmoonWeb.UserAuth` is phx.gen.auth's magic-link flow: no passwords. `:browser` runs `fetch_current_scope_for_user`, which assigns `current_scope` (`%Accounts.Scope{user:, account:}`, the Account of the User's first Membership) from the session token or the remember-me cookie. `:require_authenticated_user` (plug) and `on_mount {UserAuth, :require_authenticated}` (LiveViews) redirect a guest to `/users/log-in`; `:redirect_if_user_is_authenticated` sends a signed-in User from the landing page and sign-up to `/app`. Sign-in lands on `/app`. Every context call from a screen or controller passes `current_scope`; a foreign or malformed id reads as "not found". Sign-up answers the same for a new email and one that already has a User.
 
-Screens (all `Layouts.app`). The signed-in app is one full-screen dark shell: a slim top bar (moon mark, `dirmoon / <context>`, the User's email, "Ustawienia", "Wyloguj"), a sidebar ("Nowy research", "Wyniki", "Strony"; a row of links under the top bar below 860px), the status row (the screen's first-person sentence and a note) and the screen's working area filling the rest. The "DANE TESTOWE" strip sits above the top bar when Demo Data is on. No eyebrows, page-size headlines or marketing content in the app: the light dotted page, nav card, eyebrows and headlines belong to `Layouts.landing` (`/`) and `Layouts.auth` (sign-in) only. Settings (`/users/settings`) uses the app shell too.
+Screens (all `Layouts.app`). The signed-in app is one full-screen dark shell in neutral graphite grays (the app surface tokens, not slate): chrome (top bar, sidebar, demo strip) on `--app-chrome`, the working area on `--app-bg`, cards, the status row and selected rows on `--app-raised`/`--app-selected`, inputs on `--app-field`; lime (`--accent`) is the one accent and `--warn` marks strong competition and errors. The `<body>` behind it is `--app-bg` (`on_mount {Layouts, :app_body}`); components shared with the light pages take `surface="app"` (`<.input>`, `<.prompt_box>`, the flash). The `--slate*` tokens remain for the landing page's "jak to działa" panel and the produced page. The shell has a slim top bar (moon mark, `dirmoon / <context>`, the User's email, "Ustawienia", "Wyloguj"), a sidebar ("Nowy research", "Wyniki", "Strony"; a row of links under the top bar below 860px), the status row (the screen's first-person sentence and a note) and the screen's working area filling the rest. The "DANE TESTOWE" strip sits above the top bar when Demo Data is on. No eyebrows, page-size headlines or marketing content in the app: the light dotted page, nav card, eyebrows and headlines belong to `Layouts.landing` (`/`) and `Layouts.auth` (sign-in) only. Settings (`/users/settings`) uses the app shell too.
 
 | Route | Module | What it does |
 |---|---|---|
@@ -163,7 +163,7 @@ Controllers in the `/app` scope, outside the live session:
 | `GET /app/search-console/callback` | `SearchConsoleController.callback/2` | Accepts only the `state` issued to this session (single use), exchanges the code, stores the Connection |
 | `DELETE /app/search-console` | `SearchConsoleController.delete/2` | Removes the Connection (does not revoke at Google) |
 
-Shared web modules: `DirmoonWeb.UI` (buttons, wordmark, prompt box, "how it works" panel, stopped-run note), `RunDisplay` and `PageDisplay` (labels and paths), `ResultsHeadline`.
+Shared web modules: `DirmoonWeb.UI` (buttons, wordmark, prompt box, "how it works" panel, stopped-run note), `RunDisplay` and `PageDisplay` (labels and paths), `ResultsHeadline`, `NicheAdvice` (the plain-language verdict on a Niche and its three reasons, from Score, market totals and pooled competition).
 
 ## Background work
 
@@ -175,7 +175,7 @@ One Oban queue, `pipeline`. Each worker is `use Oban.Worker, queue: :pipeline, m
 | 2 Expansion | `ExpandPhrases` | Step 1 done | `Phrases.Expansion.expand/1` (DataForSEO phrase ideas, 20 Seeds per request) | `keywords`, `keyword_metrics` (country), `run_keywords` |
 | 3 Volumes | `FetchVolumes` | Step 2 done | `Phrases.Volumes.fetch/1` (DataForSEO location lookup and search volumes, 1000 Phrases per request) | `research_runs.city_location_code`, `keyword_metrics` for the country and the city, only for Phrases with no Volume fetched in the last 30 days |
 | 4 Filter and Group | `FilterAndGroup` | Step 3 done | `Niches.Grouping.group/1` (LLM; the 400 highest-Volume Phrases) | Replaces the run's `clusters`; sets `run_keywords.status`, `rejection_reason`, `cluster_id` |
-| 5 Competition | `CheckCompetition` | Step 4 done | `Competition.Check.check/1` (DataForSEO SERP and LLM labels for the 30 highest-Volume kept Phrases in Niches) | `serp_snapshots` (or reuses one under 30 days old), `serp_assessments`; broadcasts progress per Phrase |
+| 5 Competition | `CheckCompetition` | Step 4 done | `Competition.Check.check/1` (DataForSEO SERP, asked for the run's city when it has one, else the country, and LLM labels for the 30 highest-Volume kept Phrases in Niches) | `serp_snapshots` (or reuses one under 30 days old), `serp_assessments`; broadcasts progress per Phrase |
 | 6 Current Positions | `FetchCurrentPositions` | Step 5 done; Existing Site only (the pipeline marks it skipped for New Idea) | `SearchConsole.Positions.fetch/1` (last 90 days, up to 5000 queries) | `run_keywords.current_position`; skipped with a reason when there is no usable Connection |
 | 7 Scoring | `ScoreNiches` | Step 6 done or skipped | `Niches.ScoreStep.score/1` (no external call) | `clusters.score`, `score_components`; the run becomes `awaiting_choice` |
 | 8 Brief and Content | `WriteBrief` | The User: `Niches.choose/2` | `Pages.BriefWriter.write/1` (LLM) | The run's `writing` page: `pages.brief`, status `ready`; on final failure `failed` |
@@ -220,17 +220,17 @@ The shared tables hold nothing that identifies an Account: no description, domai
 
 ## External services
 
-Each service is a behaviour with a dispatching module; the adapter is one app-config key. `config/config.exs` sets every adapter to `NotConfigured`, `config/dev.exs` to `Demo` (and `demo_data: true`), `config/test.exs` to a Mox mock. `config/runtime.exs` switches to the real adapter outside test when the environment variables are set (in dev too).
+Each service is a behaviour with a dispatching module; the adapter is one app-config key. `config/config.exs` sets every adapter to `NotConfigured`, `config/dev.exs` to `Demo`, `config/test.exs` to a Mox mock. `config/runtime.exs` switches to the real adapter outside test when the environment variables are set (in dev too).
 
 | Seam (behaviour) | Config key | Real adapter | Selected when | Demo / NotConfigured | Tests |
 |---|---|---|---|---|---|
-| `Dirmoon.LLM` (`structured/1`) | `:llm_adapter` | none | never | `LLM.Demo` / `LLM.NotConfigured` (`:llm_not_configured`) | `Dirmoon.LLMMock` |
+| `Dirmoon.LLM` (`structured/1`) | `:llm_adapter` | `LLM.OpenAI` | `OPENAI_API_KEY` (model: `OPENAI_MODEL`, default `gpt-6.2-sol`) | `LLM.Demo` / `LLM.NotConfigured` (`:llm_not_configured`) | `Dirmoon.LLMMock`; `OpenAI` itself against `Req.Test` |
 | `Dirmoon.DataForSEO` (`phrase_ideas/1`, `search_volumes/1`, `serp_top10/1`, `find_location/1`) | `:data_for_seo_adapter` | `DataForSEO.HTTP` | `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` | `DataForSEO.Demo` / `DataForSEO.NotConfigured` (`:data_for_seo_not_configured`) | `Dirmoon.DataForSEOMock`; `HTTP` itself against `Req.Test` |
 | `Dirmoon.SearchConsole.Client` (`authorize_url/1`, `exchange_code/1`, `refresh_access_token/1`, `query/1`) | `:search_console_adapter` | `SearchConsole.Client.Google` | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` | `Client.Demo` / `Client.NotConfigured` (`:search_console_not_configured`) | `Dirmoon.SearchConsoleMock`; `Google` itself against `Req.Test` |
 | `Dirmoon.Hosting` (`create_site/1`, `deploy/1`) | `:hosting_adapter` | `Hosting.Netlify` | `NETLIFY_TOKEN` | `Hosting.Demo` / `Hosting.NotConfigured` (`:hosting_not_configured`) | `Dirmoon.HostingMock`; `Netlify` itself against `Req.Test` |
 
-- **No LLM provider adapter exists.** Steps 1, 4, 5 and 8 work only with `LLM.Demo` (dev) or the mock (test); with `NotConfigured` Step 1 fails at once with "Nie wybrano dostawcy LLM".
-- **The DataForSEO, Google and Netlify adapters have never been run against the live services.** They were written from the documentation and are tested only against `Req.Test` stubs; their assumptions are listed in `docs/MEMORY.md`.
+- **The LLM is OpenAI.** `LLM.OpenAI` sends one Responses API request per structured request, with the Step's schema as a strict JSON schema (every object closed with `additionalProperties: false`) and `store: false`. The cost is the reported token usage times the prices in `config :dirmoon, Dirmoon.LLM.OpenAI` (`prices`, USD per million tokens, cached input priced apart); a model without prices is refused before any request. A refusal, a cut-short answer or text that is not a JSON object is an error. With `NotConfigured` Step 1 fails at once with "Brak klucza API OpenAI".
+- **The OpenAI, DataForSEO, Google and Netlify adapters have never been run against the live services.** They were written from the documentation and are tested only against `Req.Test` stubs; their assumptions are listed in `docs/MEMORY.md`.
 - Demo adapters return deterministic, obviously synthetic data (text marked `(demo)`, never a Placeholder; `*.example` domains) at cost 0.
 - A `NotConfigured` LLM, DataForSEO or Hosting fails the Step immediately, without retries; a `NotConfigured` Search Console skips Step 6.
 - The mocks are defined in `test/test_helper.exs`. Real adapters set `retry: false` and take `req_options` from config, which is where test config plugs `Req.Test`.
@@ -271,5 +271,5 @@ Other runtime settings in `config/config.exs`: `grouping_phrase_limit` (400), `s
 - Every paid external call goes through `Research.Ledger.fetch/3`, with validation of the answer inside the ledger function.
 - A new external service gets a behaviour module with dispatch, `Demo` and `NotConfigured` adapters, a real adapter on Req that reads `req_options` from config, a Mox mock in `test/test_helper.exs`, and its switch in `config/runtime.exs`.
 - Market data that is the same for every Account goes in a shared table and must not identify an Account (ADR-0002); anything a run decided goes in a per-run table.
-- Screens are LiveViews in `live_session :app` under `/app`, inside `Layouts.app` (pass `context`, `active`, the `:status` sentence and a `note`), built from `DirmoonWeb.UI` and the design tokens. Their columns fill the shell's working area; no hero, eyebrow or page-size headline. File downloads and redirects are controllers in the same scope, outside the live session.
+- Screens are LiveViews in `live_session :app` under `/app`, inside `Layouts.app` (pass `context`, `active`, the `:status` sentence and a `note`), built from `DirmoonWeb.UI` and the app surface tokens (never a `slate` utility; `ui_test.exs` checks). Their columns fill the shell's working area; no hero, eyebrow or page-size headline. File downloads and redirects are controllers in the same scope, outside the live session.
 - Polish plurals and number formatting go through `Dirmoon.Polish`; labels shared by screens go in `RunDisplay` or `PageDisplay`.

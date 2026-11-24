@@ -33,7 +33,7 @@ defmodule DirmoonWeb.UserLive.Settings do
             autocomplete="username"
             spellcheck="false"
             required
-            surface="slate"
+            surface="app"
           />
           <.button
             id="email-submit"

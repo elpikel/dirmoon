@@ -34,7 +34,7 @@ defmodule DirmoonWeb.RunsLive do
               <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">
                 Tu pojawią się Twoje researche.
               </span>
-              <p class="m-0 max-w-[460px] text-[15px] leading-normal text-on-slate-2">
+              <p class="m-0 max-w-[460px] text-[15px] leading-normal text-on-app-2">
                 Opisz biznes albo pomysł, a sprawdzę, czego ludzie szukają i które nisze warto zająć.
               </p>
               <.button
@@ -51,26 +51,26 @@ defmodule DirmoonWeb.RunsLive do
             :for={{dom_id, row} <- @streams.runs}
             id={dom_id}
             data-status={row.status}
-            class="border-b border-slate-line last:border-b-0"
+            class="border-b border-app-line last:border-b-0"
           >
             <.link
               navigate={row.path}
-              class="flex min-h-target-min flex-wrap items-center gap-x-6 gap-y-2.5 px-5 py-4 text-on-slate no-underline transition-colors duration-150 hover:bg-slate-raised focus-visible:bg-slate-raised focus-visible:outline-none"
+              class="flex min-h-target-min flex-wrap items-center gap-x-6 gap-y-2.5 px-5 py-4 text-on-app no-underline transition-colors duration-150 hover:bg-app-raised focus-visible:bg-app-raised focus-visible:outline-none"
             >
               <span class="flex min-w-0 flex-[1_1_320px] flex-col gap-1">
                 <span class="text-[15px] font-semibold">{row.short_description}</span>
-                <span class="text-[13px] text-on-slate-2">
+                <span class="text-[13px] text-on-app-2">
                   {row.mode}<span :if={row.domain}> · {row.domain}</span> · {row.location}
                 </span>
               </span>
-              <span class="flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-[11px] text-on-slate-muted">
+              <span class="flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-[11px] text-on-app-muted">
                 <.run_status id={"#{dom_id}-status"} status={row.status} label={row.status_label} />
                 <span>{row.date}</span>
                 <span id={"#{dom_id}-cost"}>Koszt API: {row.cost}</span>
               </span>
               <.icon
                 name="hero-chevron-right-mini"
-                class="size-4 flex-none text-on-slate-muted max-sm:hidden"
+                class="size-4 flex-none text-on-app-muted max-sm:hidden"
               />
             </.link>
           </li>

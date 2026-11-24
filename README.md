@@ -8,7 +8,7 @@ v1 is built: the nine-step research pipeline, the four screens (new research, ru
 
 Not exercised yet:
 
-- No LLM provider is wired. Dev uses demo data; in production the LLM steps fail with "Nie wybrano dostawcy LLM".
+- The LLM is OpenAI (`Dirmoon.LLM.OpenAI`). Without `OPENAI_API_KEY` dev uses demo data; in production the LLM steps fail with "Brak klucza API OpenAI".
 - The DataForSEO, Google Search Console and Netlify clients were built from their documentation and have never been run against the live services.
 
 ## Stack
@@ -28,10 +28,12 @@ Sign up on the landing page. The sign-in link arrives in the dev mailbox at [`/d
 
 ## Configuration
 
-Dev runs with no environment variables: demo adapters stand in for every external service, and the app shows a "DANE TESTOWE" banner (`config :dirmoon, :demo_data`, `true` in dev). Setting a service's variables switches that service to its real client, in dev too. Tests ignore these variables.
+Dev runs with no environment variables: demo adapters stand in for every external service, and the app shows a "DANE TESTOWE" banner naming the services still on demo data. Setting a service's variables switches that service to its real client, in dev too. The app does not read a `.env` file: export the variables in the shell that starts the server (a variable that is set but not exported never reaches it). Tests ignore these variables.
 
 | Variable | Turns on | Without it |
 |---|---|---|
+| `OPENAI_API_KEY` | Real Seeds, filtering and grouping, SERP labels and Briefs from OpenAI | Dev: demo answers. Prod: the step fails with "Brak klucza API OpenAI" |
+| `OPENAI_MODEL` | Another OpenAI model than `gpt-6.2-sol`; it must have prices in `config/config.exs` | `gpt-6.2-sol` |
 | `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` (both) | Real phrase ideas, volumes and SERP top 10 from DataForSEO | Dev: demo data. Prod: the step fails with "Brak danych logowania DataForSEO" |
 | `NETLIFY_TOKEN` | Publishing pages to Netlify | Dev: demo publish. Prod: publishing fails with "Brak tokenu Netlify". Downloading the page still works |
 | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (both) | Connecting Google Search Console, for Existing Site runs | Dev: demo connection. Prod: Step 6 (current positions) is skipped |
@@ -43,7 +45,7 @@ Dev runs with no environment variables: demo adapters stand in for every externa
 
 Google redirect URI to add to the Google Cloud OAuth client: `https://<PHX_HOST>/app/search-console/callback` (dev with real credentials: `http://localhost:4000/app/search-console/callback`).
 
-**LLM:** no environment variable yet, because the provider is undecided. A real adapter implements the `Dirmoon.LLM` behaviour (`structured/1`) and is selected with `config :dirmoon, :llm_adapter`.
+**LLM:** `Dirmoon.LLM.OpenAI` calls the Responses API with strict Structured Outputs. A call's cost is its token usage times the per-model prices in `config :dirmoon, Dirmoon.LLM.OpenAI` (`prices`, USD per million tokens); a model with no prices there is refused, so add its prices before setting `OPENAI_MODEL` to it.
 
 **Mailer:** production still uses the local Swoosh adapter. Configure a real one in `config/runtime.exs` (commented example there) before deploying, or sign-in links won't be delivered.
 
@@ -57,11 +59,11 @@ Google redirect URI to add to the Google Cloud OAuth client: `https://<PHX_HOST>
 
 ## Running a real run
 
-1. Set `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` (and `NETLIFY_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` if you need publishing or Search Console).
+1. Set `OPENAI_API_KEY`, `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` (and `NETLIFY_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` if you need publishing or Search Console).
 2. Restart the server.
 3. Start a research from the new research screen.
 
-Each run shows its API cost so far. Volumes and SERP snapshots fetched in the last 30 days, by any run, are reused instead of bought again. Until an LLM adapter exists, the LLM steps still return demo output in dev.
+Each run shows its API cost so far. Volumes and SERP snapshots fetched in the last 30 days, by any run, are reused instead of bought again. A service whose variables are missing keeps answering with demo data in dev, so a run with only some of them set mixes real and demo output.
 
 DataForSEO list prices as researched in November 2026. They are unverified estimates; the `cost` field in each API response is what a run records:
 

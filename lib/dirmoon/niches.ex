@@ -111,17 +111,20 @@ defmodule Dirmoon.Niches do
   site's Current Position and whether that makes it a Quick Win; the most
   direct competitors found in one checked Phrase's top 10 (nil when none was
   checked); the best Current Position of its Phrases (nil when none ranks);
-  how many of its Phrases are Quick Wins; and the Niche's page, if it has one.
+  how many of its Phrases are Quick Wins; Google's first page of each checked
+  Phrase, result by result (`Dirmoon.Competition.first_page/1`); and the
+  Niche's page, if it has one.
 
-  Returns `%{phrases: [%{id:, phrase:, volume:, city_volume:, cpc:, currency:, holders:, current_position:, quick_win?:}], direct_competitors: integer | nil, best_position: Decimal | nil, quick_win_count: integer, page: %Page{} | nil}`.
+  Returns `%{phrases: [%{id:, phrase:, volume:, city_volume:, cpc:, currency:, holders:, current_position:, quick_win?:}], first_pages: [%{id:, phrase:, results: [map]}], direct_competitors: integer | nil, best_position: Decimal | nil, quick_win_count: integer, page: %Page{} | nil}`.
   """
   def niche_detail(%Run{id: run_id} = run, %Niche{id: niche_id, run_id: run_id} = niche) do
-    assessment_summaries = Competition.assessment_summaries_for_run(run)
+    assessments = Competition.assessments_for_run(run)
     run_phrases = Phrases.list_for_run(run, %{niche_id: niche_id})
 
     %{
-      phrases: Enum.map(run_phrases, &phrase_detail(&1, assessment_summaries)),
-      direct_competitors: most_direct_competitors(run_phrases, assessment_summaries),
+      phrases: Enum.map(run_phrases, &phrase_detail(&1, assessments)),
+      first_pages: first_pages(run_phrases, assessments),
+      direct_competitors: most_direct_competitors(run_phrases, assessments),
       best_position: best_position(run_phrases),
       quick_win_count: Enum.count(run_phrases, &Phrases.quick_win?(&1.current_position)),
       page: Pages.page_for_niche(niche)
@@ -354,6 +357,12 @@ defmodule Dirmoon.Niches do
       current_position: run_phrase.current_position,
       quick_win?: Phrases.quick_win?(run_phrase.current_position)
     }
+  end
+
+  defp first_pages(run_phrases, assessments) do
+    for run_phrase <- run_phrases, assessment = Map.get(assessments, run_phrase.keyword_id) do
+      %{id: run_phrase.id, phrase: run_phrase.phrase.phrase, results: Competition.first_page(assessment)}
+    end
   end
 
   defp most_direct_competitors(run_phrases, assessment_summaries) do

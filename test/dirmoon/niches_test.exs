@@ -420,7 +420,7 @@ defmodule Dirmoon.NichesTest do
 
     assert niche_id == niche.id
     assert Decimal.equal?(cpc, Decimal.new("0.40"))
-    assert competition == %{verdict: :weak, holders: "blogi, fora"}
+    assert competition == %{verdict: :weak, holders: "poradniki i blogi, fora"}
   end
 
   test "the results list keeps rejected Niches and says when none of a Niche's Phrases was checked" do
@@ -447,7 +447,10 @@ defmodule Dirmoon.NichesTest do
     detail = Niches.niche_detail(run, niche)
 
     assert [first, second] = detail.phrases
-    assert %{id: first_id, volume: 90, city_volume: 9, holders: "portale, blogi", currency: "USD"} = first
+
+    assert %{id: first_id, volume: 90, city_volume: 9, holders: "duże portale, poradniki i blogi", currency: "USD"} =
+             first
+
     assert first_id == checked.id
     assert Decimal.equal?(first.cpc, Decimal.new("0.30"))
     assert %{volume: 30, city_volume: nil, holders: nil, cpc: nil} = second

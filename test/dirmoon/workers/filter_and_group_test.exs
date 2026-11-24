@@ -403,7 +403,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
 
     assert {:cancel, :llm_not_configured} = perform_job(FilterAndGroup, %{run_id: run.id})
 
-    assert %RunStep{status: :failed, error: "Nie wybrano dostawcy LLM"} = step(run, 4)
+    assert %RunStep{status: :failed, error: "Brak klucza API OpenAI"} = step(run, 4)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
     assert Niche |> from(as: :niche) |> where([niche: niche], niche.run_id == ^run.id) |> Repo.all() == []
     assert all_enqueued() == []

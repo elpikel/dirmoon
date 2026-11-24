@@ -139,7 +139,7 @@ A Page downloaded as one `.html` file with its CSS inlined, ready to open or dro
 The Netlify site a Page is published to; each page gets its own, and publishing again deploys to the same one.
 
 **Demo Data**:
-Obviously synthetic output from a demo adapter, used in dev while an external service has no credentials; the app shows "DANE TESTOWE" whenever it's on.
+Obviously synthetic output from a demo adapter, used in dev while an external service has no credentials; the app shows "DANE TESTOWE" with the names of the services answered this way.
 
 **Placeholder**:
 Bracketed upper-case text (`[CENA]`, `[TELEFON]`, `[NAZWA FIRMY]`) marking a value the business owner must supply; the generator never fills it in, and a price, phone, e-mail or address the LLM writes is replaced by one.

@@ -40,7 +40,7 @@ defmodule Dirmoon.Research.StatusLineTest do
 
   test "a run working on Step 5 with progress says how many phrases it has checked" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(4, %{5 => :running})))
-    progress = %{step: 5, checked: 7, total: 30, phrase: "fraza", holders: "blogi", verdict: :weak}
+    progress = %{step: 5, checked: 7, total: 30, phrase: "fraza", holders: "poradniki i blogi", verdict: :weak}
 
     assert StatusLine.sentence(%{run: run, progress: progress}) ==
              "Sprawdzam, kto odpowiada na najlepsze frazy (7 z 30). Po kroku 7 wybierasz niszę."
@@ -48,7 +48,7 @@ defmodule Dirmoon.Research.StatusLineTest do
 
   test "progress of another Step doesn't change the sentence" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(5, %{6 => :running})))
-    progress = %{step: 5, checked: 30, total: 30, phrase: "fraza", holders: "blogi", verdict: :weak}
+    progress = %{step: 5, checked: 30, total: 30, phrase: "fraza", holders: "poradniki i blogi", verdict: :weak}
 
     assert StatusLine.sentence(%{run: run, progress: progress}) ==
              "Sprawdzam, na które frazy strona już jest widoczna."

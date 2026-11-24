@@ -3,8 +3,8 @@ defmodule DirmoonWeb.Layouts do
   The embedded root template plus the app, landing and auth layouts, and the
   flash group they render. The landing and auth layouts sit on the dotted
   page background (`page-dots`) from `docs/design/README.md` section 8.2; the
-  signed-in app is a full-screen dark shell (owner's decision, see
-  `docs/MEMORY.md`).
+  signed-in app is a full-screen dark shell in the neutral gray app tokens
+  (owner's decisions, see `docs/MEMORY.md`).
   """
   use DirmoonWeb, :html
 
@@ -12,17 +12,20 @@ defmodule DirmoonWeb.Layouts do
 
   @doc """
   Mounts a LiveView that renders in the dark app shell: the root layout then
-  paints the `<body>` slate, so scrolling past the shell's edge never shows
-  the light page. Other pages keep the light page background.
+  paints the `<body>` in the app's working-area gray, so scrolling past the
+  shell's edge never shows the light page. Other pages keep the light page
+  background.
 
-      live_session :app, on_mount: [{DirmoonWeb.Layouts, :slate_body}] do
+      live_session :app, on_mount: [{DirmoonWeb.Layouts, :app_body}] do
   """
-  def on_mount(:slate_body, _params, _session, socket) do
-    {:cont, assign(socket, :body_surface, "slate")}
+  def on_mount(:app_body, _params, _session, socket) do
+    {:cont, assign(socket, :body_surface, "app")}
   end
 
   @doc """
-  Renders the signed-in app shell: one dark slate tool filling the window.
+  Renders the signed-in app shell: one dark gray tool filling the window.
+  The chrome (top bar and sidebar) is the darkest gray, the working area one
+  step lighter and the status row lighter again.
   A slim top bar (the moon mark, "dirmoon / <context>" in mono, and the
   user's email with "Ustawienia" and "Wyloguj"), a sidebar ("Nowy research",
   "Wyniki", "Strony"), the status row (moon mark, the screen's first-person
@@ -36,9 +39,10 @@ defmodule DirmoonWeb.Layouts do
         <div id="runs">...</div>
       </Layouts.app>
 
-  `active` marks its sidebar link with `aria-current="page"`. `demo_data`
-  shows the "DANE TESTOWE" strip above the top bar; it defaults to
-  `Dirmoon.demo_data?/0`.
+  `active` marks its sidebar link with `aria-current="page"`. `demo_services`
+  lists the services answered with Demo Data in the "DANE TESTOWE" strip above
+  the top bar; it defaults to `Dirmoon.demo_services/0`, and an empty list
+  hides the strip.
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
 
@@ -54,7 +58,8 @@ defmodule DirmoonWeb.Layouts do
   attr :context, :string, required: true, doc: "shown as `dirmoon / <context>` in the top bar"
   attr :note, :string, default: nil, doc: "short mono note at the right of the status row"
 
-  attr :demo_data, :boolean, doc: "whether demo adapters stand in for real providers; defaults to `Dirmoon.demo_data?/0`"
+  attr :demo_services, :list,
+    doc: "names of the services answered by demo adapters; defaults to `Dirmoon.demo_services/0`"
 
   slot :status, doc: "one first-person sentence saying what the tool found or is doing"
   slot :inner_block, required: true
@@ -63,25 +68,25 @@ defmodule DirmoonWeb.Layouts do
     assigns =
       assigns
       |> assign(:sidebar_links, app_sidebar_links())
-      |> assign_new(:demo_data, &Dirmoon.demo_data?/0)
+      |> assign_new(:demo_services, &Dirmoon.demo_services/0)
 
     ~H"""
     <div
       data-layout="app"
       data-surface="dark"
-      class="flex min-h-screen flex-col bg-slate font-sans text-on-slate"
+      class="flex min-h-screen flex-col bg-app font-sans text-on-app"
     >
-      <.demo_data_banner :if={@demo_data} />
+      <.demo_data_banner :if={@demo_services != []} services={@demo_services} />
       <header
         id="app-top-bar"
-        class="flex flex-wrap items-center justify-between gap-x-5 border-b border-slate-line px-5 max-sm:px-3"
+        class="flex flex-wrap items-center justify-between gap-x-5 border-b border-app-line bg-app-chrome px-5 max-sm:px-3"
       >
-        <div class="flex min-h-target-min min-w-0 flex-1 items-center gap-2.5 font-mono text-xs text-on-slate-muted">
+        <div class="flex min-h-target-min min-w-0 flex-1 items-center gap-2.5 font-mono text-xs text-on-app-muted">
           <.link
             href={new_research_path()}
             data-part="brand"
             aria-label="dirmoon"
-            class="flex min-h-target-min flex-none items-center gap-2.5 text-on-slate no-underline"
+            class="flex min-h-target-min flex-none items-center gap-2.5 text-on-app no-underline"
           >
             <.moon_mark tone="accent" size={16} />
             <span aria-hidden="true">dirmoon</span>
@@ -95,7 +100,7 @@ defmodule DirmoonWeb.Layouts do
         <nav
           id="app-nav"
           aria-label="Aplikacja"
-          class="flex flex-none flex-wrap gap-1.5 border-slate-line px-3 py-2 min-[860px]:w-[220px] min-[860px]:flex-col min-[860px]:border-r min-[860px]:py-4 max-[859px]:border-b"
+          class="flex flex-none flex-wrap gap-1.5 border-app-line bg-app-chrome px-3 py-2 min-[860px]:w-[220px] min-[860px]:flex-col min-[860px]:border-r min-[860px]:py-4 max-[859px]:border-b"
         >
           <.app_sidebar_link
             id="nav-new-research"
@@ -121,11 +126,11 @@ defmodule DirmoonWeb.Layouts do
             :if={@status != [] or @note}
             id="app-status"
             role="status"
-            class="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-slate-line bg-slate-raised px-5 py-3.5 max-sm:px-4"
+            class="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-app-line bg-app-raised px-5 py-3.5 max-sm:px-4"
           >
             <.moon_mark tone="accent" size={26} />
             <span class="min-w-0 flex-[1_1_240px] text-[15px] font-medium">{render_slot(@status)}</span>
-            <span :if={@note} id="app-note" class="font-mono text-[11px] text-on-slate-muted">
+            <span :if={@note} id="app-note" class="font-mono text-[11px] text-on-app-muted">
               {@note}
             </span>
           </div>
@@ -201,7 +206,8 @@ defmodule DirmoonWeb.Layouts do
   tablets it sits at the bottom of the screen (full width between the side
   gutters on phones). On desktop the `page` placement (landing and sign-in)
   sits top right, below the nav card; the `app` placement stays bottom
-  right, so it never covers the app's top bar or status row.
+  right, so it never covers the app's top bar or status row, and draws its
+  notices in the app's grays.
 
   ## Examples
 
@@ -212,6 +218,8 @@ defmodule DirmoonWeb.Layouts do
   attr :placement, :string, default: "page", values: ~w(page app), doc: "where it sits on desktop"
 
   def flash_group(assigns) do
+    assigns = assign(assigns, :surface, flash_surface(assigns.placement))
+
     ~H"""
     <div
       id={@id}
@@ -221,12 +229,13 @@ defmodule DirmoonWeb.Layouts do
         @placement == "page" && "lg:top-36 lg:bottom-auto"
       ]}
     >
-      <.flash kind={:info} flash={@flash} />
-      <.flash kind={:error} flash={@flash} />
+      <.flash kind={:info} flash={@flash} surface={@surface} />
+      <.flash kind={:error} flash={@flash} surface={@surface} />
 
       <.flash
         id="client-error"
         kind={:error}
+        surface={@surface}
         title={gettext("We can't find the internet")}
         phx-disconnected={
           show(".phx-client-error #client-error")
@@ -242,6 +251,7 @@ defmodule DirmoonWeb.Layouts do
       <.flash
         id="server-error"
         kind={:error}
+        surface={@surface}
         title={gettext("Something went wrong!")}
         phx-disconnected={
           show(".phx-server-error #server-error")
@@ -257,15 +267,20 @@ defmodule DirmoonWeb.Layouts do
     """
   end
 
+  attr :services, :list, required: true
+
   defp demo_data_banner(assigns) do
     ~H"""
     <div
       id="demo-data-banner"
       role="status"
-      class="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 bg-ink px-4 py-1.5 text-center text-xs text-white"
+      class="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 border-b border-app-line bg-app-chrome px-4 py-1.5 text-center text-xs text-on-app-2"
     >
       <span class="font-mono text-[11px] font-medium tracking-[0.1em] text-accent">DANE TESTOWE</span>
-      <span>Aplikacja używa danych demonstracyjnych, nie prawdziwych wyników.</span>
+      <span id="demo-data-services">Dane demonstracyjne zamiast prawdziwych: {Enum.join(
+        @services,
+        ", "
+      )}.</span>
     </div>
     """
   end
@@ -278,7 +293,7 @@ defmodule DirmoonWeb.Layouts do
       <span
         id="user-email"
         title={@user.email}
-        class="max-w-[220px] truncate text-on-slate-muted max-sm:sr-only"
+        class="max-w-[220px] truncate text-on-app-muted max-sm:sr-only"
         phx-no-format
       >{@user.email}</span>
       <.link id="settings-link" href={~p"/users/settings"} class={top_bar_link_class()}>
@@ -307,8 +322,11 @@ defmodule DirmoonWeb.Layouts do
 
   defp top_bar_link_class,
     do:
-      "inline-flex min-h-target-min items-center text-on-slate-2 no-underline transition-colors duration-150 hover:text-on-slate"
+      "inline-flex min-h-target-min items-center text-on-app-2 no-underline transition-colors duration-150 hover:text-on-app"
 
-  defp body_background_class("slate"), do: "bg-slate"
+  defp flash_surface("page"), do: "light"
+  defp flash_surface("app"), do: "app"
+
+  defp body_background_class("app"), do: "bg-app"
   defp body_background_class(_light), do: "bg-page"
 end

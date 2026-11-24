@@ -22,7 +22,7 @@ These come from `docs/design/README.md`; read it before building a pipeline step
 - **Every run shows its API cost.**
 - **Pages contain no invented price, phone, address or factual claim.** A missing value stays a visible `[PLACEHOLDER]`.
 - **Numbers in the reference designs are invented.** Never copy them into seeds, fixtures presented as real, or copy.
-- **UI:** interface copy is Polish; colours only from the design tokens; every screen works at 390 px wide.
+- **UI:** interface copy is Polish; colours only from `assets/css/tokens.css` (handover tokens plus the app surface tokens); every screen works at 390 px wide.
 - **v1 has one user, the owner:** no accounts, billing, onboarding or multi-tenancy.
 
 ## Agent skills

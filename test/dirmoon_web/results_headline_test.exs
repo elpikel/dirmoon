@@ -65,10 +65,10 @@ defmodule DirmoonWeb.ResultsHeadlineTest do
   end
 
   test "the status line names the best Niche and how weak its competition is" do
-    best = %{name: "Rejsy po zalewie", competition: %{verdict: :weak, holders: "fora, blogi"}}
+    best = %{name: "Rejsy po zalewie", competition: %{verdict: :weak, holders: "fora, poradniki i blogi"}}
 
     assert ResultsHeadline.status_line(best) ==
-             "Najlepsza szansa to Rejsy po zalewie. Na pierwszej stronie przeważają słabe wyniki: fora, blogi."
+             "Najlepsza szansa to Rejsy po zalewie. Na pierwszej stronie przeważają słabe wyniki: fora, poradniki i blogi."
   end
 
   test "the status line says so when the best Niche's competition wasn't checked" do
@@ -78,12 +78,5 @@ defmodule DirmoonWeb.ResultsHeadlineTest do
 
   test "the status line says so when no Niche is left" do
     assert ResultsHeadline.status_line(nil) =~ "Nie została żadna nisza do wyboru."
-  end
-
-  test "a Niche's competition line has the verdict and who holds the top 10" do
-    assert ResultsHeadline.competition_line(%{verdict: :strong, holders: "konkurenci, portale"}) ==
-             "Mocna konkurencja: konkurenci, portale"
-
-    assert ResultsHeadline.competition_line(nil) == "Konkurencja niesprawdzona"
   end
 end
