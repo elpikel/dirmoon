@@ -1,0 +1,30 @@
+/* dirmoon design tokens. Same palette as Ditstar, so the two products read as one family.
+ * The reference HTML in ./reference/ uses these colour and font variables.
+ * Radii, spacing and layout values appear there as plain numbers; README.md lists the ones that matter. */
+:root {
+  --page: #FBFBFA;
+  --page-alt: #F3F4F2;
+  --white: #FFFFFF;
+  --chip: #ECEDEB;
+  --dot: #DCDDDB;
+  --ink: #171A21;
+  --text: #3D4246;
+  --text-muted: #5C6166;
+  --line: #E4E5E3;
+  --line-strong: #C9CCCF;
+  --line-dashed: #8A9096;
+  --slate: #262C38;
+  --slate-raised: #2E3542;
+  --slate-selected: #323947;
+  --slate-line: #3D4554;
+  --slate-line-strong: #4A5364;
+  --on-slate: #E8EDF0;
+  --on-slate-2: #C9D2D8;
+  --on-slate-muted: #9AA7B0;
+  --warn: #F2B66B;
+  --accent: #B8F04A;          /* lime: one primary action per view, status 'done', the headline underline */
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --target-min: 44px;         /* minimum height of buttons and links (chips and filter pills are 36px) */
+  --content-max: 1180px;      /* page column */
+}

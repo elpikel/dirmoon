@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dirmoon: Brief and page</title>
+<!-- Design reference. Implement with the repo's own components; do not ship this file. See ../README.md -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+body { margin: 0; }
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; background-color: var(--page); background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px); background-size: 22px 22px; color: var(--ink); font-family: var(--font-sans)">
+
+<header style="padding: 16px 32px 0">
+<div style="max-width: 1180px; margin: 0 auto; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; padding: 10px 12px 10px 22px; background: var(--page); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 12px 32px rgba(23, 26, 33, 0.08)">
+<a href="new-research.html" style="display: flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); font-weight: 800; font-size: 21px; letter-spacing: -0.03em">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="var(--ink)"></path></svg>
+<span>dirmoon</span>
+</a>
+<nav aria-label="Główna" style="display: flex; align-items: center; gap: 8px 28px; flex-wrap: wrap; font-size: 14px; font-weight: 500">
+<a href="results.html" style="text-decoration: none; color: var(--text-muted); padding: 12px 0">Wyniki</a>
+<a href="page.html" aria-current="page" style="text-decoration: none; color: var(--ink); font-weight: 700; padding: 12px 0">Strony</a>
+<a href="new-research.html" style="text-decoration: none; color: var(--white); background: var(--ink); font-weight: 600; padding: 14px 18px; border-radius: 10px">Nowy research</a>
+</nav>
+</div>
+</header>
+
+<main style="max-width: 1180px; width: 100%; margin: 0 auto; padding: 64px 32px 88px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center">
+<span style="font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); background: var(--chip); padding: 7px 12px; border-radius: 6px">Nisza: pierwszy raz kamperem</span>
+<h1 style="position: relative; isolation: isolate; margin: 0; font-weight: 800; font-size: clamp(36px, 4.6vw, 64px); line-height: 1; letter-spacing: -0.04em; max-width: 900px; text-wrap: balance">Brief gotowy. <span style="position: relative; display: inline-block">Strona też.<svg aria-hidden="true" viewBox="0 0 600 24" preserveAspectRatio="none" style="position: absolute; left: 0; bottom: -0.14em; width: 100%; height: 0.24em; z-index: -1"><path d="M4 14 C 120 4, 240 22, 360 12 S 540 6, 596 12" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" vector-effect="non-scaling-stroke"></path></svg></span></h1>
+
+<div style="width: 100%; margin-top: 20px; box-sizing: border-box; background: var(--slate); color: var(--on-slate); border-radius: 16px; overflow: hidden; box-shadow: 0 32px 80px rgba(23, 26, 33, 0.2); text-align: left">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 20px; border-bottom: 1px solid var(--slate-line)">
+<div style="display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--on-slate-muted)">
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="var(--accent)"></path></svg>
+<span>dirmoon / wynajem kamperów / pierwszy-raz-kamperem</span>
+</div>
+<span style="font-family: var(--font-mono); font-size: 11px; color: var(--on-slate-muted)">Dane przykładowe</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px 20px; background: var(--slate-raised); border-bottom: 1px solid var(--slate-line)">
+<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" style="flex: none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="var(--accent)"></path></svg>
+<span style="font-size: 15px; font-weight: 500">Ułożyłem landing z czterech pytań, które rodziny wpisują przed pierwszym wyjazdem. Ceny i terminy uzupełniasz Ty.</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start">
+
+<div style="flex: 3 1 300px; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; padding: 24px 22px 28px">
+<span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--on-slate-muted)">Brief</span>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="brief-title" style="font-size: 13px; font-weight: 500; color: var(--on-slate-2)">Tytuł strony</label>
+<input id="brief-title" type="text" value="Pierwszy raz kamperem – wynajem w Trójmieście" style="height: 48px; box-sizing: border-box; padding: 0 14px; background: var(--slate-raised); border: 1px solid var(--slate-line-strong); border-radius: 10px; color: var(--on-slate); font-family: var(--font-sans); font-size: 14px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="brief-url" style="font-size: 13px; font-weight: 500; color: var(--on-slate-2)">Adres</label>
+<input id="brief-url" type="text" value="[TWOJA-DOMENA]/pierwszy-raz-kamperem" style="height: 48px; box-sizing: border-box; padding: 0 14px; background: var(--slate-raised); border: 1px solid var(--slate-line-strong); border-radius: 10px; color: var(--on-slate); font-family: var(--font-mono); font-size: 12px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 500; color: var(--on-slate-2)">Sekcje: pytania klientów</span>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; background: var(--slate-raised); border: 1px solid var(--slate-line-strong); border-radius: 12px">
+<li style="display: flex; align-items: baseline; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--slate-line-strong); font-size: 14px; line-height: 1.4"><span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent)">01</span><span>Czy na kampera trzeba mieć specjalne prawo jazdy?</span></li>
+<li style="display: flex; align-items: baseline; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--slate-line-strong); font-size: 14px; line-height: 1.4"><span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent)">02</span><span>Co zabrać na pierwszy wyjazd kamperem?</span></li>
+<li style="display: flex; align-items: baseline; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--slate-line-strong); font-size: 14px; line-height: 1.4"><span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent)">03</span><span>Ile kosztuje wynajem kampera na tydzień?</span></li>
+<li style="display: flex; align-items: baseline; gap: 12px; padding: 13px 14px; font-size: 14px; line-height: 1.4"><span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent)">04</span><span>Gdzie można nocować kamperem w Polsce?</span></li>
+</ol>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 500; color: var(--on-slate-2)">Frazy do pokrycia</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; font-family: var(--font-mono); font-size: 12px">
+<span style="color: var(--ink); background: var(--accent); padding: 6px 10px; border-radius: 6px">pierwszy raz kamperem</span>
+<span style="color: var(--on-slate); border: 1px solid var(--slate-line-strong); padding: 5px 9px; border-radius: 6px">prawo jazdy</span>
+<span style="color: var(--on-slate); border: 1px solid var(--slate-line-strong); padding: 5px 9px; border-radius: 6px">co zabrać</span>
+<span style="color: var(--on-slate); border: 1px solid var(--slate-line-strong); padding: 5px 9px; border-radius: 6px">wynajem trójmiasto</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<button type="button" style="min-height: 48px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--accent); color: var(--ink); font-family: var(--font-sans); font-size: 15px; font-weight: 600; cursor: pointer">Opublikuj na Pagedock</button>
+<button type="button" style="min-height: 48px; padding: 0 18px; border: 1px solid var(--slate-line-strong); border-radius: 10px; background: transparent; color: var(--on-slate); font-family: var(--font-sans); font-size: 15px; font-weight: 500; cursor: pointer">Pobierz plik treści</button>
+</div>
+</div>
+
+<div style="flex: 7 1 480px; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 24px 24px 28px; border-left: 1px solid var(--slate-line)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--on-slate-muted)">Podgląd strony</span>
+<span style="font-family: var(--font-mono); font-size: 11px; color: var(--on-slate-muted)">Szablon stały, treść z briefu</span>
+</div>
+
+<div style="box-sizing: border-box; display: flex; flex-direction: column; background: var(--white); color: var(--ink); border-radius: 14px; overflow: hidden">
+
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--chip)">
+<span style="flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--white); border-radius: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--text)"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>[TWOJA-DOMENA]/pierwszy-raz-kamperem</span>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; padding: 14px 28px; border-bottom: 1px solid var(--line)">
+<span style="font-size: 17px; font-weight: 800; letter-spacing: -0.02em">[NAZWA WYPOŻYCZALNI]</span>
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; font-size: 13px; font-weight: 500; color: var(--text-muted)">
+<span>Kampery</span><span>Cennik</span><span>Kontakt</span>
+<span style="padding: 9px 14px; border-radius: 8px; background: var(--ink); color: var(--white); font-weight: 600">Sprawdź terminy</span>
+</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 18px; padding: 40px 28px 32px; background: var(--page)">
+<span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted)">Wynajem kamperów / Pierwszy wyjazd</span>
+<p style="margin: 0; max-width: 560px; font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -0.04em">Pierwszy raz kamperem? Zacznij tutaj.</p>
+<p style="margin: 0; max-width: 540px; font-size: 17px; line-height: 1.5; color: var(--text)">[WSTĘP: dwa zdania o tym, dla kogo jest wypożyczalnia i co dostaje klient]</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<span style="display: flex; align-items: center; gap: 8px; min-height: 50px; padding: 0 22px; border-radius: 10px; background: var(--ink); color: var(--white); font-size: 15px; font-weight: 600">Sprawdź terminy<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></span>
+<span style="display: flex; align-items: center; gap: 8px; min-height: 50px; padding: 0 20px; border: 1.5px solid var(--line-strong); border-radius: 10px; background: var(--white); font-family: var(--font-mono); font-size: 14px"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.500 1.500a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"></path></svg>[TELEFON]</span>
+</div>
+<div style="margin-top: 6px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: var(--white); border: 1px solid var(--line); border-radius: 12px"><span style="font-size: 12px; color: var(--text-muted)">Cena za dobę</span><span style="font-size: 16px; font-weight: 700">[CENA]</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: var(--white); border: 1px solid var(--line); border-radius: 12px"><span style="font-size: 12px; color: var(--text-muted)">Sezon</span><span style="font-size: 16px; font-weight: 700">maj–wrzesień</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: var(--white); border: 1px solid var(--line); border-radius: 12px"><span style="font-size: 12px; color: var(--text-muted)">Odbiór</span><span style="font-size: 16px; font-weight: 700">Gdańsk</span></div>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 14px 28px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line)">
+<span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted)">Na tej stronie</span>
+<span style="padding: 6px 10px; border-radius: 999px; background: var(--page-alt); font-size: 13px">Prawo jazdy</span>
+<span style="padding: 6px 10px; border-radius: 999px; background: var(--page-alt); font-size: 13px">Co zabrać</span>
+<span style="padding: 6px 10px; border-radius: 999px; background: var(--page-alt); font-size: 13px">Ile kosztuje</span>
+<span style="padding: 6px 10px; border-radius: 999px; background: var(--page-alt); font-size: 13px">Gdzie nocować</span>
+</div>
+
+<div style="display: flex; gap: 18px; padding: 30px 28px; border-bottom: 1px solid var(--line)">
+<span style="flex: none; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; background: var(--accent); font-family: var(--font-mono); font-size: 13px; font-weight: 500">01</span>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 23px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em">Czy na kampera trzeba mieć specjalne prawo jazdy?</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: var(--text)">[ODPOWIEDŹ: 3–5 zdań, pisze LLM, Ty zatwierdzasz]</p>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; background: var(--page-alt); border-radius: 12px">
+<span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted)">W skrócie</span>
+<span style="font-size: 15px; font-weight: 600; line-height: 1.45">[JEDNO ZDANIE, KTÓRE ODPOWIADA NA PYTANIE WPROST]</span>
+</div>
+</div>
+</div>
+
+<div style="display: flex; gap: 18px; padding: 30px 28px; border-bottom: 1px solid var(--line)">
+<span style="flex: none; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; background: var(--chip); font-family: var(--font-mono); font-size: 13px; font-weight: 500">02</span>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 23px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em">Co zabrać na pierwszy wyjazd kamperem?</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: var(--text)">[ODPOWIEDŹ]</p>
+</div>
+</div>
+
+<div style="display: flex; gap: 18px; padding: 30px 28px; border-bottom: 1px solid var(--line)">
+<span style="flex: none; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; background: var(--chip); font-family: var(--font-mono); font-size: 13px; font-weight: 500">03</span>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 23px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em">Ile kosztuje wynajem kampera na tydzień?</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: var(--text)">[ODPOWIEDŹ]</p>
+</div>
+</div>
+
+<div style="display: flex; gap: 18px; padding: 30px 28px">
+<span style="flex: none; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; background: var(--chip); font-family: var(--font-mono); font-size: 13px; font-weight: 500">04</span>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 23px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em">Gdzie można nocować kamperem w Polsce?</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: var(--text)">[ODPOWIEDŹ]</p>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 24px; padding: 32px 28px; background: var(--ink); color: var(--white)">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 26px; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em">Jedziesz w tym sezonie?</span>
+<span style="font-family: var(--font-mono); font-size: 13px; color: var(--on-slate-2)">[TELEFON] · [E-MAIL]</span>
+</div>
+<span style="display: flex; align-items: center; min-height: 50px; padding: 0 22px; border-radius: 10px; background: var(--accent); color: var(--ink); font-size: 15px; font-weight: 600">Sprawdź terminy</span>
+</div>
+
+</div>
+</div>
+
+</div>
+</div>
+<p style="margin: 0; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted)">Ryc. 4 · Brief po lewej, strona zbudowana z niego po prawej.</p>
+</main>
+
+</div>
+</body>
+</html>

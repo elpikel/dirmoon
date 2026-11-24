@@ -45,7 +45,7 @@ None yet.
 | `test/dirmoon/` | Context tests, mirroring `lib/dirmoon/` |
 | `test/dirmoon_web/` | Controller tests in `controllers/`, LiveView tests in `live/` |
 | `test/support/` | `ConnCase`, `DataCase` |
-| `docs/design/` | Product spec and design handover |
+| `docs/design/` | Design handover: product spec (`README.md`), `tokens.css`, reference HTML and screenshots in `reference/` |
 
 ## Where new code goes
 
