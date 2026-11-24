@@ -63,7 +63,7 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 |---|---|
 | Router | `lib/dirmoon_web/router.ex` |
 | Path prefixes | `/` (landing, sign-up), `/users/*` (sign-in, settings), `/app` (signed-in app), `/dev` (LiveDashboard and mailbox preview, dev only) |
-| Pipelines (reviewer checks placement) | `:browser` (session, CSRF, secure headers, current scope), `:require_authenticated_user` (signed-in User; every `/app` route and Settings), `:api` (JSON, no auth; not mounted). `live_session :app` mounts `UserAuth :require_authenticated`. |
+| Pipelines (reviewer checks placement) | `:browser` (session, CSRF, secure headers, current scope), `:require_authenticated_user` (signed-in User; every `/app` route and Settings), `:redirect_if_user_is_authenticated` (sends a signed-in User from the landing page `GET /` and `POST /sign-up` to `/app`). `live_session :app` mounts `UserAuth :require_authenticated`. |
 | API docs for clients | none (no external API clients) |
 
 ## Access rules (reviewer fails on any leak)
@@ -71,11 +71,11 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 - Every Research Run, Niche, Page and Search Console Connection belongs to one Account (ADR-0001). A User sees and changes only their Scope's Account's data: context functions take the `Scope` and filter by `scope.account`.
 - `account_id` is never cast from params; it comes from the Scope.
 - Ids from params (run, niche, page) are resolved through the Scope; a foreign id is "not found" and changes nothing.
-- Sign-up never reveals whether an email is already registered.
+- Sign-up never reveals whether an email already has a User.
 - Shared market data (`keywords`, `keyword_metrics`, `serp_snapshots`) never holds anything that identifies an Account or its business: no description, domain, run id or Search Console figure (ADR-0002). Per-run choices (kept/rejected, Niche, Page Type labels, current positions) live in per-run tables.
 - API keys, the Netlify token and Google OAuth tokens come from runtime config or encrypted columns, and never reach a template, a log line, a CSV or a stored raw response. Google refresh tokens are stored encrypted.
 - The Search Console OAuth callback accepts only a `state` issued to the same session.
-- A Produced Page contains no invented price, phone, address or e-mail; a missing value is a visible Placeholder.
+- A Page contains no invented price, phone, address or e-mail; a missing value is a visible Placeholder.
 - Final Phrases come from the keyword API, never from the LLM.
 - A paid request a run already stored is never sent again for that run; fresh (< 30 days) Volumes and SERP Snapshots are reused across runs.
 
@@ -83,7 +83,8 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 
 The builder and reviewer enforce the kit's default Elixir style (`.claude/agents/builder.md`). List any default this repo turns off or changes; leave "none" to keep them all.
 
-- none
+- Code names follow `CONTEXT.md`. A module, schema, field, function, status value or UI label that uses a word the glossary lists under _Avoid_, or a different word for a glossary term, fails review; the builder renames the code (or, when the code's word is the better one, proposes the glossary change in its report) in the same task. Mismatches are never left as "findings for later". Table, column and external-API names may keep the provider's or the handover's word (`keywords`, `keyword_id`, `clusters`).
+- Every branch is tested. A builder reports line coverage for the modules it touched and tests every error, fallback and catch-all branch it writes, not only the acceptance criteria; a branch that can't be reached with real data is named in the report with the reason. The reviewer fails a task with an untested branch in its files. `mix precommit` runs the suite with the coverage threshold in `mix.exs`.
 
 ## Docs
 

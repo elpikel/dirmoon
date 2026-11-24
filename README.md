@@ -32,7 +32,7 @@ Dev runs with no environment variables: demo adapters stand in for every externa
 
 | Variable | Turns on | Without it |
 |---|---|---|
-| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` (both) | Real keyword ideas, volumes and SERP top 10 from DataForSEO | Dev: demo data. Prod: the step fails with "Brak danych logowania DataForSEO" |
+| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` (both) | Real phrase ideas, volumes and SERP top 10 from DataForSEO | Dev: demo data. Prod: the step fails with "Brak danych logowania DataForSEO" |
 | `NETLIFY_TOKEN` | Publishing pages to Netlify | Dev: demo publish. Prod: publishing fails with "Brak tokenu Netlify". Downloading the page still works |
 | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (both) | Connecting Google Search Console, for Existing Site runs | Dev: demo connection. Prod: Step 6 (current positions) is skipped |
 | `DATABASE_URL`, `SECRET_KEY_BASE` | Prod database and cookie signing (required) | Prod does not start |
@@ -41,7 +41,7 @@ Dev runs with no environment variables: demo adapters stand in for every externa
 | `PHX_SERVER` | Starts the web server in a release | A release starts without serving HTTP |
 | `ECTO_IPV6`, `DNS_CLUSTER_QUERY` | IPv6 database socket, DNS clustering | IPv4, no clustering |
 
-Google redirect URI to register in the Google Cloud OAuth client: `https://<PHX_HOST>/app/search-console/callback` (dev with real credentials: `http://localhost:4000/app/search-console/callback`).
+Google redirect URI to add to the Google Cloud OAuth client: `https://<PHX_HOST>/app/search-console/callback` (dev with real credentials: `http://localhost:4000/app/search-console/callback`).
 
 **LLM:** no environment variable yet, because the provider is undecided. A real adapter implements the `Dirmoon.LLM` behaviour (`structured/1`) and is selected with `config :dirmoon, :llm_adapter`.
 
@@ -67,7 +67,7 @@ DataForSEO list prices as researched in November 2026. They are unverified estim
 
 | Request | Price |
 |---|---|
-| Google Ads Live (keyword ideas, search volume) | $0.09 per request |
+| Google Ads Live (keywords for keywords, search volume) | $0.09 per request |
 | Google Organic SERP Live, top 10 | $0.002 per SERP |
 | Minimum top-up | $50 |
 
@@ -76,7 +76,7 @@ DataForSEO list prices as researched in November 2026. They are unverified estim
 ```sh
 mix test                        # all tests
 mix test path/to/test.exs:LINE  # one test
-mix precommit                   # compile (warnings as errors), unlock unused deps, format, credo, test
+mix precommit                   # compile (warnings as errors), unlock unused deps, format, credo, test --cover (threshold in mix.exs)
 ```
 
 Tests never hit the network: Mox stands in for the external clients and `Req.Test` for their HTTP.
