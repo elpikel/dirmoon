@@ -1,6 +1,8 @@
 defmodule DirmoonWeb.Router do
   use DirmoonWeb, :router
 
+  import DirmoonWeb.UserAuth
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -8,6 +10,7 @@ defmodule DirmoonWeb.Router do
     plug :put_root_layout, html: {DirmoonWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :fetch_current_scope_for_user
   end
 
   pipeline :api do
@@ -18,20 +21,51 @@ defmodule DirmoonWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    post "/sign-up", SignUpController, :create
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", DirmoonWeb do
-  #   pipe_through :api
-  # end
+  scope "/app", DirmoonWeb do
+    pipe_through [:browser, :require_authenticated_user]
 
-  # Enable LiveDashboard and Swoosh mailbox preview in development
+    get "/", AppController, :index
+    get "/search-console/connect", SearchConsoleController, :connect
+    get "/search-console/callback", SearchConsoleController, :callback
+    delete "/search-console", SearchConsoleController, :delete
+    get "/pages/:id/file", PageFileController, :show
+    get "/runs/:id/export.csv", RunExportController, :show
+
+    live_session :app, on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}] do
+      live "/research/new", NewResearchLive
+      live "/runs", RunsLive
+      live "/runs/:id", RunLive
+      live "/runs/:id/results", ResultsLive
+      live "/pages", PagesLive
+      live "/pages/:id", PageLive
+    end
+  end
+
+  scope "/", DirmoonWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :require_authenticated_user, on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}] do
+      live "/users/settings", UserLive.Settings, :edit
+      live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
+    end
+  end
+
+  scope "/", DirmoonWeb do
+    pipe_through [:browser]
+
+    live_session :current_user, on_mount: [{DirmoonWeb.UserAuth, :mount_current_scope}] do
+      live "/users/log-in", UserLive.Login, :new
+      live "/users/log-in/:token", UserLive.Confirmation, :new
+    end
+
+    post "/users/log-in", UserSessionController, :create
+    delete "/users/log-out", UserSessionController, :delete
+  end
+
   if Application.compile_env(:dirmoon, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
