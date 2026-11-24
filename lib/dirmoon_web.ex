@@ -84,6 +84,7 @@ defmodule DirmoonWeb do
 
       # Core UI components
       import DirmoonWeb.CoreComponents
+      import DirmoonWeb.UI
 
       # HTML escaping functionality
       import Phoenix.HTML

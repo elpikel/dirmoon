@@ -1,28 +1,25 @@
 defmodule DirmoonWeb.Layouts do
   @moduledoc """
-  The embedded root template plus the app layout and the flash group it renders.
+  The embedded root template plus the app, landing and auth layouts, and the
+  flash group they render. All three sit on the dotted page background
+  (`page-dots`) from `docs/design/README.md` section 8.2.
   """
   use DirmoonWeb, :html
 
-  # Embed all files in layouts/* within this module.
-  # The default root.html.heex file contains the HTML
-  # skeleton of your application, namely HTML headers
-  # and other static content.
   embed_templates "layouts/*"
 
   @doc """
-  Renders your app layout.
+  Renders the signed-in app shell: the floating nav card with "Wyniki",
+  "Strony", the dark "Nowy research" button and, when signed in, the user's
+  email with "Ustawienia" and "Wyloguj" links, over the 1180px content
+  column (32px side padding, 16px on phones).
 
-  This function is typically invoked from every template,
-  and it often contains your application menu, sidebar,
-  or similar.
-
-  ## Examples
-
-      <Layouts.app flash={@flash}>
-        <h1>Content</h1>
+      <Layouts.app flash={@flash} current_scope={@current_scope} active={:runs}>
+        <div id="results">...</div>
       </Layouts.app>
 
+  `active` marks its nav link with `aria-current="page"`. `demo_data` shows
+  the "DANE TESTOWE" strip above the nav; it defaults to `Dirmoon.demo_data?/0`.
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
 
@@ -30,42 +27,89 @@ defmodule DirmoonWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
+  attr :active, :atom,
+    default: nil,
+    values: [nil, :runs, :pages],
+    doc: "the nav link of the page being shown"
+
+  attr :demo_data, :boolean, doc: "whether demo adapters stand in for real providers; defaults to `Dirmoon.demo_data?/0`"
+
   slot :inner_block, required: true
 
   def app(assigns) do
-    ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://phoenix.hexdocs.pm/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-    </header>
+    assigns =
+      assigns
+      |> assign(:nav_links, app_nav_links())
+      |> assign_new(:demo_data, &Dirmoon.demo_data?/0)
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+    ~H"""
+    <.page_shell layout="app">
+      <:header>
+        <.demo_data_banner :if={@demo_data} />
+        <.nav_card id="app-nav" home_href={new_research_path()}>
+          <.nav_link :for={link <- @nav_links} href={link.path} active={link.page == @active}>
+            {link.label}
+          </.nav_link>
+          <.button variant="dark" href={new_research_path()}>Nowy research</.button>
+          <.user_menu :if={@current_scope} user={@current_scope.user} />
+        </.nav_card>
+      </:header>
+      {render_slot(@inner_block)}
+    </.page_shell>
+
+    <.flash_group flash={@flash} />
+    """
+  end
+
+  @doc """
+  Renders the signed-out landing shell: the same page and nav card as the
+  app, with the `nav` slot on the right-hand side (sign-in link, sign-up
+  button).
+
+      <Layouts.landing flash={@flash}>
+        <:nav><.nav_link href={~p"/users/log-in"}>Zaloguj się</.nav_link></:nav>
+        <section id="hero">...</section>
+      </Layouts.landing>
+  """
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+  slot :nav, doc: "the right-hand side of the nav card"
+  slot :inner_block, required: true
+
+  def landing(assigns) do
+    ~H"""
+    <.page_shell layout="landing">
+      <:header>
+        <.nav_card id="landing-nav">{render_slot(@nav)}</.nav_card>
+      </:header>
+      {render_slot(@inner_block)}
+    </.page_shell>
+
+    <.flash_group flash={@flash} />
+    """
+  end
+
+  @doc """
+  Renders the sign-in shell: the mark and wordmark above a centred white card
+  on the dotted page.
+
+      <Layouts.auth flash={@flash}>
+        <h1>Zaloguj się</h1>
+      </Layouts.auth>
+  """
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+  slot :inner_block, required: true
+
+  def auth(assigns) do
+    ~H"""
+    <div
+      data-layout="auth"
+      class="page-dots flex min-h-screen flex-col items-center justify-center gap-8 px-gutter-phone py-16 font-sans text-ink sm:px-gutter"
+    >
+      <.wordmark href={~p"/"} />
+      <main class="flex w-full max-w-[420px] flex-col gap-6 rounded-panel border border-line bg-white p-8 shadow-nav max-sm:p-6">
         {render_slot(@inner_block)}
-      </div>
-    </main>
+      </main>
+    </div>
 
     <.flash_group flash={@flash} />
     """
@@ -120,40 +164,52 @@ defmodule DirmoonWeb.Layouts do
     """
   end
 
-  @doc """
-  Provides dark vs light theme toggle based on themes defined in app.css.
-
-  See <head> in root.html.heex which applies the theme before page load.
-  """
-  def theme_toggle(assigns) do
+  defp demo_data_banner(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="system"
-      >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="light"
-      >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="dark"
-      >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
+    <div
+      id="demo-data-banner"
+      role="status"
+      class="mx-auto mb-3 flex w-full max-w-content flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-control bg-ink px-4 py-2 text-center text-[13px] text-white"
+    >
+      <span class="font-mono text-xs font-medium tracking-[0.1em] text-accent">DANE TESTOWE</span>
+      <span>Aplikacja używa danych demonstracyjnych, nie prawdziwych wyników.</span>
     </div>
     """
   end
+
+  attr :user, :map, required: true
+
+  defp user_menu(assigns) do
+    ~H"""
+    <div id="user-menu" class="flex flex-wrap items-center gap-x-5 gap-y-1">
+      <span id="user-email" class="max-w-[220px] truncate text-body-muted">{@user.email}</span>
+      <.nav_link id="settings-link" href={~p"/users/settings"}>Ustawienia</.nav_link>
+      <.nav_link id="log-out-link" href={~p"/users/log-out"} method="delete">Wyloguj</.nav_link>
+    </div>
+    """
+  end
+
+  attr :layout, :string, required: true, doc: "names the layout in data-layout"
+  slot :header, required: true
+  slot :inner_block, required: true
+
+  defp page_shell(assigns) do
+    ~H"""
+    <div data-layout={@layout} class="page-dots flex min-h-screen flex-col font-sans text-ink">
+      <header class="px-gutter-phone pt-4 sm:px-gutter">{render_slot(@header)}</header>
+      <main class="mx-auto flex w-full max-w-content grow flex-col px-gutter-phone pt-16 pb-[88px] sm:px-gutter">
+        {render_slot(@inner_block)}
+      </main>
+    </div>
+    """
+  end
+
+  defp app_nav_links do
+    [
+      %{page: :runs, label: "Wyniki", path: ~p"/app/runs"},
+      %{page: :pages, label: "Strony", path: ~p"/app/pages"}
+    ]
+  end
+
+  defp new_research_path, do: ~p"/app/research/new"
 end

@@ -8,12 +8,10 @@ defmodule DirmoonWeb.CoreComponents do
   with doc strings and declarative assigns. You may customize and style
   them in any way you want, based on your application growth and needs.
 
-  The foundation for styling is Tailwind CSS, a utility-first CSS framework,
-  augmented with daisyUI, a Tailwind CSS plugin that provides UI components
-  and themes. Here are useful references:
-
-    * [daisyUI](https://daisyui.com/docs/intro/) - a good place to get
-      started and see the available components.
+  Styling uses Tailwind utilities mapped to the dirmoon design tokens
+  (`assets/css/app.css`, values in `assets/css/tokens.css`); no other colour
+  is used. Buttons live in `DirmoonWeb.UI.button/1`. The tokens have no red,
+  so error states use `--warn`. Here are useful references:
 
     * [Tailwind CSS](https://tailwindcss.com) - the foundational framework
       we build on. You will use it for layout, sizing, flexbox, grid, and
@@ -64,64 +62,41 @@ defmodule DirmoonWeb.CoreComponents do
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
       role="alert"
-      class="toast toast-top toast-end z-50"
+      class="fixed top-4 right-4 z-50 max-sm:left-4"
       {@rest}
     >
-      <div class={[
-        "alert w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap",
-        @kind == :info && "alert-info",
-        @kind == :error && "alert-error"
-      ]}>
-        <.icon :if={@kind == :info} name="hero-information-circle" class="size-5 shrink-0" />
-        <.icon :if={@kind == :error} name="hero-exclamation-circle" class="size-5 shrink-0" />
-        <div>
+      <div
+        data-kind={@kind}
+        class={[
+          "flex w-full items-start gap-3 rounded-tile border bg-white py-3 pr-1 pl-4 text-sm text-ink shadow-nav sm:w-96",
+          @kind == :info && "border-line",
+          @kind == :error && "border-warn"
+        ]}
+      >
+        <.icon
+          :if={@kind == :info}
+          name="hero-information-circle"
+          class="mt-0.5 size-5 shrink-0 text-ink"
+        />
+        <.icon
+          :if={@kind == :error}
+          name="hero-exclamation-circle"
+          class="mt-0.5 size-5 shrink-0 text-warn"
+        />
+        <div class="flex-1 text-wrap">
           <p :if={@title} class="font-semibold">{@title}</p>
-          <p>{msg}</p>
+          <p class="text-body">{msg}</p>
         </div>
-        <div class="flex-1" />
-        <button type="button" class="group self-start cursor-pointer" aria-label={gettext("close")}>
-          <.icon name="hero-x-mark" class="size-5 opacity-40 group-hover:opacity-70" />
+        <button
+          type="button"
+          class="group -my-2 inline-flex size-target-min shrink-0 cursor-pointer items-center justify-center rounded-control"
+          aria-label={gettext("close")}
+        >
+          <.icon name="hero-x-mark" class="size-5 text-body-muted group-hover:text-ink" />
         </button>
       </div>
     </div>
     """
-  end
-
-  @doc """
-  Renders a button with navigation support.
-
-  ## Examples
-
-      <.button>Send!</.button>
-      <.button phx-click="go" variant="primary">Send!</.button>
-      <.button navigate={~p"/"}>Home</.button>
-  """
-  attr :rest, :global, include: ~w(href navigate patch method download name value disabled)
-  attr :class, :any
-  attr :variant, :string, values: ~w(primary)
-  slot :inner_block, required: true
-
-  def button(%{rest: rest} = assigns) do
-    variants = %{"primary" => "btn-primary", nil => "btn-primary btn-soft"}
-
-    assigns =
-      assign_new(assigns, :class, fn ->
-        ["btn", Map.fetch!(variants, assigns[:variant])]
-      end)
-
-    if rest[:href] || rest[:navigate] || rest[:patch] do
-      ~H"""
-      <.link class={@class} {@rest}>
-        {render_slot(@inner_block)}
-      </.link>
-      """
-    else
-      ~H"""
-      <button class={@class} {@rest}>
-        {render_slot(@inner_block)}
-      </button>
-      """
-    end
   end
 
   @doc """
@@ -211,8 +186,11 @@ defmodule DirmoonWeb.CoreComponents do
       end)
 
     ~H"""
-    <div class="fieldset mb-2">
-      <label for={@id}>
+    <div class="mb-4 flex flex-col gap-1.5">
+      <label
+        for={@id}
+        class="inline-flex min-h-target-min cursor-pointer items-center gap-3 text-sm text-ink"
+      >
         <input
           type="hidden"
           name={@name}
@@ -220,17 +198,18 @@ defmodule DirmoonWeb.CoreComponents do
           disabled={@rest[:disabled]}
           form={@rest[:form]}
         />
-        <span class="label">
-          <input
-            type="checkbox"
-            id={@id}
-            name={@name}
-            value="true"
-            checked={@checked}
-            class={@class || "checkbox checkbox-sm"}
-            {@rest}
-          />{@label}
-        </span>
+        <input
+          type="checkbox"
+          id={@id}
+          name={@name}
+          value="true"
+          checked={@checked}
+          class={
+            @class ||
+              "size-5 shrink-0 cursor-pointer rounded-[4px] border border-line-strong accent-ink"
+          }
+          {@rest}
+        />{@label}
       </label>
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>
@@ -239,13 +218,17 @@ defmodule DirmoonWeb.CoreComponents do
 
   def input(%{type: "select"} = assigns) do
     ~H"""
-    <div class="fieldset mb-2">
-      <label for={@id}>
-        <span :if={@label} class="label mb-1">{@label}</span>
+    <div class="mb-4 flex flex-col gap-1.5">
+      <label for={@id} class="flex flex-col gap-1.5">
+        <span :if={@label} class="text-sm font-medium text-ink">{@label}</span>
         <select
           id={@id}
           name={@name}
-          class={[@class || "w-full select", @errors != [] && (@error_class || "select-error")]}
+          class={[
+            @class ||
+              "min-h-target-min w-full rounded-control border border-line bg-white px-3.5 text-[15px] text-ink transition-colors duration-150 placeholder:text-body-muted hover:border-line-strong focus:border-ink cursor-pointer",
+            @errors != [] && (@error_class || "border-warn")
+          ]}
           multiple={@multiple}
           {@rest}
         >
@@ -260,15 +243,16 @@ defmodule DirmoonWeb.CoreComponents do
 
   def input(%{type: "textarea"} = assigns) do
     ~H"""
-    <div class="fieldset mb-2">
-      <label for={@id}>
-        <span :if={@label} class="label mb-1">{@label}</span>
+    <div class="mb-4 flex flex-col gap-1.5">
+      <label for={@id} class="flex flex-col gap-1.5">
+        <span :if={@label} class="text-sm font-medium text-ink">{@label}</span>
         <textarea
           id={@id}
           name={@name}
           class={[
-            @class || "w-full textarea",
-            @errors != [] && (@error_class || "textarea-error")
+            @class ||
+              "min-h-target-min w-full rounded-control border border-line bg-white px-3.5 text-[15px] text-ink transition-colors duration-150 placeholder:text-body-muted hover:border-line-strong focus:border-ink min-h-[120px] py-3 leading-normal",
+            @errors != [] && (@error_class || "border-warn")
           ]}
           {@rest}
         >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
@@ -281,17 +265,18 @@ defmodule DirmoonWeb.CoreComponents do
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div class="fieldset mb-2">
-      <label for={@id}>
-        <span :if={@label} class="label mb-1">{@label}</span>
+    <div class="mb-4 flex flex-col gap-1.5">
+      <label for={@id} class="flex flex-col gap-1.5">
+        <span :if={@label} class="text-sm font-medium text-ink">{@label}</span>
         <input
           type={@type}
           name={@name}
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
           class={[
-            @class || "w-full input",
-            @errors != [] && (@error_class || "input-error")
+            @class ||
+              "min-h-target-min w-full rounded-control border border-line bg-white px-3.5 text-[15px] text-ink transition-colors duration-150 placeholder:text-body-muted hover:border-line-strong focus:border-ink",
+            @errors != [] && (@error_class || "border-warn")
           ]}
           {@rest}
         />
@@ -304,8 +289,8 @@ defmodule DirmoonWeb.CoreComponents do
   # Helper used by inputs to generate form errors
   defp error(assigns) do
     ~H"""
-    <p class="mt-1.5 flex gap-2 items-center text-sm text-error">
-      <.icon name="hero-exclamation-circle" class="size-5" />
+    <p class="flex items-center gap-2 text-sm text-ink">
+      <.icon name="hero-exclamation-circle" class="size-5 shrink-0 text-warn" />
       {render_slot(@inner_block)}
     </p>
     """
@@ -322,10 +307,10 @@ defmodule DirmoonWeb.CoreComponents do
     ~H"""
     <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
       <div>
-        <h1 class="text-lg font-semibold leading-8">
+        <h1 class="text-lg font-semibold leading-8 text-ink">
           {render_slot(@inner_block)}
         </h1>
-        <p :if={@subtitle != []} class="text-sm text-base-content/70">
+        <p :if={@subtitle != []} class="text-sm text-body-muted">
           {render_slot(@subtitle)}
         </p>
       </div>
@@ -366,34 +351,45 @@ defmodule DirmoonWeb.CoreComponents do
       end
 
     ~H"""
-    <table class="table table-zebra">
-      <thead>
-        <tr>
-          <th :for={col <- @col}>{col[:label]}</th>
-          <th :if={@action != []}>
-            <span class="sr-only">{gettext("Actions")}</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody id={@id} phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}>
-        <tr :for={row <- @rows} id={@row_id && @row_id.(row)}>
-          <td
-            :for={col <- @col}
-            phx-click={@row_click && @row_click.(row)}
-            class={@row_click && "hover:cursor-pointer"}
+    <div class="w-full overflow-x-auto rounded-tile border border-line bg-white">
+      <table class="w-full border-collapse text-left text-sm text-ink">
+        <thead>
+          <tr class="border-b border-line">
+            <th
+              :for={col <- @col}
+              class="px-4 py-3 font-mono text-xs font-medium tracking-[0.1em] text-body-muted uppercase"
+            >
+              {col[:label]}
+            </th>
+            <th :if={@action != []} class="px-4 py-3">
+              <span class="sr-only">{gettext("Actions")}</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody id={@id} phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}>
+          <tr
+            :for={row <- @rows}
+            id={@row_id && @row_id.(row)}
+            class="border-b border-line transition-colors duration-150 last:border-b-0 hover:bg-page-alt"
           >
-            {render_slot(col, @row_item.(row))}
-          </td>
-          <td :if={@action != []} class="w-0 font-semibold">
-            <div class="flex gap-4">
-              <%= for action <- @action do %>
-                {render_slot(action, @row_item.(row))}
-              <% end %>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+            <td
+              :for={col <- @col}
+              phx-click={@row_click && @row_click.(row)}
+              class={["px-4 py-3", @row_click && "hover:cursor-pointer"]}
+            >
+              {render_slot(col, @row_item.(row))}
+            </td>
+            <td :if={@action != []} class="w-0 px-4 py-3 font-semibold">
+              <div class="flex gap-4">
+                <%= for action <- @action do %>
+                  {render_slot(action, @row_item.(row))}
+                <% end %>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     """
   end
 
@@ -415,12 +411,10 @@ defmodule DirmoonWeb.CoreComponents do
 
   def list(assigns) do
     ~H"""
-    <ul class="list">
-      <li :for={item <- @item} class="list-row">
-        <div class="list-col-grow">
-          <div class="font-bold">{item.title}</div>
-          <div>{render_slot(item)}</div>
-        </div>
+    <ul class="divide-y divide-line">
+      <li :for={item <- @item} class="flex flex-col gap-1 py-3">
+        <div class="text-sm font-semibold text-ink">{item.title}</div>
+        <div class="text-body">{render_slot(item)}</div>
       </li>
     </ul>
     """

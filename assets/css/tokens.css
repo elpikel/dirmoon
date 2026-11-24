@@ -1,0 +1,53 @@
+/*
+ * dirmoon design tokens.
+ * The colour, font and layout values are copied verbatim from docs/design/tokens.css
+ * (same palette as Ditstar). The radius, shadows and gutter values below them are the
+ * plain numbers from docs/design/README.md section 8.2 and the reference HTML, named here
+ * so components never repeat them. This is the only stylesheet that holds literal colours.
+ */
+:root {
+  --page: #FBFBFA;
+  --page-alt: #F3F4F2;
+  --white: #FFFFFF;
+  --chip: #ECEDEB;
+  --dot: #DCDDDB;
+  --ink: #171A21;
+  --text: #3D4246;
+  --text-muted: #5C6166;
+  --line: #E4E5E3;
+  --line-strong: #C9CCCF;
+  --line-dashed: #8A9096;
+  --slate: #262C38;
+  --slate-raised: #2E3542;
+  --slate-selected: #323947;
+  --slate-line: #3D4554;
+  --slate-line-strong: #4A5364;
+  --on-slate: #E8EDF0;
+  --on-slate-2: #C9D2D8;
+  --on-slate-muted: #9AA7B0;
+  --warn: #F2B66B;
+  --accent: #B8F04A;          /* lime: one primary action per view, status 'done', the headline underline */
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --target-min: 44px;         /* minimum height of buttons and links (chips and filter pills are 36px) */
+  --content-max: 1180px;      /* page column */
+
+  /* ---- Radius ---- */
+  --radius-chip: 6px;         /* eyebrow tag */
+  --radius-control: 10px;     /* buttons */
+  --radius-tile: 12px;        /* stat tiles */
+  --radius-panel: 16px;       /* dark panel */
+  --radius-nav: 18px;         /* nav card */
+  --radius-prompt: 22px;      /* prompt box */
+  --radius-pill: 999px;       /* chips, status pills */
+
+  /* ---- Shadow ---- */
+  --shadow-nav: 0 12px 32px rgba(23, 26, 33, 0.08);
+  --shadow-panel: 0 32px 80px rgba(23, 26, 33, 0.2);
+  --shadow-prompt: 0 6px 0 var(--accent), 0 28px 60px rgba(23, 26, 33, 0.12); /* prompt box: the lime edge under it */
+
+  /* ---- Layout ---- */
+  --gutter: 32px;             /* page side padding */
+  --gutter-phone: 16px;       /* page side padding on phones */
+  --dot-pitch: 22px;          /* page dot grid spacing */
+}
