@@ -44,7 +44,7 @@ defmodule Dirmoon.Research.PipelineTest do
 
     :ok = Pipeline.advance(run)
 
-    assert %RunStep{status: :skipped, result: "Nowy pomysł, nie ma jeszcze strony"} = step(run, 6)
+    assert %RunStep{status: :skipped, result: "New idea, no site yet"} = step(run, 6)
   end
 
   test "advancing a New Idea run past Step 5 enqueues Step 7" do
@@ -188,14 +188,7 @@ defmodule Dirmoon.Research.PipelineTest do
       "title" => "Tytuł strony testowej",
       "h1" => "Nagłówek testowy",
       "slug" => "strona-testowa",
-      "breadcrumb" => "Strona główna / Strona testowa",
       "intro" => "Wstęp testowy. Drugie zdanie wstępu.",
-      "cta_label" => "Zapytaj o termin",
-      "fact_tiles" => [
-        %{"label" => "Cena", "value" => "[CENA]"},
-        %{"label" => "Telefon", "value" => "[TELEFON]"},
-        %{"label" => "Obszar", "value" => "[OBSZAR]"}
-      ],
       "sections" => [%{"question" => "Pytanie testowe?", "answer" => "Odpowiedź testowa."}],
       "short_answer" => "Odpowiedź testowa.",
       "phrases" => [],

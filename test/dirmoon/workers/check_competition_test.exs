@@ -273,7 +273,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
       label_answer([%{"position" => 1, "page_type" => "blog"}])
     end)
 
-    assert {:error, "Model nie oznaczył wszystkich wyników"} = perform_job(CheckCompetition, %{run_id: run.id})
+    assert {:error, "The model did not label every result"} = perform_job(CheckCompetition, %{run_id: run.id})
 
     refute Repo.get_by(ApiRequest, run_id: run.id, operation: "label_serp")
     refute Repo.get_by(SerpAssessment, run_id: run.id, keyword_id: run_phrase.keyword_id)
@@ -314,7 +314,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
     assert verdict(run, strong) == :strong
     assert verdict(run, medium) == :medium
 
-    assert %RunStep{status: :done, result: "3 z 3 fraz sprawdzonych", output: output} = step(run, 5)
+    assert %RunStep{status: :done, result: "3 of 3 phrases checked", output: output} = step(run, 5)
 
     assert output == %{
              "checked" => 3,
@@ -358,7 +358,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
                        total: 2,
                        phrase: ^first_text,
                        keyword_id: ^first_keyword_id,
-                       holders: "poradniki i blogi, fora",
+                       holders: "guides and blogs, forums",
                        verdict: :weak
                      }}
 
@@ -369,7 +369,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
                        total: 2,
                        phrase: ^second_text,
                        keyword_id: ^second_keyword_id,
-                       holders: "poradniki i blogi, fora",
+                       holders: "guides and blogs, forums",
                        verdict: :weak
                      }}
   end
@@ -399,6 +399,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
     assert prompt =~ "Hotel dla psów pod miastem"
     assert prompt =~ "psi-hotel.example"
     assert prompt =~ "1. katalog.example: Wynik 1 (https://katalog.example/)"
+    assert prompt =~ "(in Polish)"
 
     assert input == %{
              phrase: run_phrase.phrase.phrase,
@@ -433,7 +434,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
     expect(Dirmoon.LLMMock, :structured, 1, &label_all(&1, "blog"))
 
     assert :ok = perform_job(CheckCompetition, %{run_id: run.id}, attempt: 2)
-    assert %RunStep{status: :done, result: "3 z 3 fraz sprawdzonych"} = step(run, 5)
+    assert %RunStep{status: :done, result: "3 of 3 phrases checked"} = step(run, 5)
   end
 
   test "a retry after the model failed labels the top 10 the run bought, not counting it as reused" do
@@ -517,7 +518,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
 
     assert :ok = perform_job(CheckCompetition, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "Brak fraz do sprawdzenia"} = step(run, 5)
+    assert %RunStep{status: :skipped, result: "No phrases to check"} = step(run, 5)
   end
 
   test "for a new idea the current positions step is skipped and scoring is enqueued" do

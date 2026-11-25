@@ -47,7 +47,7 @@ defmodule Dirmoon.Accounts.User do
     changeset =
       changeset
       |> validate_required([:email])
-      |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/, message: "musi zawierać @ i nie może mieć spacji")
+      |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/, message: "must have the @ sign and no spaces")
       |> validate_length(:email, max: 160)
       |> validate_email_changed()
 
@@ -62,7 +62,7 @@ defmodule Dirmoon.Accounts.User do
 
   defp validate_email_changed(changeset) do
     if get_field(changeset, :email) && get_change(changeset, :email) == nil do
-      add_error(changeset, :email, "to ten sam adres")
+      add_error(changeset, :email, "did not change")
     else
       changeset
     end

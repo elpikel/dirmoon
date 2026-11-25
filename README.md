@@ -1,19 +1,20 @@
 # dirmoon
 
-dirmoon turns a plain-language business description into a ranked list of search niches worth going after, then writes a brief and a landing page for the niche you pick. It answers "does anyone search for this?" before anything is built.
+dirmoon turns a plain-language business description into a ranked list of search niches worth going after, then writes a brief for the niche you pick: the plan and the text of one page about it (title, headings, sections and the phrases to cover), which you hand to whoever builds your site. It answers "does anyone search for this?" before anything is built.
 
 ## Status
 
-v1 is built: the eight-step research pipeline, the four screens (new research, run progress, results, page) plus the landing page, the runs list and the pages list. A page is downloaded as one HTML file; dirmoon does not host or publish it (publishing to Netlify was cut from the MVP). The product spec and design are in [`docs/design/README.md`](docs/design/README.md).
+v1 is built: the eight-step research pipeline, the four screens (new research, run progress, results, brief) plus the landing page, the runs list and the briefs list. On the results screen you can check what a niche's direct competitors charge: dirmoon opens up to five of their pages from Google's first page and lists the prices they publish, each linked to the page it came from. dirmoon does not build, host or publish the page: the MVP cut publishing to Netlify and then the page build and its HTML download, and kept the Brief. The product spec and design are in [`docs/design/README.md`](docs/design/README.md).
 
 Not exercised yet:
 
-- The LLM is OpenAI (`Dirmoon.LLM.OpenAI`). Without `OPENAI_API_KEY` dev uses demo data; in production the LLM steps fail with "Brak klucza API OpenAI".
+- The LLM is OpenAI (`Dirmoon.LLM.OpenAI`). Without `OPENAI_API_KEY` dev uses demo data; in production the LLM steps fail with "No OpenAI API key".
 - The DataForSEO and Google Search Console clients were built from their documentation and have never been run against the live services.
+- The competitor price check reads real competitor pages in dev and prod (it needs no credentials); it has only been tested against stubs.
 
 ## Stack
 
-Elixir ~> 1.17, Phoenix 1.8 with LiveView 1.2, Ecto and PostgreSQL, Tailwind v4, Req for HTTP. Oban runs the eight pipeline steps on the `pipeline` queue. External services: an LLM (provider not chosen), DataForSEO and Google Search Console. Tests use Mox and ExMachina; checks use Styler, Credo and ex_slop.
+Elixir ~> 1.17, Phoenix 1.8 with LiveView 1.2, Ecto and PostgreSQL, Tailwind v4, Req for HTTP. Oban runs the eight pipeline steps on the `pipeline` queue. External services: OpenAI (the LLM), DataForSEO and Google Search Console. The interface is in English; Seeds, Phrases and Briefs are in the run's market language. Tests use Mox and ExMachina; checks use Styler, Credo and ex_slop.
 
 ## Setup and run
 
@@ -28,13 +29,13 @@ Sign up on the landing page. The sign-in link arrives in the dev mailbox at [`/d
 
 ## Configuration
 
-Dev runs with no environment variables: demo adapters stand in for every external service, and the app shows a "DANE TESTOWE" banner naming the services still on demo data. Setting a service's variables switches that service to its real client, in dev too. The app does not read a `.env` file: export the variables in the shell that starts the server (a variable that is set but not exported never reaches it). Tests ignore these variables.
+Dev runs with no environment variables: demo adapters stand in for every external service, and the app shows a "TEST DATA" banner naming the services still on demo data. Setting a service's variables switches that service to its real client, in dev too. The app does not read a `.env` file: export the variables in the shell that starts the server (a variable that is set but not exported never reaches it). Tests ignore these variables.
 
 | Variable | Turns on | Without it |
 |---|---|---|
-| `OPENAI_API_KEY` | Real Seeds, filtering and grouping, SERP labels and Briefs from OpenAI | Dev: demo answers. Prod: the step fails with "Brak klucza API OpenAI" |
+| `OPENAI_API_KEY` | Real Seeds, filtering and grouping, SERP labels, Briefs and competitor prices from OpenAI | Dev: demo answers. Prod: the step fails with "No OpenAI API key" |
 | `OPENAI_MODEL` | Another OpenAI model than `gpt-6.2-sol`; it must have prices in `config/config.exs` | `gpt-6.2-sol` |
-| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` (both) | Real phrase ideas, volumes and SERP top 10 from DataForSEO | Dev: demo data. Prod: the step fails with "Brak danych logowania DataForSEO" |
+| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` (both) | Real phrase ideas, volumes and SERP top 10 from DataForSEO | Dev: demo data. Prod: the step fails with "No DataForSEO credentials" |
 | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (both) | Connecting Google Search Console, for Existing Site runs | Dev: demo connection. Prod: Step 6 (current positions) is skipped |
 | `DATABASE_URL`, `SECRET_KEY_BASE` | Prod database and cookie signing (required) | Prod does not start |
 | `PHX_HOST`, `POOL_SIZE` | Prod host, database pool size | `example.com`, `10` |
@@ -55,6 +56,7 @@ Google redirect URI to add to the Google Cloud OAuth client: `https://<PHX_HOST>
 - `grouping_phrase_limit`: how many phrases go to the LLM for filtering and grouping.
 - `scoring_weights`: weights of volume, CPC and competitor weakness in the niche score.
 - `cost_estimates`: per-request USD prices behind the cost estimate on the new research screen.
+- `price_check_page_limit`: how many competitor pages one price check reads (5).
 
 ## Running a real run
 

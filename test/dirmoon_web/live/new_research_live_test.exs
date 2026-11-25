@@ -15,22 +15,22 @@ defmodule DirmoonWeb.NewResearchLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/research/new")
 
-    assert has_element?(view, "#app-main #new-research h1#new-research-heading", "Opisz biznes.")
+    assert has_element?(view, "#app-main #new-research h1#new-research-heading", "Describe the business.")
     assert has_element?(view, "#research-form #research-description")
-    assert has_element?(view, "#research-form label[for=research-description]", "Twój biznes albo pomysł")
-    assert has_element?(view, "#research-mode option[value=new_idea]", "Nowy pomysł")
-    assert has_element?(view, "#research-mode option[value=existing_site]", "Istniejąca strona")
-    assert has_element?(view, "#research-country option[value=PL]", "Polska · polski")
-    assert has_element?(view, "#research-city[placeholder='Miasto (opcjonalnie)']")
-    assert has_element?(view, "#show-domain", "+ Domena")
-    assert has_element?(view, "#show-services", "+ Usługi")
-    assert has_element?(view, "#start-research[type=submit][data-variant=lime]", "Uruchom research")
+    assert has_element?(view, "#research-form label[for=research-description]", "Your business or idea")
+    assert has_element?(view, "#research-mode option[value=new_idea]", "New idea")
+    assert has_element?(view, "#research-mode option[value=existing_site]", "Existing site")
+    assert has_element?(view, "#research-country option[value=PL]", "Poland · Polish")
+    assert has_element?(view, "#research-city[placeholder='City (optional)']")
+    assert has_element?(view, "#show-domain", "+ Domain")
+    assert has_element?(view, "#show-services", "+ Services")
+    assert has_element?(view, "#start-research[type=submit][data-variant=lime]", "Start research")
     assert has_element?(view, "#example-prompt-1")
     assert has_element?(view, "#example-prompt-2")
     assert has_element?(view, "#example-prompt-3")
-    assert has_element?(view, "#estimated-cost", "Szacowany koszt API: ok. $")
+    assert has_element?(view, "#estimated-cost", "Estimated API cost: about $")
     assert has_element?(view, "#recent-runs-column #recent-runs")
-    assert has_element?(view, "#app-context", "/ nowy research")
+    assert has_element?(view, "#app-context", "/ new research")
   end
 
   test "the prompt box is a gray card with no lime edge, and the lime start button is its one accent", %{conn: conn} do
@@ -64,8 +64,8 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     refute has_element?(view, "#how-it-works")
     refute has_element?(view, "#landing-hero")
     refute has_element?(view, "[data-layout=landing]")
-    refute has_element?(view, "h1", "czy ktoś tego szuka")
-    refute html =~ "Zanim zbudujesz"
+    refute has_element?(view, "h1", "if anyone searches for it")
+    refute html =~ "Before you build it"
   end
 
   test "the nav marks Nowy research as the current page", %{conn: conn} do
@@ -73,7 +73,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/research/new")
 
-    assert has_element?(view, "#app-nav #nav-new-research[aria-current=page]", "Nowy research")
+    assert has_element?(view, "#app-nav #nav-new-research[aria-current=page]", "New research")
     refute has_element?(view, "#app-nav #nav-runs[aria-current]")
     refute has_element?(view, "#app-nav #nav-pages[aria-current]")
   end
@@ -109,9 +109,9 @@ defmodule DirmoonWeb.NewResearchLiveTest do
 
     newest = List.last(runs)
     assert has_element?(view, "#recent-run-#{newest.id}", "Research numer 6")
-    assert has_element?(view, "#recent-run-#{newest.id}-status", "Zatrzymany")
-    assert has_element?(view, "#recent-run-#{newest.id}", "06.11.2026")
-    assert has_element?(view, "#all-runs-link[href='/app/runs']", "Wszystkie wyniki")
+    assert has_element?(view, "#recent-run-#{newest.id}-status", "Stopped")
+    assert has_element?(view, "#recent-run-#{newest.id}", "6 Nov 2026")
+    assert has_element?(view, "#all-runs-link[href='/app/runs']", "All results")
   end
 
   test "a recent run links to its screen, or to its results once they are ready", %{conn: conn} do
@@ -125,13 +125,13 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/research/new")
 
     assert has_element?(view, "#recent-run-#{running.id} a[href='/app/runs/#{running.id}']")
-    assert has_element?(view, "#recent-run-#{running.id}-status", "W toku")
+    assert has_element?(view, "#recent-run-#{running.id}-status", "In progress")
     assert has_element?(view, "#recent-run-#{scored.id} a[href='/app/runs/#{scored.id}/results']")
-    assert has_element?(view, "#recent-run-#{scored.id}-status", "Czeka na wybór")
+    assert has_element?(view, "#recent-run-#{scored.id}-status", "Awaiting choice")
     assert has_element?(view, "#recent-run-#{failed.id} a[href='/app/runs/#{failed.id}']")
-    assert has_element?(view, "#recent-run-#{failed.id}-status", "Błąd")
+    assert has_element?(view, "#recent-run-#{failed.id}-status", "Failed")
     assert has_element?(view, "#recent-run-#{stopped.id} a[href='/app/runs/#{stopped.id}/results']")
-    assert has_element?(view, "#recent-run-#{stopped.id}-status", "Zatrzymany")
+    assert has_element?(view, "#recent-run-#{stopped.id}-status", "Stopped")
   end
 
   test "with no runs yet the recent runs invite a first description", %{conn: conn} do
@@ -143,7 +143,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     assert has_element?(
              view,
              "#recent-runs #recent-runs-empty",
-             "Nie masz jeszcze żadnego researchu. Zacznij od opisu po lewej."
+             "No research yet. Start with the description on the left."
            )
 
     refute has_element?(view, "#recent-runs > li[data-status]")
@@ -157,7 +157,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     assert has_element?(
              view,
              "#app-status #new-research-status-line",
-             "Opisz biznes, a znajdę frazy, które ludzie naprawdę wpisują, i policzę, ile osób ich szuka."
+             "Describe the business and I'll find the phrases people really type and count how many search for them."
            )
   end
 
@@ -171,7 +171,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     assert has_element?(
              view,
              "#new-research-status-line",
-             "Opisz biznes i podaj domenę. Bez Search Console pominę obecne pozycje strony."
+             "Describe the business and give its domain. Without Search Console I'll skip the site's current positions."
            )
   end
 
@@ -184,7 +184,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     assert has_element?(
              view,
              "#new-research-status-line",
-             "Opisz biznes i podaj domenę. Sprawdzę też, na które frazy strona już jest widoczna."
+             "Describe the business and give its domain. I'll also check which phrases the site already shows up for."
            )
   end
 
@@ -205,7 +205,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/research/new")
 
-    assert has_element?(view, "#estimated-cost", "Szacowany koszt API: ok. $0,24")
+    assert has_element?(view, "#estimated-cost", "Estimated API cost: about $0.24")
   end
 
   test "adding a city updates the estimated cost", %{conn: conn} do
@@ -214,7 +214,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
 
     view |> element("#research-form") |> render_change(%{"run" => %{"city" => "Gdańsk"}})
 
-    assert has_element?(view, "#estimated-cost", "Szacowany koszt API: ok. $0,33")
+    assert has_element?(view, "#estimated-cost", "Estimated API cost: about $0.33")
   end
 
   test "clicking an example prompt fills the textarea with it", %{conn: conn} do
@@ -223,7 +223,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
 
     view |> element("#example-prompt-2") |> render_click()
 
-    assert has_element?(view, "#research-description", "Serwis rowerów z dojazdem")
+    assert has_element?(view, "#research-description", "Bike repair that comes to the customer")
   end
 
   test "clicking an example prompt keeps the other field values", %{conn: conn} do
@@ -236,7 +236,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
 
     view |> element("#example-prompt-1") |> render_click()
 
-    assert has_element?(view, "#research-description", "Palarnia kawy z wysyłką")
+    assert has_element?(view, "#research-description", "A coffee roastery that ships")
     assert has_element?(view, "#research-mode option[value=existing_site][selected]")
     assert has_element?(view, "#research-city[value='Gdańsk']")
   end
@@ -274,7 +274,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     assert has_element?(view, "#research-domain[required]")
   end
 
-  test "+ Domena shows an optional domain field for a new idea", %{conn: conn} do
+  test "+ Domain shows an optional domain field for a new idea", %{conn: conn} do
     %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     {:ok, view, _html} = live(conn, ~p"/app/research/new")
 
@@ -307,7 +307,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     assert has_element?(
              view,
              "#search-console-note a#connect-search-console[href='/app/search-console/connect?return_to=%2Fapp%2Fresearch%2Fnew%3Fmode%3Dexisting_site']",
-             "Połącz Search Console"
+             "Connect Search Console"
            )
   end
 
@@ -320,7 +320,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
 
     assert has_element?(view, "#research-mode option[value=existing_site][selected]")
     assert has_element?(view, "#research-domain")
-    assert has_element?(view, "#search-console-connected", "Search Console połączone (#{connection.google_email})")
+    assert has_element?(view, "#search-console-connected", "Search Console connected (#{connection.google_email})")
   end
 
   test "an unknown mode in the address falls back to a new idea", %{conn: conn} do
@@ -339,7 +339,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
 
     view |> element("#research-form") |> render_change(%{"run" => %{"mode" => "existing_site"}})
 
-    assert has_element?(view, "#search-console-connected", "Search Console połączone (#{connection.google_email})")
+    assert has_element?(view, "#search-console-connected", "Search Console connected (#{connection.google_email})")
     refute has_element?(view, "#connect-search-console")
   end
 
@@ -379,7 +379,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     |> element("#research-form")
     |> render_submit(%{"run" => %{"description" => "  ", "mode" => "new_idea", "country_code" => "PL"}})
 
-    assert has_element?(view, "#research-description-field", "nie może być puste")
+    assert has_element?(view, "#research-description-field", "can't be blank")
     assert Research.list_runs(scope) == []
     refute_enqueued(worker: GenerateSeeds)
   end
@@ -399,7 +399,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
       }
     })
 
-    assert has_element?(view, "#research-domain-field", "nie może być puste")
+    assert has_element?(view, "#research-domain-field", "can't be blank")
     assert Research.list_runs(scope) == []
   end
 
@@ -418,7 +418,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
       }
     })
 
-    assert has_element?(view, "#research-services-field", "powinno mieć najwyżej 5")
+    assert has_element?(view, "#research-services-field", "should have at most 5")
     assert Research.list_runs(scope) == []
   end
 

@@ -4,81 +4,82 @@ defmodule DirmoonWeb.NicheAdviceTest do
   alias Dirmoon.Niches.Niche
   alias DirmoonWeb.NicheAdvice
 
-  @no_break_space " "
-
   test "a Niche scoring 4 or more without strong competition is worth trying, in the accent" do
     advice =
       NicheAdvice.advice(
-        summary(%{score: "4.0", competition: %{verdict: :medium, holders: "duże portale, firmy z Twojej branży"}})
+        summary(%{score: "4.0", competition: %{verdict: :medium, holders: "big portals, businesses like yours"}})
       )
 
-    assert %{kind: :worth, label: "Warto spróbować", class: "text-accent"} = advice
+    assert %{kind: :worth, label: "Worth a try", class: "text-accent"} = advice
 
     assert advice.competition ==
-             "Pierwsza strona Google jest mieszana: duże portale, firmy z Twojej branży. Da się tam wejść, ale nie od razu."
+             "Google's first page is mixed: big portals, businesses like yours. You can get in, but not right away."
   end
 
   test "a Niche scoring 4 or more against strong competition is worth it but hard, in the warning colour" do
     advice =
       NicheAdvice.advice(
-        summary(%{score: "8.1", competition: %{verdict: :strong, holders: "firmy z Twojej branży, duże portale"}})
+        summary(%{score: "8.1", competition: %{verdict: :strong, holders: "businesses like yours, big portals"}})
       )
 
-    assert %{kind: :hard, label: "Warto, ale będzie trudno", class: "text-warn"} = advice
+    assert %{kind: :hard, label: "Worth it, but hard", class: "text-warn"} = advice
 
     assert advice.competition ==
-             "Na pierwszej stronie Google są dziś głównie firmy z Twojej branży, duże portale. Przebicie się między nie zajmie czas."
+             "Google's first page today holds mostly businesses like yours, big portals. Breaking in among them will take time."
   end
 
   test "a Niche scoring under 4 is rather not worth it, whatever its competition" do
     advice =
-      NicheAdvice.advice(summary(%{score: "3.9", competition: %{verdict: :weak, holders: "katalogi firm, duże portale"}}))
+      NicheAdvice.advice(
+        summary(%{score: "3.9", competition: %{verdict: :weak, holders: "business directories, big portals"}})
+      )
 
-    assert %{kind: :low, label: "Raczej nie warto", class: "text-on-app-muted"} = advice
+    assert %{kind: :low, label: "Probably not worth it", class: "text-on-app-muted"} = advice
 
     assert advice.competition ==
-             "Na pierwszej stronie Google są dziś głównie katalogi firm, duże portale, a nie oferty firm takich jak Twoja. Dobra strona ma tu szansę."
+             "Google's first page today holds mostly business directories, big portals, not offers from businesses like yours. A good page has a chance here."
   end
 
   test "an unscored Niche has no verdict" do
-    assert %{kind: :unscored, label: "Bez oceny", class: "text-on-app-muted"} =
+    assert %{kind: :unscored, label: "Not scored", class: "text-on-app-muted"} =
              NicheAdvice.advice(summary(%{score: nil}))
   end
 
   test "the demand reason gives the monthly searches, or says nobody searches" do
     assert NicheAdvice.advice(summary(%{volume: 1_090})).demand ==
-             "Ludzie wpisują te frazy w Google około 1#{@no_break_space}090 razy w miesiącu."
+             "People type these phrases into Google about 1,090 times a month."
 
-    assert NicheAdvice.advice(summary(%{volume: 1})).demand == "Ludzie wpisują te frazy w Google około 1 raz w miesiącu."
+    assert NicheAdvice.advice(summary(%{volume: 1})).demand ==
+             "People type these phrases into Google about 1 time a month."
 
     assert NicheAdvice.advice(summary(%{volume: 0})).demand ==
-             "Prawie nikt tak nie szuka: Google nie pokazuje dla tych fraz mierzalnej liczby wyszukiwań."
+             "Almost nobody searches like this: Google shows no measurable number of searches for these phrases."
   end
 
   test "the value reason gives the price of a click, or says nobody advertises" do
     assert NicheAdvice.advice(summary(%{cpc: Decimal.new("6.79")})).value ==
-             "Firmy płacą Google średnio $6,79 za jedno kliknięcie reklamy przy tych frazach. Im wyższa cena, tym cenniejszy klient."
+             "Businesses pay Google $6.79 on average for one ad click on these phrases. The higher the price, the more a customer is worth."
 
     assert NicheAdvice.advice(summary(%{cpc: nil})).value ==
-             "Nikt nie płaci za reklamy przy tych frazach, więc nie wiem, ile wart jest tu klient."
+             "Nobody pays for ads on these phrases, so I can't tell what a customer is worth here."
   end
 
   test "the competition reason says so when no Phrase was checked" do
     assert NicheAdvice.advice(summary(%{competition: nil})).competition ==
-             "Nie sprawdziłem, kto jest na pierwszej stronie Google dla tych fraz."
+             "I haven't checked who is on Google's first page for these phrases."
   end
 
-  test "the list figures give the monthly searches in the right plural and the competition verdict" do
-    strong = %{verdict: :strong, holders: "firmy z Twojej branży"}
+  test "the list figures give the monthly searches with their noun and the competition verdict" do
+    strong = %{verdict: :strong, holders: "businesses like yours"}
 
     assert NicheAdvice.figures(summary(%{volume: 1_090, competition: strong})) ==
-             "1#{@no_break_space}090 wyszukiwań / mies. · mocna konkurencja"
+             "1,090 searches / mo. · strong competition"
 
     assert NicheAdvice.figures(summary(%{volume: 1, competition: nil})) ==
-             "1 wyszukiwanie / mies. · konkurencja niesprawdzona"
+             "1 search / mo. · competition not checked"
 
-    assert NicheAdvice.figures(summary(%{volume: 22, competition: %{verdict: :weak, holders: "poradniki i blogi"}})) ==
-             "22 wyszukiwania / mies. · słaba konkurencja"
+    assert NicheAdvice.figures(summary(%{volume: 22, competition: %{verdict: :weak, holders: "guides and blogs"}})) ==
+             "22 searches / mo. · weak competition"
   end
 
   defp summary(attrs) do

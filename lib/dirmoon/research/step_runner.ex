@@ -21,8 +21,8 @@ defmodule Dirmoon.Research.StepRunner do
   alias Dirmoon.Research.RunStep
 
   @not_configured_messages %{
-    llm_not_configured: "Brak klucza API OpenAI",
-    data_for_seo_not_configured: "Brak danych logowania DataForSEO"
+    llm_not_configured: "No OpenAI API key",
+    data_for_seo_not_configured: "No DataForSEO credentials"
   }
 
   @doc """
@@ -55,8 +55,14 @@ defmodule Dirmoon.Research.StepRunner do
     do: Map.fetch!(@not_configured_messages, reason)
 
   def readable_reason(reason) when is_binary(reason), do: reason
-  def readable_reason(reason) when is_exception(reason), do: "Nieoczekiwany błąd: " <> Exception.message(reason)
-  def readable_reason(reason), do: "Nieoczekiwany błąd: " <> inspect(reason)
+  def readable_reason(reason) when is_exception(reason), do: "Unexpected error: " <> Exception.message(reason)
+  def readable_reason(reason), do: "Unexpected error: " <> inspect(reason)
+
+  @doc """
+  Whether `reason` says an external client has no credentials, so retrying
+  cannot help.
+  """
+  def not_configured?(reason), do: Map.has_key?(@not_configured_messages, reason)
 
   defp run_step(%{run: run, step: step} = context, step_function) do
     if RunStep.finished?(step) do
@@ -133,6 +139,4 @@ defmodule Dirmoon.Research.StepRunner do
   end
 
   defp final_attempt?(%Oban.Job{attempt: attempt, max_attempts: max_attempts}), do: attempt >= max_attempts
-
-  defp not_configured?(reason), do: Map.has_key?(@not_configured_messages, reason)
 end

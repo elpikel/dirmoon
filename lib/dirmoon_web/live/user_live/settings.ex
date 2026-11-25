@@ -12,11 +12,11 @@ defmodule DirmoonWeb.UserLive.Settings do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} context="ustawienia">
-      <:status>Tu zmienisz adres e-mail, na który wysyłam linki logowania.</:status>
+    <Layouts.app flash={@flash} current_scope={@current_scope} context="settings">
+      <:status>Here you change the email address I send sign-in links to.</:status>
       <div id="settings" class="flex w-full max-w-[640px] flex-col gap-6 px-7 pt-6 pb-8 max-sm:px-4">
         <h1 id="settings-title" class="m-0 text-2xl leading-tight font-bold tracking-[-0.02em]">
-          Ustawienia
+          Settings
         </h1>
 
         <.form
@@ -39,10 +39,10 @@ defmodule DirmoonWeb.UserLive.Settings do
             id="email-submit"
             variant="lime"
             type="submit"
-            phx-disable-with="Zapisuję…"
+            phx-disable-with="Saving…"
             class="self-start"
           >
-            Zmień e-mail
+            Change email
           </.button>
         </.form>
       </div>
@@ -54,8 +54,8 @@ defmodule DirmoonWeb.UserLive.Settings do
   def mount(%{"token" => token}, _session, socket) do
     socket =
       case Accounts.update_user_email(socket.assigns.current_scope.user, token) do
-        {:ok, _user} -> put_flash(socket, :info, "Adres e-mail zmieniony.")
-        {:error, _reason} -> put_flash(socket, :error, "Link zmiany adresu jest nieprawidłowy albo wygasł.")
+        {:ok, _user} -> put_flash(socket, :info, "Email address changed.")
+        {:error, _reason} -> put_flash(socket, :error, "The email change link is invalid or has expired.")
       end
 
     {:ok, push_navigate(socket, to: ~p"/users/settings")}
@@ -89,7 +89,7 @@ defmodule DirmoonWeb.UserLive.Settings do
           &url(~p"/users/settings/confirm-email/#{&1}")
         )
 
-        {:noreply, put_flash(socket, :info, "Wysłaliśmy link potwierdzający na nowy adres.")}
+        {:noreply, put_flash(socket, :info, "I sent a confirmation link to the new address.")}
 
       changeset ->
         {:noreply, assign(socket, :email_form, to_form(changeset, action: :insert))}

@@ -7,15 +7,15 @@ defmodule DirmoonWeb.UserLive.LoginTest do
   alias Dirmoon.Accounts.UserToken
   alias Dirmoon.Repo
 
-  @check_inbox "Sprawdź skrzynkę: jeśli ten adres ma konto w dirmoon, wysłaliśmy na niego link logowania."
+  @check_inbox "Check your inbox: if this address has a dirmoon account, a sign-in link is on its way."
 
-  test "the sign-in page asks for an email in Polish on the auth layout", %{conn: conn} do
+  test "the sign-in page asks for an email in English on the auth layout", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/users/log-in")
 
     assert has_element?(view, "[data-layout=auth]")
-    assert has_element?(view, "#login-title", "Zaloguj się")
+    assert has_element?(view, "#login-title", "Sign in")
     assert has_element?(view, "#login-form input[type=email][name='user[email]']")
-    assert has_element?(view, "#login-submit[type=submit][data-variant=dark]", "Wyślij link logowania")
+    assert has_element?(view, "#login-submit[type=submit][data-variant=dark]", "Send sign-in link")
     assert has_element?(view, "#sign-up-link[href='/#sign-up-form-hero']")
   end
 

@@ -32,6 +32,7 @@ config :dirmoon, Dirmoon.LLM.OpenAI,
 config :dirmoon, Dirmoon.Mailer, adapter: Swoosh.Adapters.Local
 config :dirmoon, Dirmoon.Repo, types: Dirmoon.Repo.PostgrexTypes
 config :dirmoon, Dirmoon.SearchConsole.Client.Google, req_options: []
+config :dirmoon, Dirmoon.WebPage.HTTP, req_options: []
 
 # Configure the endpoint
 config :dirmoon, DirmoonWeb.Endpoint,
@@ -43,8 +44,6 @@ config :dirmoon, DirmoonWeb.Endpoint,
   ],
   pubsub_server: Dirmoon.PubSub,
   live_view: [signing_salt: "kElU6Rxm"]
-
-config :dirmoon, DirmoonWeb.Gettext, default_locale: "pl"
 
 config :dirmoon, Oban,
   engine: Oban.Engines.Basic,
@@ -69,6 +68,8 @@ config :dirmoon,
   llm_adapter: Dirmoon.LLM.NotConfigured,
   data_for_seo_adapter: Dirmoon.DataForSEO.NotConfigured,
   search_console_adapter: Dirmoon.SearchConsole.Client.NotConfigured,
+  web_page_adapter: Dirmoon.WebPage.HTTP,
+  price_check_page_limit: 5,
   grouping_phrase_limit: 400,
   serp_phrase_limit: 30,
   # Per-request USD prices for the estimate on the new research screen (unverified, see notes-dataforseo.md).

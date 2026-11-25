@@ -128,24 +128,24 @@ defmodule Dirmoon.Research.StepRunnerTest do
 
     StepRunner.run(job_for(run, attempt: 3), 1, fn _run -> {:error, :timeout} end)
 
-    assert step(run, 1).error == "Nieoczekiwany błąd: :timeout"
+    assert step(run, 1).error == "Unexpected error: :timeout"
   end
 
   test "a client that is not configured reads as a message naming the missing setting" do
-    assert StepRunner.readable_reason(:llm_not_configured) == "Brak klucza API OpenAI"
-    assert StepRunner.readable_reason(:data_for_seo_not_configured) == "Brak danych logowania DataForSEO"
+    assert StepRunner.readable_reason(:llm_not_configured) == "No OpenAI API key"
+    assert StepRunner.readable_reason(:data_for_seo_not_configured) == "No DataForSEO credentials"
   end
 
   test "a text reason reads as itself" do
-    assert StepRunner.readable_reason("Model zwrócił niepoprawny brief") == "Model zwrócił niepoprawny brief"
+    assert StepRunner.readable_reason("The model returned an invalid brief") == "The model returned an invalid brief"
   end
 
   test "an exception reads as an unexpected error with its message" do
-    assert StepRunner.readable_reason(RuntimeError.exception("boom")) == "Nieoczekiwany błąd: boom"
+    assert StepRunner.readable_reason(RuntimeError.exception("boom")) == "Unexpected error: boom"
   end
 
   test "any other reason reads as an unexpected error" do
-    assert StepRunner.readable_reason({:http, 500}) == "Nieoczekiwany błąd: {:http, 500}"
+    assert StepRunner.readable_reason({:http, 500}) == "Unexpected error: {:http, 500}"
   end
 
   test "a client that is not configured fails the Step on the first attempt" do
@@ -154,7 +154,7 @@ defmodule Dirmoon.Research.StepRunnerTest do
     assert {:cancel, :llm_not_configured} =
              StepRunner.run(job_for(run, attempt: 1), 1, fn _run -> {:error, :llm_not_configured} end)
 
-    assert %RunStep{status: :failed, error: "Brak klucza API OpenAI"} = step(run, 1)
+    assert %RunStep{status: :failed, error: "No OpenAI API key"} = step(run, 1)
     assert Repo.reload!(run).status == :failed
   end
 
@@ -166,7 +166,7 @@ defmodule Dirmoon.Research.StepRunnerTest do
 
     run_id = run.id
     assert_receive {:run_updated, ^run_id}
-    assert step(run, 1).error == "Brak danych logowania DataForSEO"
+    assert step(run, 1).error == "No DataForSEO credentials"
   end
 
   test "an error on the last attempt leaves a run stopped meanwhile as stopped" do
@@ -247,7 +247,7 @@ defmodule Dirmoon.Research.StepRunnerTest do
 
     StepRunner.run(job_for(run, attempt: 3), 1, fn _run -> raise ArgumentError, "zła odpowiedź" end)
 
-    assert %RunStep{status: :failed, error: "Nieoczekiwany błąd: zła odpowiedź"} = step(run, 1)
+    assert %RunStep{status: :failed, error: "Unexpected error: zła odpowiedź"} = step(run, 1)
   end
 
   test "a step function that raises before the last attempt returns the exception so the job is retried" do
@@ -283,7 +283,7 @@ defmodule Dirmoon.Research.StepRunnerTest do
 
     assert {:cancel, _reason} = StepRunner.run(job_for(run, attempt: 3), 1, fn _run -> :unexpected end)
 
-    assert %RunStep{status: :failed, error: "Nieoczekiwany błąd: {:unexpected_step_outcome, :unexpected}"} =
+    assert %RunStep{status: :failed, error: "Unexpected error: {:unexpected_step_outcome, :unexpected}"} =
              step(run, 1)
 
     assert Repo.reload!(run).status == :failed

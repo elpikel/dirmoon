@@ -17,6 +17,8 @@ defmodule DirmoonWeb.UI do
 
   @crescent_path "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
   @underline_path "M4 14 C 120 4, 240 22, 360 12 S 540 6, 596 12"
+  @rocket_flame_path "M-3.5 10 L0 21 L3.5 10 Z"
+  @rocket_body_path "M0 -17 C7 -10 8 1 6 10 L-6 10 C-8 1 -7 -10 0 -17 Z M-6 1 L-13 13 L-6 10 Z M6 1 L13 13 L6 10 Z"
 
   @doc """
   Renders the crescent moon mark, inline as SVG and decorative: the text next
@@ -41,6 +43,26 @@ defmodule DirmoonWeb.UI do
       class="flex-none"
     >
       <path d={@path} class={moon_fill(@tone)} />
+    </svg>
+    """
+  end
+
+  @doc """
+  Renders the rocket, nose up: ink body, lime flame. Decorative; the caller
+  sizes and turns it with `class`.
+
+      <.rocket class="size-10 rotate-180" />
+  """
+  attr :class, :any, default: nil
+
+  def rocket(assigns) do
+    assigns = assign(assigns, flame_path: @rocket_flame_path, body_path: @rocket_body_path)
+
+    ~H"""
+    <svg data-rocket viewBox="-14 -18 28 40" aria-hidden="true" class={["flex-none", @class]}>
+      <path d={@flame_path} class="fill-accent" />
+      <path d={@body_path} class="fill-ink" />
+      <circle cx="0" cy="-4" r="2.8" class="fill-page" />
     </svg>
     """
   end
@@ -72,7 +94,7 @@ defmodule DirmoonWeb.UI do
   right. It wraps onto two rows on narrow screens.
 
       <.nav_card id="landing-nav">
-        <.button variant="dark" href={~p"/users/log-in"}>Zaloguj się</.button>
+        <.button variant="dark" href={~p"/users/log-in"}>Sign in</.button>
       </.nav_card>
   """
   attr :id, :string, required: true
@@ -89,7 +111,7 @@ defmodule DirmoonWeb.UI do
     >
       <.wordmark href={~p"/"} />
       <nav
-        aria-label="Główna"
+        aria-label="Main"
         class="flex flex-wrap items-center gap-x-7 gap-y-2 text-sm font-medium max-sm:gap-x-5"
       >
         {render_slot(@inner_block)}
@@ -100,11 +122,11 @@ defmodule DirmoonWeb.UI do
 
   @doc """
   Renders a link in the app shell's sidebar, on the app chrome. The `action` variant
-  is outlined (the "Nowy research" entry), the `link` variant is plain text.
+  is outlined (the "New research" entry), the `link` variant is plain text.
   The active one is the current page: filled and marked `aria-current`.
 
-      <.app_sidebar_link href="/app/research/new" variant="action">Nowy research</.app_sidebar_link>
-      <.app_sidebar_link href="/app/runs" active>Wyniki</.app_sidebar_link>
+      <.app_sidebar_link href="/app/research/new" variant="action">New research</.app_sidebar_link>
+      <.app_sidebar_link href="/app/runs" active>Results</.app_sidebar_link>
   """
   attr :variant, :string, default: "link", values: ~w(action link)
   attr :active, :boolean, default: false, doc: "marks the current page"
@@ -137,7 +159,7 @@ defmodule DirmoonWeb.UI do
   @doc """
   Renders the eyebrow tag above a headline: mono, uppercase, on the chip fill.
 
-      <.eyebrow>Popyt z Google, zanim napiszesz linijkę kodu</.eyebrow>
+      <.eyebrow>Google demand before you write a line of code</.eyebrow>
   """
   slot :inner_block, required: true
 
@@ -157,11 +179,11 @@ defmodule DirmoonWeb.UI do
   fills the width).
 
       <.headline size="hero">
-        Zanim zbudujesz, sprawdź,
-        <:underline>czy ktoś tego szuka.</:underline>
+        Before you build, check
+        <:underline>if anyone searches for it.</:underline>
       </.headline>
 
-      <.headline level="h2">Masz pomysł? <:underline>Sprawdź go najpierw.</:underline></.headline>
+      <.headline level="h2">Got an idea? <:underline>Check it first.</:underline></.headline>
   """
   attr :level, :string, default: "h1", values: ~w(h1 h2), doc: "the heading element"
 
@@ -174,7 +196,12 @@ defmodule DirmoonWeb.UI do
   slot :underline, required: true, doc: "the phrase drawn over the lime underline"
 
   def headline(assigns) do
-    assigns = assign(assigns, :underline_path, @underline_path)
+    assigns =
+      assign(assigns,
+        underline_path: @underline_path,
+        rocket_flame_path: @rocket_flame_path,
+        rocket_body_path: @rocket_body_path
+      )
 
     ~H"""
     <.dynamic_tag
@@ -211,11 +238,8 @@ defmodule DirmoonWeb.UI do
             class="stroke-accent"
           />
           <g transform="translate(62 38) rotate(45) scale(1.8)">
-            <path d="M-3.5 10 L0 21 L3.5 10 Z" class="fill-accent" />
-            <path
-              d="M0 -17 C7 -10 8 1 6 10 L-6 10 C-8 1 -7 -10 0 -17 Z M-6 1 L-13 13 L-6 10 Z M6 1 L13 13 L6 10 Z"
-              class="fill-ink"
-            />
+            <path d={@rocket_flame_path} class="fill-accent" />
+            <path d={@rocket_body_path} class="fill-ink" />
             <circle cx="0" cy="-4" r="2.8" class="fill-page" />
           </g>
         </svg>
@@ -226,11 +250,11 @@ defmodule DirmoonWeb.UI do
 
   @doc """
   Renders the landing page's dark slate panel (the signed-in app uses the
-  gray app tokens instead): a mono top bar with
+  gray app tokens instead), used for the example report: a mono top bar with
   `dirmoon / <context>` on the left and a note on the right, then the inner
   block.
 
-      <.dark_panel id="how-it-works" context="jak to działa" note="8 kroków">
+      <.dark_panel id="journey-report" context="ice skate rental" note="7 niches">
         ...
       </.dark_panel>
   """
@@ -269,9 +293,9 @@ defmodule DirmoonWeb.UI do
   the app), `outline` (on the app's grays) and `ghost` (text only, on the
   app's grays).
 
-      <.button variant="dark" href="/app/research/new">Nowy research</.button>
-      <.button variant="lime" size="large" phx-click="choose">Wybierz niszę</.button>
-      <.button variant="outline">Zatrzymaj</.button>
+      <.button variant="dark" href="/app/research/new">New research</.button>
+      <.button variant="lime" size="large" phx-click="choose">Choose niche</.button>
+      <.button variant="outline">Stop</.button>
   """
   attr :variant, :string, required: true, values: ~w(dark lime outline ghost)
 
@@ -314,11 +338,11 @@ defmodule DirmoonWeb.UI do
   @doc """
   Renders a 36px pill chip as a button, on the signed-in app's grays.
 
-  Variants: `dashed` (optional fields in the prompt box footer, "+ Domena")
+  Variants: `dashed` (optional fields in the prompt box footer, "+ Domain")
   and `outline` (the example prompts).
 
-      <.chip variant="dashed" phx-click="show_domain">+ Domena</.chip>
-      <.chip variant="outline" phx-click="use_example" phx-value-number="1">Przykład</.chip>
+      <.chip variant="dashed" phx-click="show_domain">+ Domain</.chip>
+      <.chip variant="outline" phx-click="use_example" phx-value-number="1">Example</.chip>
   """
   attr :variant, :string, required: true, values: ~w(dashed outline)
   attr :rest, :global
@@ -368,51 +392,11 @@ defmodule DirmoonWeb.UI do
   end
 
   @doc """
-  Renders the dark "jak to działa" panel: the eight Steps summed up in four
-  Step Groups (01–02 Frazy, 03–04 Popyt, 05–07 Konkurencja, 08 Strona), with
-  its caption below. Landing page only: the signed-in app has no pitch.
-
-      <.how_it_works id="how-it-works" class="mt-20" />
-  """
-  attr :id, :string, default: "how-it-works"
-  attr :class, :any, default: nil
-
-  def how_it_works(assigns) do
-    assigns = assign(assigns, :step_groups, how_it_works_step_groups())
-
-    ~H"""
-    <figure class={["m-0 flex w-full flex-col items-center gap-4", @class]}>
-      <.dark_panel
-        id={@id}
-        context="jak to działa"
-        note="8 kroków, jedna decyzja po Twojej stronie"
-      >
-        <ol class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] p-0">
-          <li
-            :for={step_group <- @step_groups}
-            class="flex flex-col gap-2.5 border-r border-b border-slate-line px-6 pt-6 pb-7 last:border-r-0"
-          >
-            <span data-part="step-group-steps" class="font-mono text-xs text-accent">{step_group.steps}</span>
-            <span data-part="step-group-name" class="text-xl font-bold tracking-[-0.01em]">
-              {step_group.name}
-            </span>
-            <p class="m-0 text-[15px] leading-[1.55] text-on-slate-2">{step_group.summary}</p>
-          </li>
-        </ol>
-      </.dark_panel>
-      <figcaption class="font-mono text-xs text-body-muted">
-        Ryc. 1 · Cztery etapy jednego researchu.
-      </figcaption>
-    </figure>
-    """
-  end
-
-  @doc """
   Renders a Research Run's status label in the app, as in the runs list:
   failed with a warning icon, stopped muted, and running or awaiting a
-  choice as an outlined pill. The caller passes the Polish label.
+  choice as an outlined pill. The caller passes the label.
 
-      <.run_status id="run-1-status" status={:failed} label="Błąd" />
+      <.run_status id="run-1-status" status={:failed} label="Failed" />
   """
   attr :id, :string, required: true
   attr :status, :atom, required: true
@@ -447,8 +431,8 @@ defmodule DirmoonWeb.UI do
   Renders a stat tile in the app: a small label above a large value.
   `highlight` draws the value in the accent.
 
-      <.stat_tile label="Wyszukiwania / mies." value={@volume} />
-      <.stat_tile label="Wypożyczalnie w top 10" value="0" highlight />
+      <.stat_tile label="Searches / mo." value={@volume} />
+      <.stat_tile label="Rental shops in the top 10" value="0" highlight />
   """
   attr :label, :string, required: true
   attr :value, :string, required: true
@@ -479,7 +463,7 @@ defmodule DirmoonWeb.UI do
   resumes it. The inner block says what waits for the resume.
 
       <.run_stopped_note id="results-run-stopped" link_id="results-resume-link" run={@run}>
-        Research jest zatrzymany. Wznów go, żeby wybrać niszę.
+        The research is stopped. Resume it to choose a niche.
       </.run_stopped_note>
   """
   attr :id, :string, required: true
@@ -497,35 +481,10 @@ defmodule DirmoonWeb.UI do
         navigate={~p"/app/runs/#{@run}"}
         class="inline-flex min-h-target-min items-center font-medium text-accent underline underline-offset-4"
       >
-        Przejdź do researchu
+        Go to the research
       </.link>
     </p>
     """
-  end
-
-  defp how_it_works_step_groups do
-    [
-      %{
-        steps: "01–02",
-        name: "Frazy",
-        summary: "Z opisu powstają frazy startowe, a API rozwija je w realnie wpisywane zapytania."
-      },
-      %{
-        steps: "03–04",
-        name: "Popyt",
-        summary: "Wyszukiwania miesięcznie w kraju i w mieście, CPC i trend z 12 miesięcy. Frazy łączę w nisze."
-      },
-      %{
-        steps: "05–07",
-        name: "Konkurencja",
-        summary: "Kto dziś odpowiada na najlepsze frazy i jak słaba jest pierwsza strona wyników."
-      },
-      %{
-        steps: "08",
-        name: "Strona",
-        summary: "Wybierasz niszę. Dostajesz brief i treść gotową do publikacji."
-      }
-    ]
   end
 
   defp moon_fill("ink"), do: "fill-ink"

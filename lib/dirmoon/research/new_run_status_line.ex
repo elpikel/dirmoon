@@ -1,15 +1,15 @@
 defmodule Dirmoon.Research.NewRunStatusLine do
   @moduledoc """
-  The status sentence of the new research screen: one first-person Polish
+  The status sentence of the new research screen: one first-person
   line built from the form's state (the chosen Mode and whether the Account
   has a Search Console Connection), never by the LLM. See
   `docs/design/README.md` section 8.2, `Dirmoon.Research.StatusLine` for a
   run's sentence and `Dirmoon.Research.RunsStatusLine` for the runs list.
   """
 
-  @new_idea_sentence "Opisz biznes, a znajdę frazy, które ludzie naprawdę wpisują, i policzę, ile osób ich szuka."
-  @existing_site_sentence "Opisz biznes i podaj domenę. Sprawdzę też, na które frazy strona już jest widoczna."
-  @existing_site_without_search_console_sentence "Opisz biznes i podaj domenę. Bez Search Console pominę obecne pozycje strony."
+  @new_idea_sentence "Describe the business and I'll find the phrases people really type and count how many search for them."
+  @existing_site_sentence "Describe the business and give its domain. I'll also check which phrases the site already shows up for."
+  @existing_site_without_search_console_sentence "Describe the business and give its domain. Without Search Console I'll skip the site's current positions."
 
   @doc """
   The sentence for the chosen Mode (`nil` reads as a New Idea) and the

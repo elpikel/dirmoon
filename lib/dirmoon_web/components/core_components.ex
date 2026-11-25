@@ -38,18 +38,9 @@ defmodule DirmoonWeb.CoreComponents do
   ## Examples
 
       <.flash kind={:info} flash={@flash} />
-      <.flash
-        id="welcome-back"
-        kind={:info}
-        phx-mounted={show("#welcome-back") |> JS.remove_attribute("hidden")}
-        hidden
-      >
-        Welcome Back!
-      </.flash>
   """
   attr :id, :string, doc: "the optional id of flash container"
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
-  attr :title, :string, default: nil
   attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
 
   attr :surface, :string,
@@ -59,14 +50,12 @@ defmodule DirmoonWeb.CoreComponents do
 
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
 
-  slot :inner_block, doc: "the optional inner block that renders the flash message"
-
   def flash(assigns) do
     assigns = assign_new(assigns, :id, fn -> "flash-#{assigns.kind}" end)
 
     ~H"""
     <div
-      :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
+      :if={msg = Phoenix.Flash.get(@flash, @kind)}
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
       phx-hook={@kind == :info && ".AutoDismissFlash"}
@@ -94,7 +83,6 @@ defmodule DirmoonWeb.CoreComponents do
           class="mt-0.5 size-5 shrink-0 text-warn"
         />
         <div class="flex-1 text-wrap">
-          <p :if={@title} class="font-semibold">{@title}</p>
           <p class={flash_message_class(@surface)}>{msg}</p>
         </div>
         <button
@@ -154,7 +142,7 @@ defmodule DirmoonWeb.CoreComponents do
   margin, so the form lays fields out with a gap.
 
   ```heex
-  <.input field={@form[:title]} label="Tytuł strony" surface="app" />
+  <.input field={@form[:title]} label="Page title" surface="app" />
   ```
 
   ## Select type
@@ -344,17 +332,7 @@ defmodule DirmoonWeb.CoreComponents do
     """
   end
 
-  def show(js \\ %JS{}, selector) do
-    JS.show(js,
-      to: selector,
-      time: 300,
-      transition:
-        {"transition-all ease-out duration-300", "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
-         "opacity-100 translate-y-0 sm:scale-100"}
-    )
-  end
-
-  def hide(js \\ %JS{}, selector) do
+  def hide(%JS{} = js, selector) do
     JS.hide(js,
       to: selector,
       time: 200,

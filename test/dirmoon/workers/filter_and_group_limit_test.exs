@@ -28,7 +28,7 @@ defmodule Dirmoon.Workers.FilterAndGroupLimitTest do
     assert_received {:sent_ids, [top_id, second_id]}
     assert [top_id, second_id] == [top.id, second.id]
 
-    assert %RunPhrase{status: :rejected, rejection_reason: "poza limitem analizy", cluster_id: nil} =
+    assert %RunPhrase{status: :rejected, rejection_reason: "beyond the analysis limit", cluster_id: nil} =
              Repo.get!(RunPhrase, beyond.id)
   end
 

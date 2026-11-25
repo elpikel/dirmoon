@@ -1,39 +1,37 @@
 defmodule DirmoonWeb.PageDisplay do
   @moduledoc """
-  How a Page reads on screen, shared by the page screen (`PageLive`),
-  the pages list (`PagesLive`) and the results screen (`ResultsLive`, which
-  starts a page by choosing a Niche): its status labels, its
-  title, its address on the User's domain, and the Polish copy for each
-  reason a Niche choice is refused.
+  How a Page (the record holding a Niche's Brief) reads on screen, shared by
+  the brief screen (`PageLive`), the briefs list (`PagesLive`) and the
+  results screen (`ResultsLive`, which starts a Brief by choosing a Niche):
+  its status labels, its title, and the copy for each reason a Niche choice
+  is refused.
   """
 
   alias Dirmoon.Pages.Brief
   alias Dirmoon.Pages.Page
 
-  @domain_placeholder "[TWOJA-DOMENA]"
-
   @status_labels %{
-    writing: "Piszę",
-    ready: "Gotowa",
-    failed: "Błąd"
+    writing: "Writing",
+    ready: "Ready",
+    failed: "Failed"
   }
 
   @choose_errors %{
-    not_found: "Nie znaleziono niszy",
-    run_not_ready: "Teraz nie wybierzesz niszy: research nie skończył oceniania albo jest zatrzymany",
-    run_busy: "Research jeszcze pracuje. Wybierzesz niszę, gdy skończy bieżący krok",
-    brief_in_progress: "Brief dla innej niszy jest w trakcie pisania",
-    not_choosable: "Tej niszy nie można już wybrać"
+    not_found: "Niche not found",
+    run_not_ready: "You can't choose a niche now: the research hasn't finished scoring or is stopped",
+    run_busy: "The research is still working. You can choose a niche when it finishes the current step",
+    brief_in_progress: "A brief for another niche is being written",
+    not_choosable: "This niche can no longer be chosen"
   }
 
   @doc """
-  The Polish label of a page's status ("Piszę", "Gotowa"…), one for each of
+  The label of a page's status ("Writing", "Ready"…), one for each of
   `Page.statuses/0`.
   """
   def status_label(status), do: Map.fetch!(@status_labels, status)
 
   @doc """
-  The Polish message for a reason `Dirmoon.Niches.choose/2` refused a Niche.
+  The message for a reason `Dirmoon.Niches.choose/2` refused a Niche.
   """
   def choose_error(reason), do: Map.fetch!(@choose_errors, reason)
 
@@ -48,22 +46,9 @@ defmodule DirmoonWeb.PageDisplay do
   def title(%Page{brief: nil, niche: niche}), do: niche.name
 
   @doc """
-  Where a page will live on the User's domain: the domain Placeholder and
-  its slug ("[TWOJA-DOMENA]/pierwszy-raz-kamperem").
+  The day the page was created ("3 Nov 2026").
   """
-  def address(slug) do
-    if present?(slug), do: "#{@domain_placeholder}/#{slug}", else: "#{@domain_placeholder}/"
-  end
-
-  @doc """
-  The domain Placeholder shown before the page's slug.
-  """
-  def domain_placeholder, do: @domain_placeholder
-
-  @doc """
-  The day the page was created, as Polish readers write it ("03.11.2026").
-  """
-  def date(%Page{inserted_at: inserted_at}), do: Calendar.strftime(inserted_at, "%d.%m.%Y")
+  def date(%Page{inserted_at: inserted_at}), do: Calendar.strftime(inserted_at, "%-d %b %Y")
 
   defp present?(text), do: is_binary(text) and String.trim(text) != ""
 end

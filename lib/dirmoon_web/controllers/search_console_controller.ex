@@ -7,8 +7,8 @@ defmodule DirmoonWeb.SearchConsoleController do
   @return_to_session_key :search_console_return_to
   @state_bytes 32
   @default_return_to "/app"
-  @failed_message "Nie udało się połączyć z Search Console"
-  @not_configured_message "Search Console nie jest skonfigurowane"
+  @failed_message "Could not connect to Search Console"
+  @not_configured_message "Search Console is not configured"
 
   def connect(conn, params) do
     state = @state_bytes |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
@@ -47,7 +47,7 @@ defmodule DirmoonWeb.SearchConsoleController do
          {:ok, connection} <-
            SearchConsole.connect(conn.assigns.current_scope, %{code: code, redirect_uri: callback_url()}) do
       conn
-      |> put_flash(:info, "Połączono z Search Console (#{connection.google_email})")
+      |> put_flash(:info, "Connected to Search Console (#{connection.google_email})")
       |> redirect(to: return_to)
     else
       _failed ->
@@ -61,7 +61,7 @@ defmodule DirmoonWeb.SearchConsoleController do
     :ok = SearchConsole.disconnect(conn.assigns.current_scope)
 
     conn
-    |> put_flash(:info, "Odłączono Search Console")
+    |> put_flash(:info, "Search Console disconnected")
     |> redirect(to: @default_return_to)
   end
 

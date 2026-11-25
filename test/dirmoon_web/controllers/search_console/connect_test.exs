@@ -37,7 +37,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.ConnectTest do
     conn = get(conn, ~p"/app/search-console/connect")
 
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Search Console nie jest skonfigurowane"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Search Console is not configured"
   end
 
   test "when Search Console is not configured the user goes back to the app page they came from", %{conn: conn} do
@@ -59,7 +59,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.ConnectTest do
     conn = get(conn, ~p"/app/search-console/connect?return_to=/app/runs/12")
 
     assert redirected_to(conn) == "/app/runs/12"
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Could not connect to Search Console"
   end
 
   test "the app's own start page is accepted as the return address", %{conn: conn} do

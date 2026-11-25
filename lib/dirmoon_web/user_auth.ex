@@ -21,8 +21,8 @@ defmodule DirmoonWeb.UserAuth do
   ]
   @session_reissue_age_in_days 7
 
-  @log_in_required_message "Zaloguj się, aby otworzyć tę stronę."
-  @reauthentication_required_message "Zaloguj się ponownie, aby otworzyć tę stronę."
+  @log_in_required_message "Sign in to open this page."
+  @reauthentication_required_message "Sign in again to open this page."
 
   @doc """
   Logs the user in and redirects to the session's `:user_return_to` path or

@@ -8,20 +8,20 @@ defmodule Dirmoon do
   """
 
   @demo_services [
-    llm_adapter: {Dirmoon.LLM.Demo, "model językowy (OpenAI)"},
-    data_for_seo_adapter: {Dirmoon.DataForSEO.Demo, "frazy i konkurencja (DataForSEO)"},
+    llm_adapter: {Dirmoon.LLM.Demo, "language model (OpenAI)"},
+    data_for_seo_adapter: {Dirmoon.DataForSEO.Demo, "phrases and competition (DataForSEO)"},
     search_console_adapter: {Dirmoon.SearchConsole.Client.Demo, "Search Console"}
   ]
 
   @doc """
   Whether a demo adapter stands in for a real provider, so the app shows the
-  "DANE TESTOWE" banner.
+  "TEST DATA" banner.
   """
   def demo_data?, do: demo_services() != []
 
   @doc """
-  The Polish names of the external services answered by a demo adapter right
-  now, in pipeline order; the "DANE TESTOWE" banner lists them.
+  The names of the external services answered by a demo adapter right
+  now, in pipeline order; the "TEST DATA" banner lists them.
   """
   def demo_services do
     for {config_key, {demo_adapter, name}} <- @demo_services,

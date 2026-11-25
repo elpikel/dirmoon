@@ -1,6 +1,6 @@
 defmodule DirmoonWeb.RunsLive do
   @moduledoc """
-  The runs list, "Wyniki" (`/app/runs`): the Account's Research Runs, newest
+  The runs list, "Results" (`/app/runs`): the Account's Research Runs, newest
   first, each with its description, Mode, location, status, date and API
   Cost, linking to the run or, once its results are ready
   (`Run.results_ready?/1`), to them. With
@@ -9,7 +9,7 @@ defmodule DirmoonWeb.RunsLive do
   """
   use DirmoonWeb, :live_view
 
-  alias Dirmoon.Polish
+  alias Dirmoon.Format
   alias Dirmoon.Research
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunsStatusLine
@@ -22,20 +22,20 @@ defmodule DirmoonWeb.RunsLive do
       flash={@flash}
       current_scope={@current_scope}
       active={:runs}
-      context="wyniki"
+      context="results"
       note={@count_note}
     >
       <:status><span id="runs-status-line">{@status_line}</span></:status>
       <section id="runs-screen" class="flex grow flex-col">
-        <h1 class="sr-only">Wyniki</h1>
+        <h1 class="sr-only">Results</h1>
         <ul id="runs" phx-update="stream" class="m-0 flex list-none flex-col p-0">
           <li id="runs-empty" class="hidden px-5 py-12 only:block">
             <div class="flex flex-col items-center gap-4 text-center">
               <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">
-                Tu pojawią się Twoje researche.
+                Your research runs will show up here.
               </span>
               <p class="m-0 max-w-[460px] text-[15px] leading-normal text-on-app-2">
-                Opisz biznes albo pomysł, a sprawdzę, czego ludzie szukają i które nisze warto zająć.
+                Describe a business or an idea and I'll check what people search for and which niches are worth going after.
               </p>
               <.button
                 id="start-first-research"
@@ -43,7 +43,7 @@ defmodule DirmoonWeb.RunsLive do
                 size="large"
                 navigate={~p"/app/research/new"}
               >
-                Zacznij pierwszy research <.icon name="hero-arrow-right" class="size-[18px]" />
+                Start your first research <.icon name="hero-arrow-right" class="size-[18px]" />
               </.button>
             </div>
           </li>
@@ -66,7 +66,7 @@ defmodule DirmoonWeb.RunsLive do
               <span class="flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-[11px] text-on-app-muted">
                 <.run_status id={"#{dom_id}-status"} status={row.status} label={row.status_label} />
                 <span>{row.date}</span>
-                <span id={"#{dom_id}-cost"}>Koszt API: {row.cost}</span>
+                <span id={"#{dom_id}-cost"}>API cost: {row.cost}</span>
               </span>
               <.icon
                 name="hero-chevron-right-mini"
@@ -89,7 +89,7 @@ defmodule DirmoonWeb.RunsLive do
     {:ok,
      socket
      |> assign(
-       page_title: "Wyniki",
+       page_title: "Results",
        status_line: RunsStatusLine.sentence(runs),
        count_note: RunsStatusLine.count(runs)
      )
@@ -108,7 +108,7 @@ defmodule DirmoonWeb.RunsLive do
       status: run.status,
       status_label: RunDisplay.status_label(run.status),
       date: RunDisplay.date(run),
-      cost: Polish.usd(cost),
+      cost: Format.usd(cost),
       path: RunDisplay.path(run)
     }
   end

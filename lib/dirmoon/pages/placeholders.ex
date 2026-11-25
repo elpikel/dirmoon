@@ -1,7 +1,7 @@
 defmodule Dirmoon.Pages.Placeholders do
   @moduledoc """
-  Placeholders: bracketed upper-case text (`[CENA]`, `[TELEFON]`,
-  `[NAZWA FIRMY]`, `[TWOJA-DOMENA]`) marking a value the business owner must
+  Placeholders: bracketed upper-case text (`[PRICE]`, `[PHONE]`,
+  `[BUSINESS NAME]`) marking a value the business owner must
   supply. A Placeholder holds only upper-case letters, spaces and hyphens;
   any other bracketed text is ordinary text.
 
@@ -12,21 +12,14 @@ defmodule Dirmoon.Pages.Placeholders do
 
   @placeholder_pattern "\\[\\p{Lu}[\\p{Lu} \\-]*\\]"
   @placeholder_regex Regex.compile!(@placeholder_pattern, "u")
-  @word_regex Regex.compile!("(?:" <> @placeholder_pattern <> "|\\S)++", "u")
   @whole_placeholder_regex Regex.compile!("\\A" <> @placeholder_pattern <> "\\z", "u")
 
   @field_placeholders %{
-    phone: "[TELEFON]",
+    phone: "[PHONE]",
     email: "[E-MAIL]",
-    address: "[ADRES]",
-    price: "[CENA]",
-    business_name: "[NAZWA FIRMY]",
-    intro: "[WSTĘP]",
-    answer: "[ODPOWIEDŹ]",
-    short_answer: "[W SKRÓCIE]",
-    domain: "[TWOJA-DOMENA]"
+    address: "[ADDRESS]",
+    price: "[PRICE]"
   }
-  @fallback_placeholder "[UZUPEŁNIJ]"
 
   @amount "(?<![\\d,.])(?>\\d{1,3}(?:[ \\x{00A0}.]\\d{3}){1,3}|\\d{1,9})(?:,\\d{1,2}|\\.\\d{2})?"
   @amount_regex Regex.compile!(@amount, "u")
@@ -60,10 +53,8 @@ defmodule Dirmoon.Pages.Placeholders do
   @polish_country_codes ["0048", "48"]
   @national_phone_digits 9
 
-  @scrubbed_text_fields [:business_name, :title, :h1, :breadcrumb, :intro, :cta_label, :closing_prompt, :short_answer]
+  @scrubbed_text_fields [:business_name, :title, :h1, :intro, :short_answer]
   @scrubbed_list_items [
-    %{list: :fact_tiles, field: :label},
-    %{list: :fact_tiles, field: :value},
     %{list: :sections, field: :question},
     %{list: :sections, field: :answer}
   ]
@@ -88,63 +79,31 @@ defmodule Dirmoon.Pages.Placeholders do
 
   @doc """
   Applies `scrub/2` to every free-text field of a Brief: business name, title,
-  H1, breadcrumb, intro, call-to-action label, closing prompt, short answer,
-  nav links, Fact Tile labels and values, and section questions and answers.
-  The slug, phrases, primary phrase, Plausible domain and the User's own
-  phone, e-mail and address are left as they are. Takes a `Brief` struct or a
+  H1, intro, short answer, and section questions and answers. The slug,
+  phrases, primary phrase and the User's own phone, e-mail and address are
+  left as they are. Takes a `Brief` struct or a
   Brief params map (string or atom keys) and returns the same shape.
   """
   def scrub_brief(brief, allowed) do
-    scrubbed =
-      brief
-      |> scrub_fields(@scrubbed_text_fields, allowed)
-      |> scrub_nav_links(allowed)
+    scrubbed = scrub_fields(brief, @scrubbed_text_fields, allowed)
 
     Enum.reduce(@scrubbed_list_items, scrubbed, fn item, scrubbed_brief -> scrub_each(scrubbed_brief, item, allowed) end)
   end
 
   @doc """
-  True when the whole `text` is one Placeholder, such as `[CENA]`.
+  True when the whole `text` is one Placeholder, such as `[PRICE]`.
   """
   def placeholder?(text) when is_binary(text), do: Regex.match?(@whole_placeholder_regex, text)
   def placeholder?(_text), do: false
 
   @doc """
-  The Placeholder shown for a missing field.
-  """
-  def for_field(field), do: Map.get(@field_placeholders, field, @fallback_placeholder)
-
-  @doc """
-  The Placeholder for a blank Fact Tile, chosen from its label: a price label
-  gets `[CENA]`, a phone label `[TELEFON]`, and so on.
-  """
-  def for_fact_tile(label) when is_binary(label) do
-    label
-    |> String.downcase()
-    |> fact_tile_field()
-    |> for_field()
-  end
-
-  def for_fact_tile(_label), do: @fallback_placeholder
-
-  @doc """
-  Splits `text` into plain and Placeholder parts, in order, so each Placeholder
-  can be shown distinctly.
+  Splits `text` into plain and Placeholder parts, in order, so `scrub/2`
+  leaves every Placeholder as it is.
   """
   def split(text) when is_binary(text) do
     @placeholder_regex
     |> Regex.split(text, include_captures: true, trim: true)
     |> Enum.map(&%{text: &1, placeholder: placeholder?(&1)})
-  end
-
-  @doc """
-  Splits `text` into words on whitespace, keeping each Placeholder whole as
-  one word (`[NAZWA FIRMY]?` is one word).
-  """
-  def words(text) when is_binary(text) do
-    @word_regex
-    |> Regex.scan(text)
-    |> List.flatten()
   end
 
   defp scrub_plain(text, allowed_values) do
@@ -154,7 +113,7 @@ defmodule Dirmoon.Pages.Placeholders do
   end
 
   defp keep_or_replace(match, field, allowed_values) do
-    if allowed?(field, match, allowed_values), do: match, else: for_field(field)
+    if allowed?(field, match, allowed_values), do: match, else: Map.fetch!(@field_placeholders, field)
   end
 
   defp allowed_values(allowed) do
@@ -239,16 +198,6 @@ defmodule Dirmoon.Pages.Placeholders do
 
   defp normalise(value), do: value |> to_string() |> normalise()
 
-  defp fact_tile_field(label) do
-    cond do
-      String.contains?(label, ["cen", "koszt", "opłat", "stawk"]) -> :price
-      String.contains?(label, ["telefon", "tel."]) -> :phone
-      String.contains?(label, ["mail"]) -> :email
-      String.contains?(label, ["adres"]) -> :address
-      true -> :fact_tile
-    end
-  end
-
   defp scrub_fields(brief, fields, allowed) do
     Enum.reduce(fields, brief, fn field, scrubbed -> scrub_field(scrubbed, field, allowed) end)
   end
@@ -261,21 +210,6 @@ defmodule Dirmoon.Pages.Placeholders do
       _other -> map
     end
   end
-
-  defp scrub_nav_links(brief, allowed) do
-    key = key_for(brief, :nav_links)
-
-    case brief do
-      %{^key => links} when is_list(links) ->
-        Map.put(brief, key, Enum.map(links, &scrub_text(&1, allowed)))
-
-      _other ->
-        brief
-    end
-  end
-
-  defp scrub_text(text, allowed) when is_binary(text), do: scrub(text, allowed)
-  defp scrub_text(other, _allowed), do: other
 
   defp scrub_each(brief, %{list: list_field, field: field}, allowed) do
     key = key_for(brief, list_field)

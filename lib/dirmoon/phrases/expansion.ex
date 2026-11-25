@@ -8,23 +8,23 @@ defmodule Dirmoon.Phrases.Expansion do
   """
 
   alias Dirmoon.DataForSEO
+  alias Dirmoon.Format
   alias Dirmoon.Phrases
   alias Dirmoon.Phrases.LedgerRows
-  alias Dirmoon.Polish
   alias Dirmoon.Research
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.Steps
 
   @seeds_step_number Steps.number!(:seeds)
-  @no_seeds_error "Brak fraz startowych z kroku 1"
-  @no_phrases_error "Brak fraz dla tych załążków"
-  @phrase_forms %{one: "realna fraza", few: "realne frazy", many: "realnych fraz"}
+  @no_seeds_error "No seed phrases from step 1"
+  @no_phrases_error "No phrases for these seeds"
+  @phrase_forms %{one: "real phrase", other: "real phrases"}
 
   @doc """
   Expands the run's Seeds and stores the Phrases with their country Volumes.
 
-  Returns `{:ok, %{result: "412 realnych fraz", output: %{"phrases" => 412, "requests" => 2}}}`,
-  `{:error, "Brak fraz startowych z kroku 1"}`, `{:error, "Brak fraz dla tych załążków"}`
+  Returns `{:ok, %{result: "412 real phrases", output: %{"phrases" => 412, "requests" => 2}}}`,
+  `{:error, "No seed phrases from step 1"}`, `{:error, "No phrases for these seeds"}`
   or the keyword API's `{:error, reason}` (batches fetched before it stay in
   the ledger).
   """
@@ -70,5 +70,5 @@ defmodule Dirmoon.Phrases.Expansion do
     end
   end
 
-  defp result_line(count), do: "#{count} #{Polish.plural(count, @phrase_forms)}"
+  defp result_line(count), do: "#{count} #{Format.plural(count, @phrase_forms)}"
 end

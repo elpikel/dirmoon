@@ -239,10 +239,10 @@ defmodule Dirmoon.PhrasesTest do
     ungrouped = insert(:run_phrase, run: run)
     already_rejected = insert(:run_phrase, run: run, status: :rejected, rejection_reason: "inna branża")
 
-    assert Phrases.reject_ungrouped(run, "pominięta przez model") == 1
+    assert Phrases.reject_ungrouped(run, "left out by the model") == 1
 
     assert Repo.get!(RunPhrase, grouped.id).status == :kept
-    assert %RunPhrase{status: :rejected, rejection_reason: "pominięta przez model"} = Repo.get!(RunPhrase, ungrouped.id)
+    assert %RunPhrase{status: :rejected, rejection_reason: "left out by the model"} = Repo.get!(RunPhrase, ungrouped.id)
     assert %RunPhrase{rejection_reason: "inna branża"} = Repo.get!(RunPhrase, already_rejected.id)
   end
 
@@ -445,7 +445,7 @@ defmodule Dirmoon.PhrasesTest do
              city_volume: 6,
              currency: "USD",
              verdict: :weak,
-             holders: "poradniki i blogi",
+             holders: "guides and blogs",
              rejected?: false,
              rejection_reason: nil
            } = kept_row

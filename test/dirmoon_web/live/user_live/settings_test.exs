@@ -12,18 +12,18 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
 
     {:ok, view, _html} = live(conn, ~p"/users/settings")
 
-    assert has_element?(view, "[data-layout=app] #app-context", "/ ustawienia")
-    assert has_element?(view, "#app-status", "Tu zmienisz adres e-mail")
-    assert has_element?(view, "#settings-title", "Ustawienia")
+    assert has_element?(view, "[data-layout=app] #app-context", "/ settings")
+    assert has_element?(view, "#app-status", "Here you change the email address")
+    assert has_element?(view, "#settings-title", "Settings")
     assert has_element?(view, ~s(#email-form input[name="user[email]"][value="#{user.email}"]))
-    assert has_element?(view, "#email-submit[data-variant=lime]", "Zmień e-mail")
+    assert has_element?(view, "#email-submit[data-variant=lime]", "Change email")
   end
 
   test "a signed-out visitor is redirected to sign-in", %{conn: conn} do
     assert {:error, {:redirect, %{to: path, flash: flash}}} = live(conn, ~p"/users/settings")
 
     assert path == ~p"/users/log-in"
-    assert %{"error" => "Zaloguj się, aby otworzyć tę stronę."} = flash
+    assert %{"error" => "Sign in to open this page."} = flash
   end
 
   test "a user who signed in more than 10 minutes ago must sign in again", %{conn: conn} do
@@ -33,7 +33,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
     assert {:error, {:redirect, %{to: path, flash: flash}}} = live(conn, ~p"/users/settings")
 
     assert path == ~p"/users/log-in"
-    assert %{"error" => "Zaloguj się ponownie, aby otworzyć tę stronę."} = flash
+    assert %{"error" => "Sign in again to open this page."} = flash
   end
 
   test "submitting a new email sends a confirmation link to it and keeps the old email for now", %{conn: conn} do
@@ -43,8 +43,8 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
 
     view |> form("#email-form", %{"user" => %{"email" => new_email}}) |> render_submit()
 
-    assert has_element?(view, "#flash-info", "Wysłaliśmy link potwierdzający na nowy adres.")
-    assert_email_sent(to: new_email, subject: "Potwierdź nowy adres e-mail")
+    assert has_element?(view, "#flash-info", "I sent a confirmation link to the new address.")
+    assert_email_sent(to: new_email, subject: "Confirm your new email address")
     assert Accounts.get_user_by_email(user.email)
   end
 
@@ -54,7 +54,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
 
     view |> element("#email-form") |> render_change(%{"user" => %{"email" => "with spaces"}})
 
-    assert has_element?(view, "#email-form", "musi zawierać @ i nie może mieć spacji")
+    assert has_element?(view, "#email-form", "must have the @ sign and no spaces")
   end
 
   test "submitting the same email shows an error", %{conn: conn} do
@@ -63,7 +63,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
 
     view |> form("#email-form", %{"user" => %{"email" => user.email}}) |> render_submit()
 
-    assert has_element?(view, "#email-form", "to ten sam adres")
+    assert has_element?(view, "#email-form", "did not change")
     assert_no_email_sent()
   end
 
@@ -74,18 +74,17 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
 
     view |> form("#email-form", %{"user" => %{"email" => other_user.email}}) |> render_submit()
 
-    assert has_element?(view, "#flash-info", "Wysłaliśmy link potwierdzający na nowy adres.")
+    assert has_element?(view, "#flash-info", "I sent a confirmation link to the new address.")
     refute has_element?(view, "#email-form .hero-exclamation-circle")
   end
 
-  test "a blank email shows the Polish required-field error while typing", %{conn: conn} do
+  test "a blank email shows the English required-field error while typing", %{conn: conn} do
     %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     {:ok, view, _html} = live(conn, ~p"/users/settings")
 
     view |> element("#email-form") |> render_change(%{"user" => %{"email" => ""}})
 
-    assert has_element?(view, "#email-form", "nie może być puste")
-    refute has_element?(view, "#email-form", "can't be blank")
+    assert has_element?(view, "#email-form", "can't be blank")
   end
 
   test "an email-change link for an address another user took in the meantime changes nothing", %{conn: conn} do
@@ -101,7 +100,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
 
     assert {:error, {:live_redirect, %{to: path, flash: flash}}} = live(conn, ~p"/users/settings/confirm-email/#{token}")
     assert path == ~p"/users/settings"
-    assert %{"error" => "Link zmiany adresu jest nieprawidłowy albo wygasł."} = flash
+    assert %{"error" => "The email change link is invalid or has expired."} = flash
     assert Accounts.get_user_by_email(user.email).id == user.id
     assert Accounts.get_user_by_email(new_email).id == other_user.id
   end
@@ -117,12 +116,12 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
 
     assert {:error, {:live_redirect, %{to: path, flash: flash}}} = live(conn, ~p"/users/settings/confirm-email/#{token}")
     assert path == ~p"/users/settings"
-    assert %{"info" => "Adres e-mail zmieniony."} = flash
+    assert %{"info" => "Email address changed."} = flash
     refute Accounts.get_user_by_email(user.email)
     assert Accounts.get_user_by_email(new_email)
 
     assert {:error, {:live_redirect, %{flash: flash}}} = live(conn, ~p"/users/settings/confirm-email/#{token}")
-    assert %{"error" => "Link zmiany adresu jest nieprawidłowy albo wygasł."} = flash
+    assert %{"error" => "The email change link is invalid or has expired."} = flash
   end
 
   test "an invalid email-change link keeps the email", %{conn: conn} do
@@ -131,7 +130,7 @@ defmodule DirmoonWeb.UserLive.SettingsTest do
     assert {:error, {:live_redirect, %{to: path, flash: flash}}} = live(conn, ~p"/users/settings/confirm-email/oops")
 
     assert path == ~p"/users/settings"
-    assert %{"error" => "Link zmiany adresu jest nieprawidłowy albo wygasł."} = flash
+    assert %{"error" => "The email change link is invalid or has expired."} = flash
     assert Accounts.get_user_by_email(user.email)
   end
 

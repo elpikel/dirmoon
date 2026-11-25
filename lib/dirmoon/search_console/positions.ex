@@ -8,26 +8,26 @@ defmodule Dirmoon.SearchConsole.Positions do
   access token lives only for the request and is never stored.
   """
 
+  alias Dirmoon.Format
   alias Dirmoon.Phrases
-  alias Dirmoon.Polish
   alias Dirmoon.Research.Run
   alias Dirmoon.SearchConsole
   alias Dirmoon.SearchConsole.Client
 
   @window_days 90
   @row_limit 5000
-  @new_idea_result "Nowy pomysł, nie ma jeszcze strony"
-  @not_connected_result "Brak połączenia z Search Console"
-  @reconnect_result "Połączenie z Search Console wygasło, połącz ponownie"
-  @not_configured_result "Search Console nie jest skonfigurowane"
-  @no_data_result "Brak danych w Search Console dla tej domeny"
-  @access_token_rejected "Search Console odrzuciło token dostępu"
-  @phrase_forms %{one: "fraza", few: "frazy", many: "fraz"}
+  @new_idea_result "New idea, no site yet"
+  @not_connected_result "Search Console is not connected"
+  @reconnect_result "The Search Console connection expired, connect again"
+  @not_configured_result "Search Console is not configured"
+  @no_data_result "Search Console has no data for this domain"
+  @access_token_rejected "Search Console rejected the access token"
+  @phrase_forms %{one: "phrase", other: "phrases"}
 
   @doc """
   Fetches the run's Current Positions.
 
-  Returns `{:ok, %{result: "N fraz na pozycjach 8–20", output: output}}` with
+  Returns `{:ok, %{result: "N phrases at positions 8–20", output: output}}` with
   `output` `%{"rows" => [%{"query", "clicks", "impressions", "ctr", "position"}],
   "matched", "quick_wins", "start_date", "end_date"}`; `{:skip, line}` for a
   New Idea run, an Account without a Connection, a Connection that needs a
@@ -85,7 +85,7 @@ defmodule Dirmoon.SearchConsole.Positions do
 
     case Client.query(request) do
       {:ok, %{rows: rows}} -> {:ok, Enum.take(rows, @row_limit)}
-      {:error, :forbidden} -> {:skip, "Brak dostępu do #{run.domain} w Search Console"}
+      {:error, :forbidden} -> {:skip, "No access to #{run.domain} in Search Console"}
       {:error, :unauthorized} -> {:error, @access_token_rejected}
       {:error, :search_console_not_configured} -> {:skip, @not_configured_result}
       {:error, reason} -> {:error, reason}
@@ -96,7 +96,7 @@ defmodule Dirmoon.SearchConsole.Positions do
 
   defp result_line(_rows, %{quick_wins: quick_wins}) do
     range = Phrases.quick_win_range()
-    "#{quick_wins} #{Polish.plural(quick_wins, @phrase_forms)} na pozycjach #{range.first}–#{range.last}"
+    "#{quick_wins} #{Format.plural(quick_wins, @phrase_forms)} at positions #{range.first}–#{range.last}"
   end
 
   defp output(rows, %{matched: matched, quick_wins: quick_wins}, %{start_date: start_date, end_date: end_date}) do

@@ -26,17 +26,17 @@ defmodule DirmoonWeb.UserLive.ConfirmationTest do
     assert has_element?(app_view, "#user-email", user.email)
   end
 
-  test "a new user's link shows the confirm screen in Polish", %{conn: conn} do
+  test "a new user's link shows the confirm screen in English", %{conn: conn} do
     user = insert(:user, confirmed_at: nil)
     token = extract_user_token(fn url -> Accounts.deliver_login_instructions(user, url) end)
 
     {:ok, view, _html} = live(conn, ~p"/users/log-in/#{token}")
 
     assert has_element?(view, "[data-layout=auth]")
-    assert has_element?(view, "#confirmation-title", "Potwierdź konto")
+    assert has_element?(view, "#confirmation-title", "Confirm your account")
     assert has_element?(view, "#confirmation-form[action='/users/log-in?_action=confirmed']")
     assert has_element?(view, "#confirmation-form input[type=checkbox][name='user[remember_me]'][checked]")
-    assert has_element?(view, "#confirmation-submit[data-variant=dark]", "Potwierdź i zaloguj się")
+    assert has_element?(view, "#confirmation-submit[data-variant=dark]", "Confirm and sign in")
   end
 
   test "a confirmed user's link shows the sign-in screen", %{conn: conn} do
@@ -45,7 +45,7 @@ defmodule DirmoonWeb.UserLive.ConfirmationTest do
 
     {:ok, view, _html} = live(conn, ~p"/users/log-in/#{token}")
 
-    assert has_element?(view, "#confirmation-title", "Zaloguj się")
+    assert has_element?(view, "#confirmation-title", "Sign in")
     assert has_element?(view, "#confirmation-form[action='/users/log-in']")
     assert has_element?(view, "#confirmation-form input[name='user[remember_me]']")
   end
@@ -57,7 +57,7 @@ defmodule DirmoonWeb.UserLive.ConfirmationTest do
 
     {:ok, view, _html} = live(conn, ~p"/users/log-in/#{token}")
 
-    assert has_element?(view, "#confirmation-submit", "Zaloguj się")
+    assert has_element?(view, "#confirmation-submit", "Sign in")
     refute has_element?(view, "#confirmation-form input[name='user[remember_me]']")
   end
 
@@ -70,18 +70,18 @@ defmodule DirmoonWeb.UserLive.ConfirmationTest do
     render_submit(form)
     conn = follow_trigger_action(form, conn)
 
-    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Witaj ponownie!"
+    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Welcome back!"
     assert Repo.get!(User, user.id).confirmed_at == user.confirmed_at
 
     assert {:error, {:live_redirect, %{to: path, flash: flash}}} = live(build_conn(), ~p"/users/log-in/#{token}")
     assert path == ~p"/users/log-in"
-    assert %{"error" => "Link logowania jest nieprawidłowy albo wygasł."} = flash
+    assert %{"error" => "The sign-in link is invalid or has expired."} = flash
   end
 
   test "an invalid link redirects to sign-in with an error", %{conn: conn} do
     assert {:error, {:live_redirect, %{to: path, flash: flash}}} = live(conn, ~p"/users/log-in/invalid-token")
 
     assert path == ~p"/users/log-in"
-    assert %{"error" => "Link logowania jest nieprawidłowy albo wygasł."} = flash
+    assert %{"error" => "The sign-in link is invalid or has expired."} = flash
   end
 end

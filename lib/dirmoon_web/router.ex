@@ -27,7 +27,6 @@ defmodule DirmoonWeb.Router do
     get "/search-console/connect", SearchConsoleController, :connect
     get "/search-console/callback", SearchConsoleController, :callback
     delete "/search-console", SearchConsoleController, :delete
-    get "/pages/:id/file", PageFileController, :show
     get "/runs/:id/export.csv", RunExportController, :show
 
     live_session :app,

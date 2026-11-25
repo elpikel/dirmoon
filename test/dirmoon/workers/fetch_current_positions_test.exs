@@ -40,7 +40,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "1 fraza na pozycjach 8–20", output: output} = step(run, 6)
+    assert %RunStep{status: :done, result: "1 phrase at positions 8–20", output: output} = step(run, 6)
 
     assert %{"matched" => 2, "quick_wins" => 1, "start_date" => start_date, "end_date" => end_date} = output
     assert start_date == Date.to_iso8601(expected_start)
@@ -78,7 +78,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "5 fraz na pozycjach 8–20", output: %{"quick_wins" => 5}} = step(run, 6)
+    assert %RunStep{status: :done, result: "5 phrases at positions 8–20", output: %{"quick_wins" => 5}} = step(run, 6)
   end
 
   test "positions are matched to phrases regardless of case and extra whitespace" do
@@ -92,7 +92,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
     assert Decimal.equal?(current_position(phrase), Decimal.new("9.0"))
-    assert %RunStep{result: "1 fraza na pozycjach 8–20"} = step(run, 6)
+    assert %RunStep{result: "1 phrase at positions 8–20"} = step(run, 6)
   end
 
   test "rejected phrases of the run get their current position too" do
@@ -129,7 +129,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert %RunStep{
              status: :done,
-             result: "Brak danych w Search Console dla tej domeny",
+             result: "Search Console has no data for this domain",
              output: %{"rows" => [], "matched" => 0, "quick_wins" => 0}
            } = step(run, 6)
 
@@ -141,7 +141,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "Brak połączenia z Search Console"} = step(run, 6)
+    assert %RunStep{status: :skipped, result: "Search Console is not connected"} = step(run, 6)
     assert_enqueued(worker: ScoreNiches, args: %{run_id: run.id})
   end
 
@@ -152,7 +152,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "Brak połączenia z Search Console"} = step(run, 6)
+    assert %RunStep{status: :skipped, result: "Search Console is not connected"} = step(run, 6)
   end
 
   test "a property the Google user can't access skips the step naming the domain and the pipeline continues" do
@@ -163,7 +163,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "Brak dostępu do kancelaria-testowa.pl w Search Console"} =
+    assert %RunStep{status: :skipped, result: "No access to kancelaria-testowa.pl in Search Console"} =
              step(run, 6)
 
     assert_enqueued(worker: ScoreNiches, args: %{run_id: run.id})
@@ -177,7 +177,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "Połączenie z Search Console wygasło, połącz ponownie"} = step(run, 6)
+    assert %RunStep{status: :skipped, result: "The Search Console connection expired, connect again"} = step(run, 6)
   end
 
   test "a connection whose refresh token no longer decrypts skips the step asking to reconnect" do
@@ -186,7 +186,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "Połączenie z Search Console wygasło, połącz ponownie"} = step(run, 6)
+    assert %RunStep{status: :skipped, result: "The Search Console connection expired, connect again"} = step(run, 6)
   end
 
   test "a rejected access token fails the attempt so the job retries with a fresh token" do
@@ -234,7 +234,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "Search Console nie jest skonfigurowane"} = step(run, 6)
+    assert %RunStep{status: :skipped, result: "Search Console is not configured"} = step(run, 6)
   end
 
   test "the query asks for at most 5000 rows and keeps no more than that" do
@@ -259,7 +259,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "Search Console nie jest skonfigurowane"} = step(run, 6)
+    assert %RunStep{status: :skipped, result: "Search Console is not configured"} = step(run, 6)
   end
 
   test "the access token and refresh token are stored nowhere in the step" do
@@ -281,7 +281,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     :ok = Pipeline.advance(run)
 
-    assert %RunStep{status: :skipped, result: "Nowy pomysł, nie ma jeszcze strony"} = step(run, 6)
+    assert %RunStep{status: :skipped, result: "New idea, no site yet"} = step(run, 6)
     refute_enqueued(worker: FetchCurrentPositions)
     assert_enqueued(worker: ScoreNiches, args: %{run_id: run.id})
   end
@@ -291,7 +291,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "Nowy pomysł, nie ma jeszcze strony"} = step(run, 6)
+    assert %RunStep{status: :skipped, result: "New idea, no site yet"} = step(run, 6)
   end
 
   defp existing_site_run do

@@ -14,13 +14,13 @@ defmodule Dirmoon.Competition do
 
   alias Dirmoon.Competition.SerpAssessment
   alias Dirmoon.Competition.SerpSnapshot
-  alias Dirmoon.Polish
+  alias Dirmoon.Format
   alias Dirmoon.Repo
   alias Dirmoon.Research.Run
 
   @strong_direct_competitors 5
-  @checked_forms %{one: "frazy sprawdzonej", few: "fraz sprawdzonych", many: "fraz sprawdzonych"}
-  @no_holders "brak wyników"
+  @checked_forms %{one: "phrase checked", other: "phrases checked"}
+  @no_holders "no results"
   @direct_competitor Atom.to_string(SerpAssessment.direct_competitor())
   @weak_page_types Enum.map(SerpAssessment.weak_page_types(), &Atom.to_string/1)
   @names_by_page_type Map.new(SerpAssessment.page_type_names(), fn {page_type, name} ->
@@ -139,8 +139,8 @@ defmodule Dirmoon.Competition do
   end
 
   @doc """
-  Who holds the top 10, in Polish: the plurals of the two most common Page
-  Types, ties going to the type ranked higher (`"blogi, fora"`), or
+  Who holds the top 10: the plurals of the two most common Page Types, ties
+  going to the type ranked higher (`"guides and blogs, forums"`), or
   `"#{@no_holders}"` when there are no results.
   """
   def holders([]), do: @no_holders
@@ -156,7 +156,7 @@ defmodule Dirmoon.Competition do
   @doc """
   Google's first page as a SERP Assessment (with its `serp_snapshot` loaded)
   saw it: the snapshot's results in position order, each with the Page Type
-  the run gave it and its Polish name (both nil for a result left unlabelled).
+  the run gave it and its name (both nil for a result left unlabelled).
 
   Returns `[%{position:, domain:, url:, title:, page_type: atom | nil, page_type_name: String.t() | nil}]`.
   """
@@ -180,11 +180,11 @@ defmodule Dirmoon.Competition do
   end
 
   @doc """
-  How many of the Phrases picked for the competition check are checked, in
-  Polish: `"4 z 10 fraz sprawdzonych"`, `"1 z 1 frazy sprawdzonej"`.
+  How many of the Phrases picked for the competition check are checked:
+  `"4 of 10 phrases checked"`, `"1 of 1 phrase checked"`.
   """
   def checked_line(checked, total) when is_integer(checked) and is_integer(total) do
-    "#{checked} z #{total} #{Polish.plural(total, @checked_forms)}"
+    "#{checked} of #{total} #{Format.plural(total, @checked_forms)}"
   end
 
   @doc """

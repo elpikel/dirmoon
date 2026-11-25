@@ -28,14 +28,14 @@ defmodule Dirmoon.DataForSEO.Demo do
   @domains ~w(
     demo-blog-1.example
     demo-forum.example
-    demo-firma-1.example
-    demo-katalog.example
+    demo-business-1.example
+    demo-directory.example
     demo-portal.example
-    demo-firma-2.example
+    demo-business-2.example
     demo-blog-2.example
-    demo-porownywarka.example
-    demo-firma-3.example
-    demo-poradnik.example
+    demo-comparison.example
+    demo-business-3.example
+    demo-guide.example
   )
 
   @impl DataForSEO

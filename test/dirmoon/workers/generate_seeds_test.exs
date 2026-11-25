@@ -22,7 +22,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
 
     assert :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "18 fraz startowych, 12 pytań", output: output} = step(run, 1)
+    assert %RunStep{status: :done, result: "18 seed phrases, 12 questions", output: output} = step(run, 1)
     assert output == %{"seeds" => seeds, "questions" => questions}
   end
 
@@ -37,7 +37,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
 
     :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
-    assert %RunStep{result: "11 fraz startowych, 1 pytanie", output: output} = step(run, 1)
+    assert %RunStep{result: "11 seed phrases, 1 question", output: output} = step(run, 1)
     assert output == %{"seeds" => ["hotel dla psów" | seed_list(10)], "questions" => ["Ile to kosztuje?"]}
   end
 
@@ -50,7 +50,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
 
     :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
-    assert %RunStep{result: "20 fraz startowych, 3 pytania", output: %{"seeds" => seeds}} = step(run, 1)
+    assert %RunStep{result: "20 seed phrases, 3 questions", output: %{"seeds" => seeds}} = step(run, 1)
     assert seeds == seed_list(20)
   end
 
@@ -66,7 +66,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
     :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
     assert_received {:llm_request, %{prompt: prompt, input: %{priority_services: ["strzyżenie psów", "kąpiel psów"]}}}
-    assert prompt =~ "Najpierw podaj frazy startowe dotyczące tych usług: strzyżenie psów, kąpiel psów"
+    assert prompt =~ "First give seed phrases about these services: strzyżenie psów, kąpiel psów"
   end
 
   test "the prompt asks for city variants when the run has a city" do
@@ -81,7 +81,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
     :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
     assert_received {:llm_request, %{prompt: prompt, input: %{city: "Gdańsk"}}}
-    assert prompt =~ "Dodaj warianty z nazwą miasta (np. „… gdańsk”)"
+    assert prompt =~ "Add variants with the city's name (e.g. “… gdańsk”)"
   end
 
   test "the prompt asks for no city variants when the run has no city" do
@@ -96,7 +96,25 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
     :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
     assert_received {:llm_request, %{prompt: prompt, input: %{city: nil}}}
-    refute prompt =~ "nazwą miasta"
+    refute prompt =~ "city's name"
+  end
+
+  test "the prompt asks for seeds and customer questions in the run's market language" do
+    run = insert(:run, language_code: "pl", steps: build_run_steps())
+    test_process = self()
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn request ->
+      send(test_process, {:llm_request, request})
+      valid_answer()
+    end)
+
+    :ok = perform_job(GenerateSeeds, %{run_id: run.id})
+
+    assert_received {:llm_request, %{prompt: prompt, system: system}}
+    assert prompt =~ "Market language: Polish."
+    assert prompt =~ "the way customers type them into Google, written in Polish."
+    assert prompt =~ "the questions this business's customers ask, written in Polish."
+    assert system =~ "in the language of the business's market"
   end
 
   test "the prompt states the mode and the domain of an existing site" do
@@ -111,7 +129,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
     :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
     assert_received {:llm_request, %{task: :seeds, prompt: prompt}}
-    assert prompt =~ "istniejąca strona"
+    assert prompt =~ "existing site"
     assert prompt =~ "psiehotele.example"
   end
 
@@ -155,7 +173,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
 
     assert {:cancel, :llm_not_configured} = perform_job(GenerateSeeds, %{run_id: run.id})
 
-    assert %RunStep{status: :failed, error: "Brak klucza API OpenAI"} = step(run, 1)
+    assert %RunStep{status: :failed, error: "No OpenAI API key"} = step(run, 1)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
     assert Enum.map(2..8, &step(run, &1).status) == List.duplicate(:waiting, 7)
     assert all_enqueued() == []
@@ -165,7 +183,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
     run = insert(:run, steps: build_run_steps())
     expect(Dirmoon.LLMMock, :structured, 1, fn _request -> too_few_seeds_answer() end)
 
-    assert {:error, "Model zwrócił za mało fraz startowych"} =
+    assert {:error, "The model returned too few seed phrases"} =
              perform_job(GenerateSeeds, %{run_id: run.id}, attempt: 1)
 
     assert %Run{status: :running} = Repo.get!(Run, run.id)
@@ -209,15 +227,15 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
     run = insert(:run, steps: build_run_steps())
     expect(Dirmoon.LLMMock, :structured, 1, fn _request -> too_few_seeds_answer() end)
 
-    assert {:cancel, "Model zwrócił za mało fraz startowych"} =
+    assert {:cancel, "The model returned too few seed phrases"} =
              perform_job(GenerateSeeds, %{run_id: run.id}, attempt: 3)
 
-    assert %RunStep{status: :failed, error: "Model zwrócił za mało fraz startowych"} = step(run, 1)
+    assert %RunStep{status: :failed, error: "The model returned too few seed phrases"} = step(run, 1)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
     assert all_enqueued() == []
   end
 
-  defp seed_list(count), do: Enum.map(1..count, &"fraza startowa #{&1}")
+  defp seed_list(count), do: Enum.map(1..count, &"seed phrase #{&1}")
 
   defp valid_answer do
     {:ok, %{"seeds" => seed_list(10), "questions" => ["Ile kosztuje hotel dla psa?"]}, Decimal.new("0.003")}

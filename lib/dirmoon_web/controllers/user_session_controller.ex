@@ -5,11 +5,11 @@ defmodule DirmoonWeb.UserSessionController do
   alias DirmoonWeb.UserAuth
 
   def create(conn, %{"_action" => "confirmed", "user" => user_params}) do
-    log_in_with_magic_link(conn, user_params, "Konto potwierdzone. Witaj w dirmoon!")
+    log_in_with_magic_link(conn, user_params, "Account confirmed. Welcome to dirmoon!")
   end
 
   def create(conn, %{"user" => user_params}) do
-    log_in_with_magic_link(conn, user_params, "Witaj ponownie!")
+    log_in_with_magic_link(conn, user_params, "Welcome back!")
   end
 
   def delete(conn, _params) do
@@ -27,7 +27,7 @@ defmodule DirmoonWeb.UserSessionController do
 
       {:error, :not_found} ->
         conn
-        |> put_flash(:error, "Link logowania jest nieprawidłowy albo wygasł.")
+        |> put_flash(:error, "The sign-in link is invalid or has expired.")
         |> redirect(to: ~p"/users/log-in")
     end
   end

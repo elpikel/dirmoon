@@ -7,27 +7,27 @@ defmodule DirmoonWeb.NicheAdvice do
   pooled competition, never by the LLM.
   """
 
+  alias Dirmoon.Format
   alias Dirmoon.Niches.Scoring
-  alias Dirmoon.Polish
   alias DirmoonWeb.RunDisplay
 
   @labels %{
-    worth: "Warto spróbować",
-    hard: "Warto, ale będzie trudno",
-    low: "Raczej nie warto",
-    unscored: "Bez oceny"
+    worth: "Worth a try",
+    hard: "Worth it, but hard",
+    low: "Probably not worth it",
+    unscored: "Not scored"
   }
 
   @classes %{worth: "text-accent", hard: "text-warn", low: "text-on-app-muted", unscored: "text-on-app-muted"}
 
-  @volume_forms %{one: "wyszukiwanie", few: "wyszukiwania", many: "wyszukiwań"}
-  @time_forms %{one: "raz", few: "razy", many: "razy"}
+  @volume_forms %{one: "search", other: "searches"}
+  @time_forms %{one: "time", other: "times"}
 
   @competition_reasons %{
     weak:
-      "Na pierwszej stronie Google są dziś głównie %{holders}, a nie oferty firm takich jak Twoja. Dobra strona ma tu szansę.",
-    medium: "Pierwsza strona Google jest mieszana: %{holders}. Da się tam wejść, ale nie od razu.",
-    strong: "Na pierwszej stronie Google są dziś głównie %{holders}. Przebicie się między nie zajmie czas."
+      "Google's first page today holds mostly %{holders}, not offers from businesses like yours. A good page has a chance here.",
+    medium: "Google's first page is mixed: %{holders}. You can get in, but not right away.",
+    strong: "Google's first page today holds mostly %{holders}. Breaking in among them will take time."
   }
 
   @doc """
@@ -53,10 +53,10 @@ defmodule DirmoonWeb.NicheAdvice do
 
   @doc """
   The short figures under a Niche's name in the list: monthly searches and
-  the competition verdict, e.g. "1 090 wyszukiwań / mies. · mocna konkurencja".
+  the competition verdict, e.g. "1,090 searches / mo. · strong competition".
   """
   def figures(%{volume: volume, competition: competition}) do
-    "#{Polish.integer(volume)} #{Polish.plural(volume, @volume_forms)} / mies. · #{competition_figure(competition)}"
+    "#{Format.integer(volume)} #{Format.plural(volume, @volume_forms)} / mo. · #{competition_figure(competition)}"
   end
 
   defp kind(nil, _competition), do: :unscored
@@ -69,27 +69,27 @@ defmodule DirmoonWeb.NicheAdvice do
     end
   end
 
-  defp demand(0), do: "Prawie nikt tak nie szuka: Google nie pokazuje dla tych fraz mierzalnej liczby wyszukiwań."
+  defp demand(0), do: "Almost nobody searches like this: Google shows no measurable number of searches for these phrases."
 
   defp demand(volume) do
-    "Ludzie wpisują te frazy w Google około #{Polish.integer(volume)} #{Polish.plural(volume, @time_forms)} w miesiącu."
+    "People type these phrases into Google about #{Format.integer(volume)} #{Format.plural(volume, @time_forms)} a month."
   end
 
-  defp value(nil), do: "Nikt nie płaci za reklamy przy tych frazach, więc nie wiem, ile wart jest tu klient."
+  defp value(nil), do: "Nobody pays for ads on these phrases, so I can't tell what a customer is worth here."
 
   defp value(cpc) do
-    "Firmy płacą Google średnio #{Polish.usd(cpc)} za jedno kliknięcie reklamy przy tych frazach. " <>
-      "Im wyższa cena, tym cenniejszy klient."
+    "Businesses pay Google #{Format.usd(cpc)} on average for one ad click on these phrases. " <>
+      "The higher the price, the more a customer is worth."
   end
 
-  defp competition_reason(nil), do: "Nie sprawdziłem, kto jest na pierwszej stronie Google dla tych fraz."
+  defp competition_reason(nil), do: "I haven't checked who is on Google's first page for these phrases."
 
   defp competition_reason(%{verdict: verdict, holders: holders}) do
     @competition_reasons |> Map.fetch!(verdict) |> String.replace("%{holders}", holders)
   end
 
-  defp competition_figure(nil), do: "konkurencja niesprawdzona"
+  defp competition_figure(nil), do: "competition not checked"
 
   defp competition_figure(%{verdict: verdict}),
-    do: "#{verdict |> RunDisplay.verdict_label() |> String.downcase()} konkurencja"
+    do: "#{verdict |> RunDisplay.verdict_label() |> String.downcase()} competition"
 end

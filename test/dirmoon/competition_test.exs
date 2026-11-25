@@ -42,15 +42,15 @@ defmodule Dirmoon.CompetitionTest do
   test "who holds the top 10 names the two most common page types, the higher ranked first on a tie" do
     labels = labels(portal: 2, forum: 3, blog: 3, direct_competitor: 2)
 
-    assert Competition.holders(labels) == "fora, poradniki i blogi"
+    assert Competition.holders(labels) == "forums, guides and blogs"
   end
 
   test "who holds the top 10 names one page type when only one holds it" do
-    assert Competition.holders(labels(direct_competitor: 10)) == "firmy z Twojej branży"
+    assert Competition.holders(labels(direct_competitor: 10)) == "businesses like yours"
   end
 
   test "who holds an empty top 10 says there are no results" do
-    assert Competition.holders([]) == "brak wyników"
+    assert Competition.holders([]) == "no results"
   end
 
   test "the first page lists the snapshot's results in position order with the name of each one's page type" do
@@ -73,7 +73,7 @@ defmodule Dirmoon.CompetitionTest do
                url: "https://pierwszy.example/",
                title: "Pierwszy",
                page_type: :directory,
-               page_type_name: "katalog firm"
+               page_type_name: "business directory"
              },
              %{
                position: 2,
@@ -103,9 +103,9 @@ defmodule Dirmoon.CompetitionTest do
   end
 
   test "the checked line says how many of the phrases are checked, in Polish" do
-    assert Competition.checked_line(4, 10) == "4 z 10 fraz sprawdzonych"
-    assert Competition.checked_line(0, 3) == "0 z 3 fraz sprawdzonych"
-    assert Competition.checked_line(1, 1) == "1 z 1 frazy sprawdzonej"
+    assert Competition.checked_line(4, 10) == "4 of 10 phrases checked"
+    assert Competition.checked_line(0, 3) == "0 of 3 phrases checked"
+    assert Competition.checked_line(1, 1) == "1 of 1 phrase checked"
   end
 
   test "the weak share is the part of the labelled results held by blogs, forums and directories" do

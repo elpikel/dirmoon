@@ -9,35 +9,41 @@ defmodule Dirmoon.Niches.Grouping do
 
   Only the `grouping_phrase_limit` Phrases with the highest Volume
   (`config :dirmoon, grouping_phrase_limit:`) are sent; the rest are
-  rejected as "poza limitem analizy". Phrases that differ only in Polish
+  rejected as "beyond the analysis limit". Phrases that differ only in Polish
   letters ("wypozyczalnia lyzew", "wypożyczalnia łyżew") are one search to
   Google, which reports the same combined Volume for each: only the spelling
   with the most Polish letters is sent, and the others are rejected as its
   spelling variants, so a Niche's Volume counts the search once. A Niche name longer than
   `Niche.max_name_length/0` is cut to that length.
+
+  The Phrases are in the run's market language; the model writes what the
+  owner reads (Niche names, intents, Readings and rejection reasons) in
+  English.
   """
 
+  alias Dirmoon.Format
   alias Dirmoon.LLM
   alias Dirmoon.Niches
   alias Dirmoon.Niches.Niche
   alias Dirmoon.Phrases
-  alias Dirmoon.Polish
   alias Dirmoon.Research.Ledger
   alias Dirmoon.Research.Run
+  alias Dirmoon.Spelling
 
-  @no_phrases_error "Brak fraz do pogrupowania"
-  @no_niche_error "Model nie zwrócił żadnej niszy"
-  @beyond_limit_reason "poza limitem analizy"
-  @spelling_variant_reason "inna pisownia frazy"
-  @default_rejection_reason "odrzucona przez model"
-  @niche_forms %{one: "nisza", few: "nisze", many: "nisz"}
-  @rejected_forms %{one: "fraza odrzucona", few: "frazy odrzucone", many: "fraz odrzuconych"}
+  @no_phrases_error "No phrases to group"
+  @no_niche_error "The model returned no niche"
+  @beyond_limit_reason "beyond the analysis limit"
+  @spelling_variant_reason "another spelling of"
+  @default_rejection_reason "rejected by the model"
+  @niche_forms %{one: "niche", other: "niches"}
+  @rejected_forms %{one: "phrase rejected", other: "phrases rejected"}
 
   @system """
-  Jesteś specjalistą SEO. Dostajesz listę fraz, które ludzie naprawdę wpisują w Google. \
-  Odrzucasz frazy spoza działalności firmy, a pozostałe grupujesz w nisze według intencji wyszukiwania. \
-  Frazy wskazujesz wyłącznie przez ich identyfikatory z listy i nigdy nie dodajesz nowych fraz. \
-  Odpowiadasz wyłącznie w formacie JSON zgodnym ze schematem.\
+  You are an SEO specialist. You get a list of phrases people really type into Google. \
+  You drop the phrases outside the business and group the rest into niches by search intent. \
+  You point to phrases only by their ids from the list and never add new phrases. \
+  You write everything you say about the phrases in English. \
+  You answer only in JSON that matches the schema.\
   """
 
   @schema %{
@@ -75,8 +81,8 @@ defmodule Dirmoon.Niches.Grouping do
   all again; so a re-run sends the same request and reuses the recorded
   answer.
 
-  Returns `{:ok, %{result: "9 nisz, 137 fraz odrzuconych", output: %{"niches" => 9, "kept" => 263, "rejected" => 137}}}`,
-  `{:error, "Brak fraz do pogrupowania"}`, `{:error, "Model nie zwrócił żadnej niszy"}`
+  Returns `{:ok, %{result: "9 niches, 137 phrases rejected", output: %{"niches" => 9, "kept" => 263, "rejected" => 137}}}`,
+  `{:error, "No phrases to group"}`, `{:error, "The model returned no niche"}`
   or the LLM's `{:error, reason}`.
   """
   def group(%Run{} = run) do
@@ -100,20 +106,20 @@ defmodule Dirmoon.Niches.Grouping do
   defp split_spelling_variants(run_phrases) do
     kept_by_spelling =
       run_phrases
-      |> Enum.group_by(&Polish.without_diacritics(&1.phrase.phrase))
+      |> Enum.group_by(&Spelling.without_diacritics(&1.phrase.phrase))
       |> Map.new(fn {spelling, variants} ->
-        {spelling, Enum.max_by(variants, &Polish.diacritic_count(&1.phrase.phrase))}
+        {spelling, Enum.max_by(variants, &Spelling.diacritic_count(&1.phrase.phrase))}
       end)
 
     {kept, variants} =
       Enum.split_with(run_phrases, fn run_phrase ->
-        Map.fetch!(kept_by_spelling, Polish.without_diacritics(run_phrase.phrase.phrase)).id == run_phrase.id
+        Map.fetch!(kept_by_spelling, Spelling.without_diacritics(run_phrase.phrase.phrase)).id == run_phrase.id
       end)
 
     {kept,
      Enum.map(variants, fn variant ->
-       kept_phrase = Map.fetch!(kept_by_spelling, Polish.without_diacritics(variant.phrase.phrase)).phrase.phrase
-       %{phrase_id: variant.id, reason: "#{@spelling_variant_reason} „#{kept_phrase}”"}
+       kept_phrase = Map.fetch!(kept_by_spelling, Spelling.without_diacritics(variant.phrase.phrase)).phrase.phrase
+       %{phrase_id: variant.id, reason: "#{@spelling_variant_reason} “#{kept_phrase}”"}
      end)}
   end
 
@@ -154,31 +160,34 @@ defmodule Dirmoon.Niches.Grouping do
 
   defp prompt(run, phrases) do
     [
-      "Opis firmy:\n#{run.description}",
+      "Business description:\n#{run.description}",
       mode_line(run),
       priority_services_line(run.priority_services),
       city_line(run.city),
-      "Odrzuć frazy, które nie dotyczą tej firmy, i przy każdej podaj krótki powód.",
-      "Pozostałe frazy pogrupuj w nisze według intencji wyszukiwania. Każda nisza ma krótką nazwę, " <>
-        "intencję i opis w dwóch zdaniach: czego szukają ludzie i kto im dziś odpowiada. " <>
-        "Każda fraza trafia do jednej niszy albo do odrzuconych.",
-      "Wskazuj frazy wyłącznie przez identyfikatory z listy.",
-      "Frazy (identyfikator: fraza (miesięczny wolumen)):\n" <> Enum.map_join(phrases, "\n", &phrase_line/1)
+      "The phrases are in #{Run.language_name(run)}, the language of the business's market.",
+      "Drop the phrases that are not about this business and give a short reason for each.",
+      "Group the remaining phrases into niches by search intent. Each niche has a short name, " <>
+        "an intent and a reading in two sentences: what the people searching want and who answers them today. " <>
+        "Every phrase goes into one niche or into the rejected ones.",
+      "Write every niche name, intent, reading and rejection reason in English: the owner of this tool reads " <>
+        "them in English, whatever the language of the phrases.",
+      "Point to phrases only by the ids from the list.",
+      "Phrases (id: phrase (monthly volume)):\n" <> Enum.map_join(phrases, "\n", &phrase_line/1)
     ]
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n\n")
   end
 
-  defp mode_line(%Run{mode: :existing_site, domain: domain}), do: "Tryb: istniejąca strona, domena: #{domain}."
-  defp mode_line(%Run{mode: :new_idea}), do: "Tryb: nowy pomysł, firma nie ma jeszcze strony."
+  defp mode_line(%Run{mode: :existing_site, domain: domain}), do: "Mode: existing site, domain: #{domain}."
+  defp mode_line(%Run{mode: :new_idea}), do: "Mode: new idea, the business has no site yet."
 
   defp priority_services_line([]), do: nil
-  defp priority_services_line(priority_services), do: "Usługi priorytetowe: #{Enum.join(priority_services, ", ")}."
+  defp priority_services_line(priority_services), do: "Priority services: #{Enum.join(priority_services, ", ")}."
 
   defp city_line(city) when city in [nil, ""], do: nil
-  defp city_line(city), do: "Firma działa w mieście #{city}."
+  defp city_line(city), do: "The business works in the city of #{city}."
 
-  defp phrase_line(%{id: id, phrase: phrase, volume: nil}), do: "#{id}: #{phrase} (brak danych)"
+  defp phrase_line(%{id: id, phrase: phrase, volume: nil}), do: "#{id}: #{phrase} (no data)"
   defp phrase_line(%{id: id, phrase: phrase, volume: volume}), do: "#{id}: #{phrase} (#{volume})"
 
   defp clean_answer(answer, sent_ids) do
@@ -276,6 +285,6 @@ defmodule Dirmoon.Niches.Grouping do
   end
 
   defp result_line(%{niches: niches, rejected: rejected}) do
-    "#{niches} #{Polish.plural(niches, @niche_forms)}, #{rejected} #{Polish.plural(rejected, @rejected_forms)}"
+    "#{niches} #{Format.plural(niches, @niche_forms)}, #{rejected} #{Format.plural(rejected, @rejected_forms)}"
   end
 end

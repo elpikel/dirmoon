@@ -1,7 +1,7 @@
 defmodule DirmoonWeb.NewResearchLive do
   @moduledoc """
   Screen 1, New research (`/app/research/new`): a tool view in the app shell,
-  no pitch (the owner moved the reference's hero and "jak to działa" to the
+  no pitch (the owner moved the reference's hero and "how it works" to the
   landing page only). The prompt box that starts a Research Run in the
   User's Account, three example prompts and the estimated API Cost, beside
   the Account's five latest runs. The status row says what the run will do
@@ -10,7 +10,7 @@ defmodule DirmoonWeb.NewResearchLive do
   """
   use DirmoonWeb, :live_view
 
-  alias Dirmoon.Polish
+  alias Dirmoon.Format
   alias Dirmoon.Research
   alias Dirmoon.Research.NewRunStatusLine
   alias Dirmoon.Research.Run
@@ -21,19 +21,19 @@ defmodule DirmoonWeb.NewResearchLive do
 
   @example_prompts [
     %{
-      label: "Palarnia kawy z wysyłką",
+      label: "Coffee roastery with delivery",
       description:
-        "Palarnia kawy z wysyłką w całej Polsce. Świeżo palone ziarna, subskrypcja co dwa tygodnie i kawa dla biur."
+        "A coffee roastery that ships across the country. Freshly roasted beans, a subscription every two weeks and coffee for offices."
     },
     %{
-      label: "Serwis rowerów z dojazdem",
+      label: "Mobile bike repair",
       description:
-        "Serwis rowerów z dojazdem do klienta. Przeglądy, naprawy i przygotowanie roweru do sezonu bez wychodzenia z domu."
+        "Bike repair that comes to the customer. Check-ups, repairs and getting a bike ready for the season without leaving home."
     },
     %{
-      label: "Szkoła pływania dla dorosłych",
+      label: "Swimming school for adults",
       description:
-        "Szkoła pływania dla dorosłych. Nauka od zera w małych grupach, zajęcia wieczorem i w weekendy, także dla osób, które boją się wody."
+        "A swimming school for adults. Learning from scratch in small groups, classes in the evenings and at weekends, also for people who are afraid of water."
     }
   ]
 
@@ -44,7 +44,7 @@ defmodule DirmoonWeb.NewResearchLive do
       flash={@flash}
       current_scope={@current_scope}
       active={:new_research}
-      context="nowy research"
+      context="new research"
     >
       <:status><span id="new-research-status-line">{@status_line}</span></:status>
       <div id="new-research" class="flex grow flex-col min-[1080px]:flex-row">
@@ -56,7 +56,7 @@ defmodule DirmoonWeb.NewResearchLive do
             id="new-research-heading"
             class="m-0 text-2xl leading-tight font-bold tracking-[-0.02em]"
           >
-            Opisz biznes.
+            Describe the business.
           </h1>
           <.form
             for={@form}
@@ -75,7 +75,7 @@ defmodule DirmoonWeb.NewResearchLive do
                 class="flex flex-col gap-2.5 px-[26px] pt-6 pb-[18px] max-sm:px-5 *:mb-0"
               >
                 <label for="research-description" class={field_label_class()}>
-                  Twój biznes albo pomysł
+                  Your business or idea
                 </label>
                 <.input
                   field={@form[:description]}
@@ -84,7 +84,7 @@ defmodule DirmoonWeb.NewResearchLive do
                   surface="app"
                   rows="3"
                   phx-hook=".AutoGrow"
-                  placeholder="Czym się zajmujesz, gdzie i dla kogo?"
+                  placeholder="What do you do, where and for whom?"
                   class="min-h-[92px] w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[21px] font-medium leading-[1.45] tracking-[-0.01em] text-on-app placeholder:text-on-app-muted focus-visible:outline-none"
                 />
               </div>
@@ -100,13 +100,13 @@ defmodule DirmoonWeb.NewResearchLive do
                   class="flex flex-col gap-2 *:mb-0"
                 >
                   <label for="research-domain" class={field_label_class()}>
-                    Domena{if @mode == :existing_site, do: " (wymagana)"}
+                    Domain{if @mode == :existing_site, do: " (required)"}
                   </label>
                   <.input
                     field={@form[:domain]}
                     id="research-domain"
                     type="text"
-                    placeholder="twojafirma.pl"
+                    placeholder="yourbusiness.com"
                     autocomplete="url"
                     spellcheck="false"
                     required={@mode == :existing_site}
@@ -124,11 +124,11 @@ defmodule DirmoonWeb.NewResearchLive do
                   class="m-0 flex flex-col gap-2 border-0 p-0"
                 >
                   <legend class={[field_label_class(), "mb-2 p-0"]}>
-                    Usługi priorytetowe · do {Run.max_priority_services()}
+                    Priority services · up to {Run.max_priority_services()}
                   </legend>
                   <div class="flex flex-wrap gap-2">
                     <div :for={number <- service_numbers()} class="min-w-0 flex-[1_1_160px] *:mb-0">
-                      <label for={"research-service-#{number}"} class="sr-only">Usługa {number}</label>
+                      <label for={"research-service-#{number}"} class="sr-only">Service {number}</label>
                       <.input
                         id={"research-service-#{number}"}
                         name={@form[:priority_services].name <> "[]"}
@@ -150,7 +150,7 @@ defmodule DirmoonWeb.NewResearchLive do
               <div class="flex flex-wrap items-center gap-3 border-t border-app-line bg-app-field py-3 pr-3.5 pl-5 max-sm:pl-3.5">
                 <div class="flex min-w-0 flex-[1_1_320px] flex-wrap gap-2">
                   <div class="relative *:mb-0">
-                    <label for="research-mode" class="sr-only">Tryb</label>
+                    <label for="research-mode" class="sr-only">Mode</label>
                     <.input
                       field={@form[:mode]}
                       id="research-mode"
@@ -165,7 +165,7 @@ defmodule DirmoonWeb.NewResearchLive do
                     />
                   </div>
                   <div class="relative *:mb-0">
-                    <label for="research-country" class="sr-only">Kraj i język</label>
+                    <label for="research-country" class="sr-only">Country and language</label>
                     <.icon
                       name="hero-globe-alt"
                       class="pointer-events-none absolute top-[11px] left-3 size-3.5 text-on-app-muted"
@@ -180,7 +180,7 @@ defmodule DirmoonWeb.NewResearchLive do
                     />
                   </div>
                   <div class="relative *:mb-0">
-                    <label for="research-city" class="sr-only">Miasto</label>
+                    <label for="research-city" class="sr-only">City</label>
                     <.icon
                       name="hero-map-pin"
                       class="pointer-events-none absolute top-[11px] left-3 size-3.5 text-on-app-muted"
@@ -190,7 +190,7 @@ defmodule DirmoonWeb.NewResearchLive do
                       id="research-city"
                       type="text"
                       surface="app"
-                      placeholder="Miasto (opcjonalnie)"
+                      placeholder="City (optional)"
                       autocomplete="address-level2"
                       class={[chip_field_class(), "w-[190px] pr-3 pl-8 placeholder:text-on-app-muted"]}
                     />
@@ -201,7 +201,7 @@ defmodule DirmoonWeb.NewResearchLive do
                     variant="dashed"
                     phx-click="show_domain"
                   >
-                    + Domena
+                    + Domain
                   </.chip>
                   <.chip
                     :if={!@services_shown?}
@@ -209,7 +209,7 @@ defmodule DirmoonWeb.NewResearchLive do
                     variant="dashed"
                     phx-click="show_services"
                   >
-                    + Usługi
+                    + Services
                   </.chip>
                 </div>
                 <.button
@@ -217,17 +217,17 @@ defmodule DirmoonWeb.NewResearchLive do
                   variant="lime"
                   size="large"
                   type="submit"
-                  phx-disable-with="Uruchamiam…"
+                  phx-disable-with="Starting…"
                   class="flex-none px-[22px] text-base max-sm:w-full"
                 >
-                  Uruchom research <.icon name="hero-arrow-right" class="size-[18px]" />
+                  Start research <.icon name="hero-arrow-right" class="size-[18px]" />
                 </.button>
               </div>
             </.prompt_box>
           </.form>
 
           <div class="flex max-w-[900px] flex-wrap items-center gap-x-2.5 gap-y-2">
-            <span class="text-[13px] text-on-app-muted">Albo zacznij od przykładu:</span>
+            <span class="text-[13px] text-on-app-muted">Or start from an example:</span>
             <.chip
               :for={{example, number} <- Enum.with_index(@example_prompts, 1)}
               id={"example-prompt-#{number}"}
@@ -239,7 +239,7 @@ defmodule DirmoonWeb.NewResearchLive do
             </.chip>
           </div>
           <span id="estimated-cost" class="font-mono text-xs text-on-app-muted">
-            Szacowany koszt API: ok. {Polish.usd(@estimated_cost)}
+            Estimated API cost: about {Format.usd(@estimated_cost)}
           </span>
         </div>
 
@@ -252,7 +252,7 @@ defmodule DirmoonWeb.NewResearchLive do
             id="recent-runs-heading"
             class="m-0 font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-on-app-muted"
           >
-            Ostatnie researche
+            Recent research
           </h2>
           <ul
             id="recent-runs"
@@ -263,7 +263,7 @@ defmodule DirmoonWeb.NewResearchLive do
               id="recent-runs-empty"
               class="hidden px-[18px] py-4 text-sm leading-normal text-on-app-2 only:block"
             >
-              Nie masz jeszcze żadnego researchu. Zacznij od opisu po lewej.
+              No research yet. Start with the description on the left.
             </li>
             <li
               :for={{dom_id, row} <- @streams.recent_runs}
@@ -288,7 +288,7 @@ defmodule DirmoonWeb.NewResearchLive do
             navigate={~p"/app/runs"}
             class="inline-flex min-h-target-min items-center gap-1.5 self-start text-sm font-medium text-on-app-2 no-underline transition-colors duration-150 hover:text-on-app"
           >
-            Wszystkie wyniki <.icon name="hero-arrow-right-mini" class="size-4" />
+            All results <.icon name="hero-arrow-right-mini" class="size-4" />
           </.link>
         </section>
       </div>
@@ -322,7 +322,7 @@ defmodule DirmoonWeb.NewResearchLive do
     {:ok,
      socket
      |> assign(
-       page_title: "Nowy research",
+       page_title: "New research",
        example_prompts: @example_prompts,
        search_console_connection: SearchConsole.get_connection(scope),
        domain_open?: false,
@@ -373,7 +373,7 @@ defmodule DirmoonWeb.NewResearchLive do
   defp search_console_note(%{connection: nil} = assigns) do
     ~H"""
     <p id="search-console-note" class="m-0 text-[13px] leading-normal text-on-app-2">
-      Bez Search Console krok 6 (obecne pozycje strony) zostanie pominięty.
+      Without Search Console, step 6 (the site's current positions) is skipped.
       <.link
         id="connect-search-console"
         href={
@@ -381,7 +381,7 @@ defmodule DirmoonWeb.NewResearchLive do
         }
         class="inline-flex min-h-target-min items-center font-semibold text-on-app underline underline-offset-4"
       >
-        Połącz Search Console
+        Connect Search Console
       </.link>
     </p>
     """
@@ -391,7 +391,7 @@ defmodule DirmoonWeb.NewResearchLive do
     ~H"""
     <p id="search-console-connected" class="m-0 flex items-center gap-2 text-[13px] text-on-app-2">
       <.icon name="hero-check-circle" class="size-4 shrink-0 text-on-app" />
-      Search Console połączone ({@connection.google_email})
+      Search Console connected ({@connection.google_email})
     </p>
     """
   end
@@ -462,11 +462,8 @@ defmodule DirmoonWeb.NewResearchLive do
   defp present?(_value), do: false
 
   defp mode_options do
-    Enum.map(Run.modes(), &{mode_label(&1), &1})
+    Enum.map(Run.modes(), &{RunDisplay.mode_label(&1), &1})
   end
-
-  defp mode_label(:new_idea), do: "Nowy pomysł"
-  defp mode_label(:existing_site), do: "Istniejąca strona"
 
   defp location_options do
     Enum.map(Run.locations(), &{&1.label, &1.country_code})

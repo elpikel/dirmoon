@@ -27,7 +27,7 @@ defmodule Dirmoon.NichesTest do
 
     assert %RunPhrase{status: :kept, cluster_id: ^niche_id} = Repo.get!(RunPhrase, grouped.id)
     assert %RunPhrase{status: :rejected, rejection_reason: "inna branża"} = Repo.get!(RunPhrase, dropped.id)
-    assert %RunPhrase{status: :rejected, rejection_reason: "pominięta przez model"} = Repo.get!(RunPhrase, left_out.id)
+    assert %RunPhrase{status: :rejected, rejection_reason: "left out by the model"} = Repo.get!(RunPhrase, left_out.id)
   end
 
   test "storing a grouping again replaces the run's niches and decisions instead of adding to them" do
@@ -60,7 +60,7 @@ defmodule Dirmoon.NichesTest do
              Niches.store_grouping(run, %{niches: [], rejected: [%{phrase_id: dropped.id, reason: "inna branża"}]})
 
     assert Niche |> from(as: :niche) |> where([niche: niche], niche.run_id == ^run.id) |> Repo.all() == []
-    assert %RunPhrase{status: :rejected, rejection_reason: "pominięta przez model"} = Repo.get!(RunPhrase, left_out.id)
+    assert %RunPhrase{status: :rejected, rejection_reason: "left out by the model"} = Repo.get!(RunPhrase, left_out.id)
   end
 
   test "storing a grouping leaves other runs' niches and phrases alone" do
@@ -236,7 +236,9 @@ defmodule Dirmoon.NichesTest do
   test "picking a niche whose page failed writes it again" do
     run = run_awaiting_choice()
     niche = insert(:niche, run: run, status: :chosen)
-    page = insert(:page, run: run, niche: niche, status: :failed, error: "Model zwrócił niepoprawny brief", brief: nil)
+
+    page =
+      insert(:page, run: run, niche: niche, status: :failed, error: "The model returned an invalid brief", brief: nil)
 
     assert {:ok, %Page{id: page_id, status: :writing, error: nil}} = Niches.choose(scope_for(run.account), niche.id)
     assert page_id == page.id
@@ -408,7 +410,7 @@ defmodule Dirmoon.NichesTest do
 
     assert niche_id == niche.id
     assert Decimal.equal?(cpc, Decimal.new("0.40"))
-    assert competition == %{verdict: :weak, holders: "poradniki i blogi, fora"}
+    assert competition == %{verdict: :weak, holders: "guides and blogs, forums"}
   end
 
   test "the results list keeps rejected Niches and says when none of a Niche's Phrases was checked" do
@@ -436,7 +438,7 @@ defmodule Dirmoon.NichesTest do
 
     assert [first, second] = detail.phrases
 
-    assert %{id: first_id, volume: 90, city_volume: 9, holders: "duże portale, poradniki i blogi", currency: "USD"} =
+    assert %{id: first_id, volume: 90, city_volume: 9, holders: "big portals, guides and blogs", currency: "USD"} =
              first
 
     assert first_id == checked.id

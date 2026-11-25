@@ -13,6 +13,8 @@ defmodule Dirmoon.Factory do
   alias Dirmoon.Phrases.Metrics
   alias Dirmoon.Phrases.Phrase
   alias Dirmoon.Phrases.RunPhrase
+  alias Dirmoon.PriceChecks.CompetitorPage
+  alias Dirmoon.PriceChecks.PriceCheck
   alias Dirmoon.Research.ApiRequest
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
@@ -122,12 +124,6 @@ defmodule Dirmoon.Factory do
       h1: sequence(:brief_h1, &"Nagłówek testowy #{&1}"),
       slug: sequence(:brief_slug, &"strona-testowa-#{&1}"),
       intro: "Wstęp testowy. Drugie zdanie wstępu.",
-      cta_label: "Zapytaj o termin",
-      fact_tiles: [
-        %Brief.FactTile{label: "Cena", value: "[CENA]"},
-        %Brief.FactTile{label: "Telefon", value: "[TELEFON]"},
-        %Brief.FactTile{label: "Obszar działania", value: "[OBSZAR]"}
-      ],
       sections: [%Brief.Section{question: "Pytanie testowe?", answer: "Odpowiedź testowa."}],
       short_answer: "Krótka odpowiedź testowa.",
       phrases: [],
@@ -162,6 +158,25 @@ defmodule Dirmoon.Factory do
       labels: Enum.map(1..10, &%{"position" => &1, "page_type" => "blog"}),
       verdict: :weak,
       reused_snapshot: false
+    }
+  end
+
+  def price_check_factory do
+    %PriceCheck{
+      run: build(:run),
+      niche: fn price_check -> build(:niche, run: price_check.run) end,
+      status: :checking
+    }
+  end
+
+  def competitor_page_factory do
+    %CompetitorPage{
+      price_check: build(:price_check),
+      google_position: sequence(:google_position, &(rem(&1, 10) + 1)),
+      domain: sequence(:competitor_domain, &"konkurent-#{&1}.example"),
+      url: fn page -> "https://#{page.domain}/cennik" end,
+      outcome: :waiting,
+      offers: []
     }
   end
 

@@ -1,21 +1,21 @@
 defmodule DirmoonWeb.PagesLive do
   @moduledoc """
-  The pages list, "Strony" (`/app/pages`): the Account's Pages,
-  newest first, each with its title, Niche, Mode, status and
-  date, linking to its page screen. With no pages it invites the User to pick
-  a Niche in the results. Same look as the runs list (`RunsLive`): rows
+  The briefs list, "Briefs" (`/app/pages`): the Account's Pages, each
+  holding one Niche's Brief, newest first, each with its title, Niche, Mode,
+  status and date, linking to its brief screen. With none it invites the User
+  to pick a Niche in the results. Same look as the runs list (`RunsLive`): rows
   filling the app shell's working area.
   """
   use DirmoonWeb, :live_view
 
+  alias Dirmoon.Format
   alias Dirmoon.Pages
   alias Dirmoon.Pages.Page
   alias Dirmoon.Pages.StatusLine
-  alias Dirmoon.Polish
   alias DirmoonWeb.PageDisplay
   alias DirmoonWeb.RunDisplay
 
-  @page_forms %{one: "strona", few: "strony", many: "stron"}
+  @brief_forms %{one: "brief", other: "briefs"}
 
   @impl true
   def render(assigns) do
@@ -24,23 +24,23 @@ defmodule DirmoonWeb.PagesLive do
       flash={@flash}
       current_scope={@current_scope}
       active={:pages}
-      context="strony"
+      context="briefs"
       note={@count_note}
     >
       <:status><span id="pages-status-line">{@status_line}</span></:status>
       <section id="pages-screen" class="flex grow flex-col">
-        <h1 class="sr-only">Strony</h1>
+        <h1 class="sr-only">Briefs</h1>
         <ul id="pages" phx-update="stream" class="m-0 flex list-none flex-col p-0">
           <li id="pages-empty" class="hidden px-5 py-12 only:block">
             <div class="flex flex-col items-center gap-4 text-center">
               <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">
-                Tu pojawią się Twoje strony.
+                Your briefs will show up here.
               </span>
               <p class="m-0 max-w-[460px] text-[15px] leading-normal text-on-app-2">
-                Wybierz niszę w wynikach researchu, a napiszę dla niej brief i stronę.
+                Choose a niche in the research results and I'll write a brief for it.
               </p>
               <.button id="go-to-results" variant="lime" size="large" navigate={~p"/app/runs"}>
-                Przejdź do wyników <.icon name="hero-arrow-right" class="size-[18px]" />
+                Go to results <.icon name="hero-arrow-right" class="size-[18px]" />
               </.button>
             </div>
           </li>
@@ -85,7 +85,7 @@ defmodule DirmoonWeb.PagesLive do
     {:ok,
      socket
      |> assign(
-       page_title: "Strony",
+       page_title: "Briefs",
        status_line: StatusLine.list_sentence(pages),
        count_note: count_note(pages)
      )
@@ -130,6 +130,6 @@ defmodule DirmoonWeb.PagesLive do
 
   defp count_note(pages) do
     count = length(pages)
-    "#{count} #{Polish.plural(count, @page_forms)}"
+    "#{count} #{Format.plural(count, @brief_forms)}"
   end
 end

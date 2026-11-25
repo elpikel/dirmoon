@@ -15,7 +15,7 @@ defmodule Dirmoon.GlossaryTest do
   #
   # It does NOT check free text: UI copy, flash messages, error and result
   # lines, prompts, docs and comments, and string values in general (only
-  # template ids are read from strings). Polish copy is outside its reach
+  # template ids are read from strings). Copy in any language is outside its reach
   # entirely, and a definition using another term's avoided word is left to
   # review.
 

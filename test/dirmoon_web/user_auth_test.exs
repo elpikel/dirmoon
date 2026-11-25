@@ -18,7 +18,7 @@ defmodule DirmoonWeb.UserAuthTest do
     assert {:error, {:redirect, %{to: path, flash: flash}}} = live(conn, ~p"/app")
 
     assert path == ~p"/users/log-in"
-    assert %{"error" => "Zaloguj się, aby otworzyć tę stronę."} = flash
+    assert %{"error" => "Sign in to open this page."} = flash
   end
 
   test "a signed-out visitor's request for /app is redirected to sign-in and remembered", %{conn: conn} do
@@ -341,7 +341,7 @@ defmodule DirmoonWeb.UserAuthTest do
 
     assert conn.halted
     assert redirected_to(conn) == ~p"/users/log-in"
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Zaloguj się, aby otworzyć tę stronę."
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Sign in to open this page."
   end
 
   test "require_authenticated_user remembers the GET path to return to", %{conn: conn} do

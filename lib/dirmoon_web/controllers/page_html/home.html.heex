@@ -1,18 +1,18 @@
 <Layouts.landing>
   <:nav>
     <.button id="sign-in-link" variant="dark" href={~p"/users/log-in"}>
-      Zaloguj się
+      Sign in
     </.button>
   </:nav>
 
   <section id="landing-hero" class="flex flex-col items-center gap-7 text-center">
-    <.eyebrow>Popyt z Google, zanim napiszesz linijkę kodu</.eyebrow>
+    <.eyebrow>Real Google demand, before you write a line of code</.eyebrow>
     <.headline size="hero">
-      Zanim zbudujesz, sprawdź,
-      <:underline>czy ktoś tego szuka.</:underline>
+      Before you build it, check
+      <:underline>if anyone searches for it.</:underline>
     </.headline>
     <p class="m-0 max-w-[680px] text-[clamp(17px,1.5vw,20px)] leading-normal text-pretty text-body">
-      Opisz biznes w kilku zdaniach. dirmoon znajdzie frazy, które ludzie naprawdę wpisują w Google, sprawdzi, ile osób ich szuka, ile kosztuje kliknięcie i kto dziś zajmuje pierwszą stronę. Potem złoży frazy w nisze, a dla wybranej napisze brief i stronę.
+      Describe your business or idea in one sentence. dirmoon finds the phrases people really type into Google, counts how many search each month, what an ad click costs and who is on page one today. Then it tells you, in plain words, which niches are worth going after.
     </p>
     <.sign_up_form
       name={:hero}
@@ -21,18 +21,26 @@
     />
   </section>
 
-  <.how_it_works id="how-it-works" class="mt-20" />
+  <section id="journey" class="mt-24 flex flex-col items-center gap-12 text-center">
+    <div class="flex flex-col items-center gap-4">
+      <.eyebrow>From idea to answer</.eyebrow>
+      <h2 class="m-0 max-w-[760px] text-[clamp(28px,3.4vw,44px)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance text-ink">
+        One sentence in. A ranked answer out.
+      </h2>
+    </div>
+    <.journey id="journey-steps" />
+  </section>
 
   <section
     id="closing"
     class="mt-24 flex flex-col items-center gap-7 border-t border-line pt-20 text-center"
   >
     <.headline level="h2">
-      Masz pomysł na ten tydzień?
-      <:underline>Sprawdź go najpierw.</:underline>
+      Got an idea for this week?
+      <:underline>Check it first.</:underline>
     </.headline>
     <p class="m-0 max-w-[560px] text-[17px] leading-normal text-body">
-      Załóż konto adresem e-mail i opisz pierwszy pomysł.
+      Create an account with your email and describe your first idea.
     </p>
     <.sign_up_form
       name={:closing}

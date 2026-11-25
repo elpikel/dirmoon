@@ -20,12 +20,10 @@ defmodule Dirmoon.Pages.BriefTest do
     assert %Brief{
              business_name: "Firma Testowa Alfa",
              slug: "strona-testowa-alfa",
-             nav_links: ["Pierwsza", "Druga"],
-             fact_tiles: [%Brief.FactTile{label: "Etykieta A", value: "Wartość A"} | _],
+             email: "kontakt@strona-testowa.example",
              sections: [%Brief.Section{question: "Pytanie testowe pierwsze?", answer: "Odpowiedź testowa."}],
              phrases: ["fraza testowa", "inna fraza testowa"],
-             primary_phrase: "fraza testowa",
-             plausible_domain: "strona-testowa.example"
+             primary_phrase: "fraza testowa"
            } = brief
   end
 
@@ -55,20 +53,6 @@ defmodule Dirmoon.Pages.BriefTest do
     assert %{sections: [_]} = errors_on(changeset)
   end
 
-  test "a Brief needs exactly three Fact Tiles when it has any" do
-    fact_tiles = [%{"label" => "Etykieta A", "value" => "Wartość A"}]
-
-    changeset = Brief.changeset(%Brief{}, Map.put(full_params(), "fact_tiles", fact_tiles))
-
-    assert %{fact_tiles: [_]} = errors_on(changeset)
-  end
-
-  test "a Brief has at most three nav links" do
-    changeset = Brief.changeset(%Brief{}, Map.put(full_params(), "nav_links", ["A", "B", "C", "D"]))
-
-    assert %{nav_links: [_]} = errors_on(changeset)
-  end
-
   test "a slug with capitals, spaces or diacritics is invalid" do
     for slug <- ["Strona-Testowa", "strona testowa", "strona-żółta", "-strona", "strona--testowa"] do
       changeset = Brief.changeset(%Brief{}, Map.put(full_params(), "slug", slug))
@@ -83,36 +67,12 @@ defmodule Dirmoon.Pages.BriefTest do
     assert %{primary_phrase: [_]} = errors_on(changeset)
   end
 
-  test "a plausible domain that is not a bare host is rejected" do
-    for domain <- [
-          "javascript:alert(1)",
-          ~s{strona-testowa.example" onload="alert(1)},
-          "https://strona-testowa.example",
-          "strona-testowa.example/sciezka",
-          "<script>.example",
-          "localhost"
-        ] do
-      changeset = Brief.changeset(%Brief{}, Map.put(full_params(), "plausible_domain", domain))
+  test "an e-mail that is not shaped like an address is rejected" do
+    for email <- ["kontakt", "kontakt@strona", "kontakt @strona-testowa.example", "<kontakt>@strona-testowa.example"] do
+      changeset = Brief.changeset(%Brief{}, Map.put(full_params(), "email", email))
 
-      assert %{plausible_domain: [_]} = errors_on(changeset), "expected #{inspect(domain)} to be rejected"
+      assert %{email: [_]} = errors_on(changeset), "expected #{inspect(email)} to be rejected"
     end
-  end
-
-  test "clearing the Plausible domain on an existing Brief leaves it empty" do
-    brief = existing_brief()
-
-    assert {:ok, cleared} =
-             brief |> Brief.changeset(%{"plausible_domain" => ""}) |> Ecto.Changeset.apply_action(:update)
-
-    assert cleared.plausible_domain == nil
-    assert Brief.plausible_domain(cleared) == nil
-  end
-
-  test "clearing the nav links on an existing Brief leaves an empty list" do
-    assert {:ok, cleared} =
-             existing_brief() |> Brief.changeset(%{"nav_links" => nil}) |> Ecto.Changeset.apply_action(:update)
-
-    assert cleared.nav_links == []
   end
 
   test "clearing the phrases on an existing Brief leaves an empty list" do
@@ -144,24 +104,14 @@ defmodule Dirmoon.Pages.BriefTest do
       "title" => "Tytuł testowy",
       "h1" => "Nagłówek testowy",
       "slug" => "strona-testowa-alfa",
-      "breadcrumb" => "Start / Test",
       "intro" => "Wstęp testowy.",
-      "cta_label" => "Przycisk testowy",
-      "closing_prompt" => "Zamknięcie testowe?",
-      "nav_links" => ["Pierwsza", "Druga"],
       "phone" => "+48 500 000 001",
       "email" => "kontakt@strona-testowa.example",
       "address" => "ul. Testowa 1, 00-001 Testowo",
-      "fact_tiles" => [
-        %{"label" => "Etykieta A", "value" => "Wartość A"},
-        %{"label" => "Etykieta B", "value" => "Wartość B"},
-        %{"label" => "Etykieta C", "value" => "Wartość C"}
-      ],
       "sections" => [%{"question" => "Pytanie testowe pierwsze?", "answer" => "Odpowiedź testowa."}],
       "short_answer" => "Krótka odpowiedź testowa.",
       "phrases" => ["fraza testowa", "inna fraza testowa"],
-      "primary_phrase" => "fraza testowa",
-      "plausible_domain" => "strona-testowa.example"
+      "primary_phrase" => "fraza testowa"
     }
   end
 end

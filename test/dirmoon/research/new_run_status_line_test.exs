@@ -5,7 +5,7 @@ defmodule Dirmoon.Research.NewRunStatusLineTest do
 
   test "for a new idea it promises the phrases people type and how many search for them" do
     assert NewRunStatusLine.sentence(%{mode: :new_idea, search_console_connected?: false}) ==
-             "Opisz biznes, a znajdę frazy, które ludzie naprawdę wpisują, i policzę, ile osób ich szuka."
+             "Describe the business and I'll find the phrases people really type and count how many search for them."
   end
 
   test "for a new idea a Search Console connection changes nothing" do
@@ -15,12 +15,12 @@ defmodule Dirmoon.Research.NewRunStatusLineTest do
 
   test "for an existing site with Search Console it asks for the domain and promises current positions" do
     assert NewRunStatusLine.sentence(%{mode: :existing_site, search_console_connected?: true}) ==
-             "Opisz biznes i podaj domenę. Sprawdzę też, na które frazy strona już jest widoczna."
+             "Describe the business and give its domain. I'll also check which phrases the site already shows up for."
   end
 
   test "for an existing site without Search Console it says current positions will be skipped" do
     assert NewRunStatusLine.sentence(%{mode: :existing_site, search_console_connected?: false}) ==
-             "Opisz biznes i podaj domenę. Bez Search Console pominę obecne pozycje strony."
+             "Describe the business and give its domain. Without Search Console I'll skip the site's current positions."
   end
 
   test "with no Mode chosen it reads as a new idea" do

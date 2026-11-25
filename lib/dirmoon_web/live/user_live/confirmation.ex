@@ -14,7 +14,7 @@ defmodule DirmoonWeb.UserLive.Confirmation do
     <Layouts.auth flash={@flash}>
       <div class="flex flex-col gap-2">
         <h1 id="confirmation-title" class="text-[26px] font-extrabold tracking-[-0.03em]">
-          {if @user.confirmed_at, do: "Zaloguj się", else: "Potwierdź konto"}
+          {if @user.confirmed_at, do: "Sign in", else: "Confirm your account"}
         </h1>
         <p class="text-[15px] break-words text-body">{@user.email}</p>
       </div>
@@ -33,16 +33,16 @@ defmodule DirmoonWeb.UserLive.Confirmation do
           :if={!@current_scope}
           field={@form[:remember_me]}
           type="checkbox"
-          label="Nie wylogowuj mnie na tym urządzeniu"
+          label="Keep me signed in on this device"
         />
         <.button
           id="confirmation-submit"
           variant="dark"
           type="submit"
           class="w-full"
-          phx-disable-with="Loguję…"
+          phx-disable-with="Signing in…"
         >
-          {if @user.confirmed_at, do: "Zaloguj się", else: "Potwierdź i zaloguj się"}
+          {if @user.confirmed_at, do: "Sign in", else: "Confirm and sign in"}
         </.button>
       </.form>
     </Layouts.auth>
@@ -58,7 +58,7 @@ defmodule DirmoonWeb.UserLive.Confirmation do
     else
       {:ok,
        socket
-       |> put_flash(:error, "Link logowania jest nieprawidłowy albo wygasł.")
+       |> put_flash(:error, "The sign-in link is invalid or has expired.")
        |> push_navigate(to: ~p"/users/log-in")}
     end
   end

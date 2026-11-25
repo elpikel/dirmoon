@@ -1,6 +1,6 @@
 defmodule Dirmoon.Accounts.UserNotifier do
   @moduledoc """
-  The Polish emails dirmoon sends to a User: sign-in links and email-change links.
+  The emails dirmoon sends to a User: sign-in links and email-change links.
   """
   import Swoosh.Email
 
@@ -13,14 +13,14 @@ defmodule Dirmoon.Accounts.UserNotifier do
   Delivers the link that confirms a change of the user's email.
   """
   def deliver_update_email_instructions(user, url) do
-    deliver(user.email, "Potwierdź nowy adres e-mail", """
-    Cześć,
+    deliver(user.email, "Confirm your new email address", """
+    Hi,
 
-    aby zmienić adres e-mail w dirmoon, otwórz ten link:
+    to change your email address in dirmoon, open this link:
 
     #{url}
 
-    Jeśli to nie Ty prosisz o zmianę, zignoruj tę wiadomość.
+    If you didn't ask for this change, ignore this email.
 
     dirmoon
     """)
@@ -31,28 +31,28 @@ defmodule Dirmoon.Accounts.UserNotifier do
   link for a confirmed one.
   """
   def deliver_login_instructions(%User{confirmed_at: nil} = user, url) do
-    deliver(user.email, "Potwierdź konto w dirmoon", """
-    Cześć,
+    deliver(user.email, "Confirm your dirmoon account", """
+    Hi,
 
-    aby potwierdzić konto i zalogować się do dirmoon, otwórz ten link:
+    to confirm your account and sign in to dirmoon, open this link:
 
     #{url}
 
-    Link jest ważny 15 minut. Jeśli nie zakładasz konta w dirmoon, zignoruj tę wiadomość.
+    The link works for 15 minutes. If you didn't create a dirmoon account, ignore this email.
 
     dirmoon
     """)
   end
 
   def deliver_login_instructions(%User{} = user, url) do
-    deliver(user.email, "Twój link logowania do dirmoon", """
-    Cześć,
+    deliver(user.email, "Your dirmoon sign-in link", """
+    Hi,
 
-    aby zalogować się do dirmoon, otwórz ten link:
+    to sign in to dirmoon, open this link:
 
     #{url}
 
-    Link jest ważny 15 minut. Jeśli nie prosisz o logowanie, zignoruj tę wiadomość.
+    The link works for 15 minutes. If you didn't ask to sign in, ignore this email.
 
     dirmoon
     """)

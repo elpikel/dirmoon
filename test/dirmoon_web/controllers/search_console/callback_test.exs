@@ -34,7 +34,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
     conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod", state: state]}")
 
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Połączono z Search Console (#{email})"
+    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Connected to Search Console (#{email})"
   end
 
   test "after connecting the user returns to the app page they started from", %{conn: conn} do
@@ -87,7 +87,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
     conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod", state: "podrobiony-stan"]}")
 
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Could not connect to Search Console"
     refute SearchConsole.get_connection(scope)
   end
 
@@ -97,7 +97,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
     conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod", state: "jakis-stan"]}")
 
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Could not connect to Search Console"
     refute SearchConsole.get_connection(scope)
   end
 
@@ -107,7 +107,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
 
     conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod"]}")
 
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Could not connect to Search Console"
     refute SearchConsole.get_connection(scope)
   end
 
@@ -124,7 +124,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
 
     conn = conn |> recycle() |> get(~p"/app/search-console/callback?#{[code: "4/drugi", state: state]}")
 
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Could not connect to Search Console"
     assert SearchConsole.refresh_token(SearchConsole.get_connection(scope)) == SearchConsole.refresh_token(first)
   end
 
@@ -135,7 +135,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
     conn = get(conn, ~p"/app/search-console/callback?#{[error: "access_denied", state: state]}")
 
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Could not connect to Search Console"
     refute SearchConsole.get_connection(scope)
   end
 
@@ -148,7 +148,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
     conn = get(conn, ~p"/app/search-console/callback?#{[state: state]}")
 
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Could not connect to Search Console"
     refute SearchConsole.get_connection(scope)
   end
 
@@ -161,7 +161,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
     conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod", state: state]}")
 
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Could not connect to Search Console"
   end
 
   test "a failed code exchange stores nothing and shows an error", %{conn: conn} do
@@ -173,7 +173,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.CallbackTest do
     conn = get(conn, ~p"/app/search-console/callback?#{[code: "4/kod", state: state]}")
 
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Nie udało się połączyć z Search Console"
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Could not connect to Search Console"
     refute SearchConsole.get_connection(scope)
   end
 

@@ -11,19 +11,37 @@ defmodule DirmoonWeb.PageLiveTest do
   alias Dirmoon.Research
   alias Dirmoon.Workers.WriteBrief
 
-  test "the Brief form shows on the left and the rendered page in a browser frame on the right", %{conn: conn} do
+  test "the brief screen shows the page's text in the wide column and the phrases and business details beside it",
+       %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    run = brief_run(scope)
-    page = insert(:page, run: run)
+    page = insert(:page, run: brief_run(scope))
 
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
 
-    assert has_element?(view, "#brief-form #brief-title")
-    assert has_element?(view, "#brief-form #brief-slug")
-    assert has_element?(view, "#brief-sections #brief-section-0")
-    assert has_element?(view, "iframe#page-preview[sandbox=''][title='Podgląd strony']")
-    assert has_element?(view, "#preview-address", "[TWOJA-DOMENA]/#{page.brief.slug}")
-    assert preview_text(view, "h1") == page.brief.h1
+    assert has_element?(view, "#brief-form #brief-text #brief-title")
+    assert has_element?(view, "#brief-form #brief-text #brief-slug[value='#{page.brief.slug}']")
+    assert has_element?(view, "#brief-form #brief-text #brief-h1[value='#{page.brief.h1}']")
+    assert has_element?(view, "#brief-form #brief-text #brief-sections #brief-section-0")
+    assert has_element?(view, "#brief-form #brief-text #brief-short-answer")
+    assert has_element?(view, "#brief-form #brief-side.bg-app-raised #brief-phrases")
+    assert has_element?(view, "#brief-form #brief-side #brief-business #brief-business-name")
+    assert has_element?(view, "#brief-screen > #page-actions #save-brief")
+  end
+
+  test "the brief screen builds no page: no preview, no template fields and no download", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    page = insert(:page, run: brief_run(scope))
+
+    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
+
+    refute has_element?(view, "iframe")
+    refute has_element?(view, "#download-page")
+    refute has_element?(view, "a[href$='/file']")
+    refute has_element?(view, "#brief-breadcrumb")
+    refute has_element?(view, "#brief-cta-label")
+    refute has_element?(view, "#brief-fact-tiles")
+    refute has_element?(view, "#brief-plausible-domain")
+    refute has_element?(view, "[name='brief[nav_links][]']")
   end
 
   test "the top bar and status row name the Niche and the Mode, with no hero on the screen", %{conn: conn} do
@@ -32,10 +50,9 @@ defmodule DirmoonWeb.PageLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
 
-    assert has_element?(view, "#app-note", "Nisza: #{page.niche.name} · Nowy pomysł")
+    assert has_element?(view, "#app-note", "Niche: #{page.niche.name} · New idea")
     assert has_element?(view, "#app-nav #nav-pages[aria-current=page]")
     assert has_element?(view, "#app-main #page-screen #brief-form")
-    assert has_element?(view, "#app-main #page-screen iframe#page-preview")
     refute has_element?(view, "#page-headline")
     refute has_element?(view, "#page-panel")
   end
@@ -50,10 +67,10 @@ defmodule DirmoonWeb.PageLiveTest do
     assert has_element?(
              view,
              "#page-status-line",
-             "Ułożyłem stronę z 2 pytań klientów. Ceny i dane kontaktowe uzupełniasz Ty."
+             "I wrote the brief: it answers 2 customer questions. You fill in the prices and contact details."
            )
 
-    refute has_element?(view, "#page-status-line", "zatwierdzić")
+    refute has_element?(view, "#page-status-line", "must approve")
   end
 
   test "an Existing Site page's status line says legal, medical or financial answers need the owner's approval",
@@ -66,31 +83,22 @@ defmodule DirmoonWeb.PageLiveTest do
     assert has_element?(
              view,
              "#page-status-line",
-             "Odpowiedzi prawne, medyczne i finansowe musi zatwierdzić właściciel firmy przed publikacją."
+             "The business owner must approve legal, medical and financial answers before publishing."
            )
   end
 
-  test "typing in the H1 updates the preview without saving", %{conn: conn} do
+  test "typing in the H1 marks the brief unsaved and saves nothing", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: brief_run(scope))
 
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    view |> form("#brief-form", brief: %{h1: "Nowy nagłówek podglądu"}) |> render_change()
+    assert has_element?(view, "#brief-save-state[data-saved]", "Saved")
 
-    assert preview_text(view, "h1") == "Nowy nagłówek podglądu"
-    assert has_element?(view, "#brief-save-state", "Niezapisane zmiany")
+    view |> form("#brief-form", brief: %{h1: "Nowy nagłówek"}) |> render_change()
+
+    assert has_element?(view, "#brief-h1[value='Nowy nagłówek']")
+    assert has_element?(view, "#brief-save-state", "Unsaved changes")
     assert Repo.get!(Page, page.id).brief.h1 == page.brief.h1
-  end
-
-  test "the preview keeps the page's light look inside a browser frame drawn in the app's grays", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    page = insert(:page, run: brief_run(scope))
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-
-    assert has_element?(view, "#preview-frame.border-app-line-strong #preview-frame-bar.bg-app-chrome")
-    assert has_element?(view, "#preview-frame-bar #preview-address.bg-app-field.text-on-app-2")
-    assert has_element?(view, "#preview-frame iframe#page-preview.bg-white")
   end
 
   test "saving the Brief persists the edit", %{conn: conn} do
@@ -107,9 +115,9 @@ defmodule DirmoonWeb.PageLiveTest do
     saved = Repo.get!(Page, page.id)
     assert saved.brief.h1 == "Zapisany nagłówek"
     assert saved.brief.slug == "zapisany-adres"
-    assert has_element?(view, "#brief-save-state", "Zapisano")
-    assert has_element?(view, "#preview-address", "[TWOJA-DOMENA]/zapisany-adres")
-    assert preview_text(view, "h1") == "Zapisany nagłówek"
+    assert has_element?(view, "#brief-save-state", "Saved")
+    assert has_element?(view, "#flash-info", "I saved the brief.")
+    assert has_element?(view, "#app-context", "/ zapisany-adres")
   end
 
   test "an invalid field shows its error and saves nothing", %{conn: conn} do
@@ -119,8 +127,8 @@ defmodule DirmoonWeb.PageLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
     view |> form("#brief-form", brief: %{slug: "Zły Adres!", h1: "Nagłówek, który nie przejdzie"}) |> render_submit()
 
-    assert has_element?(view, "label[for=brief-slug] + p", "ma nieprawidłowy format")
-    assert has_element?(view, "#flash-error", "Popraw zaznaczone pola briefu.")
+    assert has_element?(view, "label[for=brief-slug] + p", "has invalid format")
+    assert has_element?(view, "#flash-error", "Fix the marked fields of the brief.")
     assert Repo.get!(Page, page.id).brief == page.brief
   end
 
@@ -149,7 +157,7 @@ defmodule DirmoonWeb.PageLiveTest do
     view |> form("#brief-form") |> render_change(%{"brief" => %{"sections_drop" => ["1"]}})
 
     refute has_element?(view, "#brief-section-1")
-    assert preview_texts(view, "h2[id^=sekcja-]") == ["Zostaje?"]
+    assert has_element?(view, "#brief-section-0 input[name='brief[sections][0][question]'][value='Zostaje?']")
 
     view |> form("#brief-form") |> render_submit()
 
@@ -165,7 +173,7 @@ defmodule DirmoonWeb.PageLiveTest do
     view |> form("#brief-form") |> render_change(%{"brief" => %{"sections_move_up" => ["1"]}})
 
     assert has_element?(view, "#brief-section-0 input[name='brief[sections][0][question]'][value='Drugie?']")
-    assert preview_texts(view, "h2[id^=sekcja-]") == ["Drugie?", "Pierwsze?"]
+    assert has_element?(view, "#brief-section-1 input[name='brief[sections][1][question]'][value='Pierwsze?']")
   end
 
   test "dropping every section shows that the Brief needs one", %{conn: conn} do
@@ -175,7 +183,7 @@ defmodule DirmoonWeb.PageLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
     view |> form("#brief-form") |> render_submit(%{"brief" => %{"sections_drop" => ["0"]}})
 
-    assert has_element?(view, "#brief-sections-error", "powinno mieć co najmniej 1 element")
+    assert has_element?(view, "#brief-sections-error", "should have at least 1 item(s)")
     assert Repo.get!(Page, page.id).brief.sections == page.brief.sections
   end
 
@@ -190,26 +198,24 @@ defmodule DirmoonWeb.PageLiveTest do
     assert has_element?(view, "#brief-phrases li:not([data-primary])", "fraza poboczna")
   end
 
-  test "the business details are editable in a collapsible group", %{conn: conn} do
+  test "the business details are editable and saved with the brief", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: brief_run(scope))
+    email = unique_user_email()
 
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    assert has_element?(view, "#brief-business.hidden")
-
-    view |> element("#toggle-business") |> render_click()
-    refute has_element?(view, "#brief-business.hidden")
 
     view
-    |> form("#brief-form", brief: %{business_name: "Firma Testowa", nav_links: ["Oferta", "", ""]})
+    |> form("#brief-form", brief: %{business_name: "Firma Testowa", phone: "+48 500 000 001", email: email})
     |> render_submit()
 
     saved = Repo.get!(Page, page.id).brief
     assert saved.business_name == "Firma Testowa"
-    assert saved.nav_links == ["Oferta"]
+    assert saved.phone == "+48 500 000 001"
+    assert saved.email == email
   end
 
-  test "the primary action downloads the Content File in both Modes, and nothing offers to publish", %{conn: conn} do
+  test "saving the brief is the one action in both Modes, and nothing offers to download or publish", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     new_idea_page = insert(:page, run: brief_run(scope))
 
@@ -219,19 +225,10 @@ defmodule DirmoonWeb.PageLiveTest do
     for page <- [new_idea_page, existing_site_page] do
       {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
 
-      assert has_element?(view, "#page-actions > :first-child#download-page[data-variant=lime]", "Pobierz plik treści")
-      assert has_element?(view, "#save-brief", "Zapisz brief")
-      refute has_element?(view, "#page-actions", "Opublikuj")
+      assert has_element?(view, "#page-actions > :first-child#save-brief[data-variant=lime]", "Save brief")
+      refute has_element?(view, "#page-actions a")
+      refute has_element?(view, "#page-actions", "Publish")
     end
-  end
-
-  test "the download link points at the page's Content File", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    page = insert(:page, run: brief_run(scope))
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-
-    assert has_element?(view, "a#download-page[href='/app/pages/#{page.id}/file']")
   end
 
   test "while Step 8 writes the Brief the screen says so and turns into the editor when it's done", %{conn: conn} do
@@ -243,14 +240,13 @@ defmodule DirmoonWeb.PageLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
 
     assert has_element?(view, "#page-writing")
-    assert has_element?(view, "#page-status-line", "Piszę brief i treść strony.")
+    assert has_element?(view, "#page-status-line", "I'm writing the brief.")
     refute has_element?(view, "#brief-form")
 
     {:ok, _page} = Pages.store_brief(page, %{"h1" => "Nagłówek z kroku 8", "sections" => [%{"question" => "Pytanie?"}]})
 
     refute has_element?(view, "#page-writing")
-    assert has_element?(view, "#brief-form")
-    assert preview_text(view, "h1") == "Nagłówek z kroku 8"
+    assert has_element?(view, "#brief-form #brief-h1[value='Nagłówek z kroku 8']")
   end
 
   test "a failed Brief shows its error and can be started again", %{conn: conn} do
@@ -258,12 +254,14 @@ defmodule DirmoonWeb.PageLiveTest do
     steps = 1..7 |> Map.new(&{&1, :done}) |> Map.put(8, :failed) |> build_run_steps()
     run = insert(:run, account: scope.account, status: :failed, steps: steps)
     niche = insert(:niche, run: run, status: :chosen)
-    page = insert(:page, run: run, niche: niche, status: :failed, brief: nil, error: "Model zwrócił niepoprawny brief")
+
+    page =
+      insert(:page, run: run, niche: niche, status: :failed, brief: nil, error: "The model returned an invalid brief")
 
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
 
-    assert has_element?(view, "#page-error", "Model zwrócił niepoprawny brief")
-    assert has_element?(view, "#page-status-line", "Brief się nie udał: Model zwrócił niepoprawny brief.")
+    assert has_element?(view, "#page-error", "The model returned an invalid brief")
+    assert has_element?(view, "#page-status-line", "The brief failed: The model returned an invalid brief.")
 
     view |> element("#retry-brief") |> render_click()
 
@@ -284,7 +282,7 @@ defmodule DirmoonWeb.PageLiveTest do
 
     assert has_element?(view, "#page-failed #page-run-stopped")
     assert has_element?(view, "#page-resume-link[href='/app/runs/#{run.id}']")
-    assert has_element?(view, "#page-status-line", "Brief się nie udał: Błąd testowy.")
+    assert has_element?(view, "#page-status-line", "The brief failed: Błąd testowy.")
     refute has_element?(view, "#retry-brief")
 
     render_hook(view, "retry_brief", %{})
@@ -304,7 +302,7 @@ defmodule DirmoonWeb.PageLiveTest do
 
     assert has_element?(view, "#page-run-stopped")
     assert has_element?(view, "#page-resume-link[href='/app/runs/#{run.id}']")
-    assert has_element?(view, "#page-status-line", "Research jest zatrzymany, więc brief czeka.")
+    assert has_element?(view, "#page-status-line", "The research is stopped, so the brief is waiting.")
     refute has_element?(view, "#page-writing")
   end
 
@@ -320,13 +318,13 @@ defmodule DirmoonWeb.PageLiveTest do
     {:ok, _stopped_run} = Research.stop_run(scope, run.id)
 
     assert has_element?(view, "#page-run-stopped")
-    assert has_element?(view, "#page-status-line", "Research jest zatrzymany, więc brief czeka.")
+    assert has_element?(view, "#page-status-line", "The research is stopped, so the brief is waiting.")
     refute has_element?(view, "#page-writing")
 
     {:ok, _resumed_run} = Research.resume_run(scope, run.id)
 
     assert has_element?(view, "#page-writing")
-    assert has_element?(view, "#page-status-line", "Piszę brief i treść strony.")
+    assert has_element?(view, "#page-status-line", "I'm writing the brief.")
     refute has_element?(view, "#page-run-stopped")
   end
 
@@ -376,22 +374,21 @@ defmodule DirmoonWeb.PageLiveTest do
     render_hook(view, "save", %{"brief" => %{"h1" => "Wpisany w trakcie", "sections" => [%{"question" => "Pytanie?"}]}})
 
     assert Repo.get!(Page, page.id) == stored
-    assert has_element?(view, "#flash-error", "Tej strony nie można teraz edytować.")
+    assert has_element?(view, "#flash-error", "This page can't be edited now.")
   end
 
-  test "hostile text in a Brief field stays text inside the preview", %{conn: conn} do
+  test "hostile text in a Brief field stays text in the form", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    hostile = ~s|"></iframe><script>alert("x")</script><img src=x onerror=alert(1)>|
+    hostile = ~s|"><script>alert("x")</script><img src=x onerror=alert(1)>|
     page = insert(:page, run: brief_run(scope), brief: build(:brief, h1: hostile))
 
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    document = preview_document(view)
 
-    assert has_element?(view, "iframe#page-preview")
-    refute has_element?(view, "script", "alert")
-    assert document |> LazyHTML.query("h1") |> LazyHTML.text() == hostile
-    assert document |> LazyHTML.query("script") |> Enum.to_list() == []
-    assert document |> LazyHTML.query("img") |> Enum.to_list() == []
+    [h1_value] = view |> element("#brief-h1") |> render() |> LazyHTML.from_fragment() |> LazyHTML.attribute("value")
+
+    assert h1_value == hostile
+    refute has_element?(view, "#page-screen script")
+    refute has_element?(view, "#page-screen img")
   end
 
   test "another Account's page sends the User back to the pages list", %{conn: conn} do
@@ -399,7 +396,7 @@ defmodule DirmoonWeb.PageLiveTest do
     page = insert(:page, run: brief_run(%{account: insert(:account)}))
 
     assert {:error, {:live_redirect, %{to: "/app/pages", flash: flash}}} = live(conn, ~p"/app/pages/#{page}")
-    assert flash["error"] == "Nie znaleziono strony"
+    assert flash["error"] == "Page not found"
   end
 
   test "a malformed page id sends the User back to the pages list", %{conn: conn} do
@@ -414,7 +411,7 @@ defmodule DirmoonWeb.PageLiveTest do
     assert {:error, {:redirect, %{to: "/users/log-in"}}} = live(conn, ~p"/app/pages/#{page}")
   end
 
-  test "an update arriving while there are unsaved edits keeps the edits in the form and the preview", %{conn: conn} do
+  test "an update arriving while there are unsaved edits keeps the edits in the form", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: brief_run(scope))
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
@@ -423,8 +420,7 @@ defmodule DirmoonWeb.PageLiveTest do
     Pages.broadcast_page_updated(page)
 
     assert has_element?(view, "#brief-h1[value='Nagłówek w trakcie edycji']")
-    assert has_element?(view, "#brief-save-state", "Niezapisane zmiany")
-    assert preview_text(view, "h1") == "Nagłówek w trakcie edycji"
+    assert has_element?(view, "#brief-save-state", "Unsaved changes")
   end
 
   test "saving a Brief whose page was deleted meanwhile goes back to the pages list", %{conn: conn} do
@@ -438,7 +434,7 @@ defmodule DirmoonWeb.PageLiveTest do
     |> put_submitter("#save-brief")
     |> render_submit()
 
-    assert {"/app/pages", %{"error" => "Nie znaleziono strony"}} = assert_redirect(view)
+    assert {"/app/pages", %{"error" => "Page not found"}} = assert_redirect(view)
   end
 
   test "an update for a page deleted meanwhile goes back to the pages list", %{conn: conn} do
@@ -449,7 +445,7 @@ defmodule DirmoonWeb.PageLiveTest do
 
     Pages.broadcast_page_updated(page)
 
-    assert {"/app/pages", %{"error" => "Nie znaleziono strony"}} = assert_redirect(view)
+    assert {"/app/pages", %{"error" => "Page not found"}} = assert_redirect(view)
   end
 
   test "retrying a failed Brief while another Brief is being written says why", %{conn: conn} do
@@ -463,7 +459,7 @@ defmodule DirmoonWeb.PageLiveTest do
 
     view |> element("#retry-brief") |> render_click()
 
-    assert has_element?(view, "#flash-error", "Brief dla innej niszy jest w trakcie pisania")
+    assert has_element?(view, "#flash-error", "A brief for another niche is being written")
     assert Repo.get!(Page, page.id).status == :failed
     refute_enqueued(worker: WriteBrief)
   end
@@ -471,30 +467,5 @@ defmodule DirmoonWeb.PageLiveTest do
   defp brief_run(%{account: account}, attrs \\ %{}) do
     steps = build_run_steps(Map.new(1..8, &{&1, :done}))
     insert(:run, Map.merge(%{account: account, status: :awaiting_choice, steps: steps}, attrs))
-  end
-
-  defp preview_document(view) do
-    [srcdoc] =
-      view
-      |> element("#page-preview")
-      |> render()
-      |> LazyHTML.from_fragment()
-      |> LazyHTML.attribute("srcdoc")
-
-    LazyHTML.from_document(srcdoc)
-  end
-
-  defp preview_text(view, selector) do
-    view
-    |> preview_document()
-    |> LazyHTML.query(selector)
-    |> LazyHTML.text()
-  end
-
-  defp preview_texts(view, selector) do
-    view
-    |> preview_document()
-    |> LazyHTML.query(selector)
-    |> Enum.map(&(&1 |> LazyHTML.text() |> String.trim()))
   end
 end

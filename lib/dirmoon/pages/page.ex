@@ -1,12 +1,13 @@
 defmodule Dirmoon.Pages.Page do
   @moduledoc """
-  A Page for one chosen Niche of a Research Run, with its Brief.
+  A Page: the record that holds the Brief of one chosen Niche of a Research
+  Run (dirmoon builds no page from it).
   Belongs to one Account; `account_id` is set from the run, never cast.
 
   `status` is `:writing` while Step 8 writes the Brief (at most one page of a
   run at a time, enforced by a partial unique index), `:ready` once the Brief
   is stored, and `:failed` with an `error` when Step 8 gave up. Only a
-  `:ready` page's Brief can be edited and downloaded as a Content File.
+  `:ready` page's Brief can be edited.
 
   The page is deleted with its Niche: a Step 4 re-run deletes the run's
   Niches (`clusters`), and their pages go with them.

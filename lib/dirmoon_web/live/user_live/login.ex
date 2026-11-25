@@ -12,18 +12,18 @@ defmodule DirmoonWeb.UserLive.Login do
     ~H"""
     <Layouts.auth flash={@flash}>
       <div class="flex flex-col gap-2">
-        <h1 id="login-title" class="text-[26px] font-extrabold tracking-[-0.03em]">Zaloguj się</h1>
+        <h1 id="login-title" class="text-[26px] font-extrabold tracking-[-0.03em]">Sign in</h1>
         <p :if={@current_scope} id="reauthenticate-notice" class="text-[15px] text-body">
-          Aby zmienić ustawienia konta, zaloguj się ponownie.
+          To change your account settings, sign in again.
         </p>
         <p :if={!@current_scope} class="text-[15px] text-body">
-          Wyślemy Ci link logowania na e-mail. Nie masz jeszcze konta?
+          A sign-in link goes to your email. No account yet?
           <.link
             id="sign-up-link"
             href={~p"/" <> "#sign-up-form-hero"}
             class="font-semibold text-ink underline"
           >
-            Załóż je
+            Create one
           </.link>
         </p>
       </div>
@@ -33,10 +33,10 @@ defmodule DirmoonWeb.UserLive.Login do
         id="local-mail-adapter-notice"
         class="rounded-control bg-page-alt px-4 py-3 text-[13px] text-body"
       >
-        Lokalny adapter poczty: wysłane wiadomości zobaczysz w <.link
+        Local mail adapter: you'll find sent emails in the <.link
           href="/dev/mailbox"
           class="underline"
-        >skrzynce deweloperskiej</.link>.
+        >dev mailbox</.link>.
       </p>
 
       <.form
@@ -57,7 +57,7 @@ defmodule DirmoonWeb.UserLive.Login do
           phx-mounted={JS.focus()}
         />
         <.button id="login-submit" variant="dark" type="submit" class="w-full">
-          Wyślij link logowania <span aria-hidden="true">→</span>
+          Send sign-in link <span aria-hidden="true">→</span>
         </.button>
       </.form>
     </Layouts.auth>
@@ -80,7 +80,7 @@ defmodule DirmoonWeb.UserLive.Login do
 
     {:noreply,
      socket
-     |> put_flash(:info, "Sprawdź skrzynkę: jeśli ten adres ma konto w dirmoon, wysłaliśmy na niego link logowania.")
+     |> put_flash(:info, "Check your inbox: if this address has a dirmoon account, a sign-in link is on its way.")
      |> push_navigate(to: ~p"/users/log-in")}
   end
 

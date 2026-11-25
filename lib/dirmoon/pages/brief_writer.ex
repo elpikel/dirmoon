@@ -1,14 +1,17 @@
 defmodule Dirmoon.Pages.BriefWriter do
   @moduledoc """
-  Step 8: the LLM writes the Brief and the content for the run's page that
-  is `:writing` (the Niche the User chose last), from the Niche's kept
-  Phrases and the customer questions Step 1 found.
+  Step 8: the LLM writes the Brief for the run's page that is `:writing`
+  (the Niche the User chose last), from the Niche's kept Phrases and the
+  customer questions Step 1 found.
 
   The answer is cleaned inside the ledger call, so only a usable Brief is
   recorded and a retry asks again: invented phones, prices, e-mails and
   addresses become Placeholders, the contact fields the User owns (phone,
-  e-mail, address, business name, Plausible domain) are dropped, and only
+  e-mail, address, business name) are dropped, and only
   Phrases of the chosen Niche are kept, with the primary one among them.
+
+  The Brief's text is for the market's customers, so the LLM
+  writes them in the run's market language.
   """
 
   alias Dirmoon.LLM
@@ -22,17 +25,19 @@ defmodule Dirmoon.Pages.BriefWriter do
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.Steps
 
-  @no_page_result "Brak strony do napisania"
-  @invalid_brief_error "Model zwrócił niepoprawny brief"
+  @no_page_result "No page to write"
+  @invalid_brief_error "The model returned an invalid brief"
   @phrase_limit 40
   @seeds_step Steps.number!(:seeds)
-  @written_keys ~w(title h1 slug breadcrumb intro cta_label fact_tiles sections short_answer phrases primary_phrase)
+  @written_keys ~w(title h1 slug intro sections short_answer phrases primary_phrase)
 
   @system """
-  Jesteś copywriterem SEO. Piszesz plan i treść jednej strony dla wybranej niszy. \
-  Nigdy nie podajesz cen, numerów telefonów, adresów, adresów e-mail ani faktów o firmie. \
-  W miejscu takiej wartości wpisujesz znacznik w nawiasach kwadratowych wielkimi literami, np. [CENA], [TELEFON]. \
-  Odpowiadasz wyłącznie w formacie JSON zgodnym ze schematem.\
+  You are an SEO copywriter. You write the brief of one page for a chosen niche: its plan and its text, \
+  which the business owner hands to whoever builds their site. \
+  You write the text in the language of the business's market, for its customers. \
+  You never give prices, phone numbers, addresses, e-mail addresses or facts about the business. \
+  In place of such a value you write a tag in square brackets in capital letters, e.g. [PRICE], [PHONE]. \
+  You answer only in JSON that matches the schema.\
   """
 
   @schema %{
@@ -41,17 +46,7 @@ defmodule Dirmoon.Pages.BriefWriter do
       title: %{type: "string"},
       h1: %{type: "string"},
       slug: %{type: "string"},
-      breadcrumb: %{type: "string"},
       intro: %{type: "string"},
-      cta_label: %{type: "string"},
-      fact_tiles: %{
-        type: "array",
-        items: %{
-          type: "object",
-          properties: %{label: %{type: "string"}, value: %{type: "string"}},
-          required: ["label", "value"]
-        }
-      },
       sections: %{
         type: "array",
         items: %{
@@ -64,16 +59,16 @@ defmodule Dirmoon.Pages.BriefWriter do
       phrases: %{type: "array", items: %{type: "string"}},
       primary_phrase: %{type: "string"}
     },
-    required: ~w(title h1 slug breadcrumb intro cta_label fact_tiles sections short_answer phrases primary_phrase)
+    required: ~w(title h1 slug intro sections short_answer phrases primary_phrase)
   }
 
   @doc """
   Writes and stores the Brief of the run's `:writing` page and marks it
   `:ready` (`Dirmoon.Pages.store_brief/2`).
 
-  Returns `{:ok, %{result: "Brief gotowy: <H1>", output: %{"page_id" => id}}}`,
-  `{:skip, "Brak strony do napisania"}` when no page is `:writing`,
-  `{:error, "Model zwrócił niepoprawny brief"}` or the LLM's `{:error, reason}`.
+  Returns `{:ok, %{result: "Brief ready: <H1>", output: %{"page_id" => id}}}`,
+  `{:skip, "No page to write"}` when no page is `:writing`,
+  `{:error, "The model returned an invalid brief"}` or the LLM's `{:error, reason}`.
   """
   def write(%Run{} = run) do
     case Pages.writing_page_for_run(run) do
@@ -88,7 +83,7 @@ defmodule Dirmoon.Pages.BriefWriter do
     with {:ok, brief_params} <-
            Ledger.fetch(run, %{service: "llm", operation: "brief", request: request}, fn -> cleaned_brief(request) end),
          {:ok, %Page{brief: brief} = written_page} <- Pages.store_brief(page, brief_params) do
-      {:ok, %{result: "Brief gotowy: #{brief.h1}", output: %{"page_id" => written_page.id}}}
+      {:ok, %{result: "Brief ready: #{brief.h1}", output: %{"page_id" => written_page.id}}}
     else
       {:error, %Ecto.Changeset{}} -> {:error, @invalid_brief_error}
       {:error, reason} -> {:error, reason}
@@ -128,19 +123,20 @@ defmodule Dirmoon.Pages.BriefWriter do
 
   defp prompt(run, %{niche_name: niche_name, phrases: phrases, questions: questions}) do
     [
-      "Opis firmy:\n#{run.description}",
+      "Business description:\n#{run.description}",
       mode_line(run),
       city_line(run.city),
-      "Nisza: #{niche_name}.",
-      "Napisz brief i treść JEDNEJ strony, która ma trafić na frazy tej niszy: tytuł strony, H1, slug adresu " <>
-        "(małe litery bez polskich znaków, słowa rozdzielone myślnikami), okruszki, wstęp w dwóch zdaniach, " <>
-        "etykietę przycisku, trzy kafelki z faktami (etykieta i wartość jako znacznik, np. [CENA]), " <>
-        "od 4 do 6 sekcji jako pytania klientów z odpowiedziami po 3–5 zdań, " <>
-        "jednozdaniową krótką odpowiedź na pierwsze pytanie oraz frazy do pokrycia z jedną główną.",
-      "Nigdy nie podawaj cen, numerów telefonów, adresów, adresów e-mail ani faktów o firmie. " <>
-        "W miejscu takiej wartości wpisz znacznik w nawiasach kwadratowych wielkimi literami, np. [CENA], [TELEFON].",
-      "Frazy do pokrycia wybierz wyłącznie z listy fraz niszy.",
-      "Frazy niszy (od najczęściej wyszukiwanych):\n" <> Enum.join(phrases, "\n"),
+      "Niche (named in English for the owner): #{niche_name}.",
+      "Write every text of the brief in #{Run.language_name(run)}, the language of the business's market: " <>
+        "the page is for its customers. Keep the tags in square brackets exactly as they are, in English.",
+      "Write the brief of ONE page that should rank for this niche's phrases: the page title, H1, " <>
+        "the address slug (lower case without diacritics, words separated by hyphens), a two-sentence intro, " <>
+        "4 to 6 sections as customer questions with answers of 3–5 sentences each, " <>
+        "a one-sentence short answer to the first question, and the phrases to cover with one primary phrase.",
+      "Never give prices, phone numbers, addresses, e-mail addresses or facts about the business. " <>
+        "In place of such a value write a tag in square brackets in capital letters, e.g. [PRICE], [PHONE].",
+      "Pick the phrases to cover only from the niche's phrase list.",
+      "The niche's phrases (most searched first):\n" <> Enum.join(phrases, "\n"),
       questions_line(questions)
     ]
     |> Enum.reject(&is_nil/1)
@@ -148,17 +144,17 @@ defmodule Dirmoon.Pages.BriefWriter do
   end
 
   defp mode_line(%Run{mode: :existing_site, domain: domain}) do
-    "Tryb: istniejąca strona, domena: #{domain}. Strona trafi na tę domenę. " <>
-      "Odpowiedzi prawne, medyczne i finansowe sprawdzi właściciel firmy przed publikacją."
+    "Mode: existing site, domain: #{domain}. The page will go on this domain. " <>
+      "The business owner will check legal, medical and financial answers before publishing."
   end
 
-  defp mode_line(%Run{mode: :new_idea}), do: "Tryb: nowy pomysł, firma nie ma jeszcze strony."
+  defp mode_line(%Run{mode: :new_idea}), do: "Mode: new idea, the business has no site yet."
 
   defp city_line(city) when city in [nil, ""], do: nil
-  defp city_line(city), do: "Firma działa w mieście #{city}."
+  defp city_line(city), do: "The business works in the city of #{city}."
 
   defp questions_line([]), do: nil
-  defp questions_line(questions), do: "Pytania klientów:\n" <> Enum.join(questions, "\n")
+  defp questions_line(questions), do: "Customer questions:\n" <> Enum.join(questions, "\n")
 
   defp cleaned_brief(%{input: %{phrases: niche_phrases}} = request) do
     with {:ok, answer, cost} <- LLM.structured(request),

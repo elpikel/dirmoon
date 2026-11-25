@@ -6,17 +6,17 @@ defmodule Dirmoon.Niches.ScoreStep do
   recomputes and overwrites them, so a re-run gives the same Scores.
   """
 
+  alias Dirmoon.Format
   alias Dirmoon.Niches
   alias Dirmoon.Niches.Scoring
-  alias Dirmoon.Polish
   alias Dirmoon.Research.Run
 
-  @no_niches_error "Brak nisz do oceny"
-  @scored_forms %{one: "nisza oceniona", few: "nisze ocenione", many: "nisz ocenionych"}
-  @worth_forms %{one: "warta zajęcia", few: "warte zajęcia", many: "wartych zajęcia"}
+  @no_niches_error "No niches to score"
+  @scored_forms %{one: "niche scored", other: "niches scored"}
+  @worth_forms %{one: "worth going after", other: "worth going after"}
 
   @doc """
-  Returns `{:ok, %{result: "9 nisz ocenionych, 3 warte zajęcia", output: %{"niches" => 9, "worth" => 3, "weights" => %{"volume" => 0.4, "cpc" => 0.3, "weakness" => 0.3}}}}`
+  Returns `{:ok, %{result: "9 niches scored, 3 worth going after", output: %{"niches" => 9, "worth" => 3, "weights" => %{"volume" => 0.4, "cpc" => 0.3, "weakness" => 0.3}}}}`
   or `{:error, "#{@no_niches_error}"}`.
   """
   def score(%Run{} = run) do
@@ -47,6 +47,6 @@ defmodule Dirmoon.Niches.ScoreStep do
   end
 
   defp result_line(scored, worth) do
-    "#{scored} #{Polish.plural(scored, @scored_forms)}, #{worth} #{Polish.plural(worth, @worth_forms)}"
+    "#{scored} #{Format.plural(scored, @scored_forms)}, #{worth} #{Format.plural(worth, @worth_forms)}"
   end
 end

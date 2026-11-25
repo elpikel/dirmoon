@@ -16,22 +16,23 @@ defmodule DirmoonWeb.RunLiveTest do
     steps =
       %{1 => :done, 2 => :done, 3 => :done, 4 => :done, 5 => :running, 6 => :skipped}
       |> build_run_steps()
-      |> Enum.map(&put_result(&1, 1, "Kilkanaście fraz startowych i pytania"))
+      |> Enum.map(&put_result(&1, 1, "A dozen seed phrases and questions"))
 
     run = insert(:run, account: scope.account, steps: steps)
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
     assert has_element?(view, "#run-steps #step-1", "01")
-    assert has_element?(view, "#step-1", "Załążki")
-    assert has_element?(view, "#step-1", "Kilkanaście fraz startowych i pytania")
-    assert has_element?(view, "#step-1-status", "Gotowe")
-    assert has_element?(view, "#step-5-status", "W toku")
-    assert has_element?(view, "#step-6-status", "Pominięty")
-    assert has_element?(view, "#step-7-status", "Czeka")
+    assert has_element?(view, "#step-1", "Seeds")
+    assert has_element?(view, "#step-1", "A dozen seed phrases and questions")
+    assert has_element?(view, "#step-1-status", "Done")
+    assert has_element?(view, "#step-5-status", "In progress")
+    assert has_element?(view, "#step-6-status", "Skipped")
+    assert has_element?(view, "#step-7-status", "Waiting")
     assert has_element?(view, "#step-8", "08")
-    assert has_element?(view, "#step-8", "Brief i treść")
-    assert has_element?(view, "#step-8", "Po wyborze niszy")
+    assert has_element?(view, "#step-8", "Brief")
+    refute has_element?(view, "#step-8", "content")
+    assert has_element?(view, "#step-8", "After you choose a niche")
     assert has_element?(view, "#run-steps > li:last-child#step-8")
     refute has_element?(view, "#step-9")
   end
@@ -43,7 +44,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#step-8-status", "Czeka")
+    assert has_element?(view, "#step-8-status", "Waiting")
   end
 
   test "a Step that finishes while the screen is open updates its row without a reload", %{conn: conn} do
@@ -51,11 +52,11 @@ defmodule DirmoonWeb.RunLiveTest do
     run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :running}))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    finish_step(run, 1, "Frazy startowe gotowe do rozwinięcia")
+    finish_step(run, 1, "Seed phrases ready to expand")
     Research.broadcast_run_updated(run)
 
-    assert has_element?(view, "#step-1", "Frazy startowe gotowe do rozwinięcia")
-    assert has_element?(view, "#step-1-status", "Gotowe")
+    assert has_element?(view, "#step-1", "Seed phrases ready to expand")
+    assert has_element?(view, "#step-1-status", "Done")
   end
 
   test "progress of Step 5 shows how many Phrases are checked and a progress bar", %{conn: conn} do
@@ -65,7 +66,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     Research.broadcast_progress(run, progress(insert(:phrase), %{checked: 6, total: 24}))
 
-    assert has_element?(view, "#run-detail", "6 z 24 fraz sprawdzonych")
+    assert has_element?(view, "#run-detail", "6 of 24 phrases checked")
     assert has_element?(view, "#run-progress[role=progressbar][aria-valuenow='6'][aria-valuemax='24']")
   end
 
@@ -79,17 +80,17 @@ defmodule DirmoonWeb.RunLiveTest do
 
     Research.broadcast_progress(
       run,
-      progress(weak_phrase, %{checked: 1, holders: "poradniki i blogi, fora", verdict: :weak})
+      progress(weak_phrase, %{checked: 1, holders: "guides and blogs, forums", verdict: :weak})
     )
 
     Research.broadcast_progress(
       run,
-      progress(strong_phrase, %{checked: 2, holders: "firmy z Twojej branży", verdict: :strong})
+      progress(strong_phrase, %{checked: 2, holders: "businesses like yours", verdict: :strong})
     )
 
     assert has_element?(view, "#checked-phrases [data-verdict=weak]", weak_phrase.phrase)
-    assert has_element?(view, "#checked-phrases [data-verdict=weak] .text-accent", "poradniki i blogi, fora")
-    assert has_element?(view, "#checked-phrases [data-verdict=strong] .text-warn", "firmy z Twojej branży")
+    assert has_element?(view, "#checked-phrases [data-verdict=weak] .text-accent", "guides and blogs, forums")
+    assert has_element?(view, "#checked-phrases [data-verdict=strong] .text-warn", "businesses like yours")
   end
 
   test "only the eight latest checked Phrases are listed, newest first", %{conn: conn} do
@@ -153,12 +154,12 @@ defmodule DirmoonWeb.RunLiveTest do
     run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#step-5", "Kto trzyma top 10 dla najlepszych fraz")
+    assert has_element?(view, "#step-5", "Who holds the top 10 for the best phrases")
 
     Research.broadcast_progress(run, progress(insert(:phrase), %{checked: 4, total: 10}))
 
-    assert has_element?(view, "#step-5", "4 z 10 fraz sprawdzonych")
-    refute has_element?(view, "#step-5", "Kto trzyma top 10 dla najlepszych fraz")
+    assert has_element?(view, "#step-5", "4 of 10 phrases checked")
+    refute has_element?(view, "#step-5", "Who holds the top 10 for the best phrases")
   end
 
   test "the status row shows the sentence built from the run's state", %{conn: conn} do
@@ -170,7 +171,7 @@ defmodule DirmoonWeb.RunLiveTest do
     assert has_element?(
              view,
              "#run-status-line",
-             "Sprawdzam, kto odpowiada na najlepsze frazy. Po kroku 7 wybierasz niszę."
+             "I'm checking who ranks for the best phrases. After step 7 you choose a niche."
            )
   end
 
@@ -183,7 +184,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#run-cost", "Koszt API: $0,08")
+    assert has_element?(view, "#run-cost", "API cost: $0.08")
   end
 
   test "a run with no recorded requests costs zero dollars", %{conn: conn} do
@@ -192,7 +193,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#run-cost", "Koszt API: $0,00")
+    assert has_element?(view, "#run-cost", "API cost: $0.00")
   end
 
   test "clicking stop stops the run and offers to resume it", %{conn: conn} do
@@ -203,7 +204,7 @@ defmodule DirmoonWeb.RunLiveTest do
     view |> element("#stop-run") |> render_click()
 
     assert Repo.reload!(run).status == :stopped
-    assert has_element?(view, "#resume-run", "Wznów")
+    assert has_element?(view, "#resume-run", "Resume")
     refute has_element?(view, "#stop-run")
   end
 
@@ -217,7 +218,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     assert Repo.reload!(run).status == :running
     assert_enqueued(worker: ExpandPhrases, args: %{run_id: run.id})
-    assert has_element?(view, "#stop-run", "Zatrzymaj")
+    assert has_element?(view, "#stop-run", "Stop")
     refute has_element?(view, "#resume-run")
   end
 
@@ -227,7 +228,7 @@ defmodule DirmoonWeb.RunLiveTest do
     run = insert(:run, account: scope.account, steps: build_run_steps(statuses))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    finish_step(run, 7, "Nisze ocenione")
+    finish_step(run, 7, "Niches scored")
     run |> Ecto.Changeset.change(status: :awaiting_choice) |> Repo.update!()
     Research.broadcast_run_updated(run)
 
@@ -241,8 +242,8 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#run-detail #see-results[href='/app/runs/#{run.id}/results']", "Zobacz wyniki")
-    assert has_element?(view, "#run-status-line", "Nisze ocenione. Wybierz jedną, a napiszę dla niej stronę.")
+    assert has_element?(view, "#run-detail #see-results[href='/app/runs/#{run.id}/results']", "See results")
+    assert has_element?(view, "#run-status-line", "The niches are scored. Choose one and I'll write a brief for it.")
     refute has_element?(view, "#stop-run")
     refute has_element?(view, "#resume-run")
   end
@@ -253,16 +254,16 @@ defmodule DirmoonWeb.RunLiveTest do
     steps =
       %{1 => :done, 2 => :failed}
       |> build_run_steps()
-      |> Enum.map(&put_error(&1, 2, "Brak danych logowania DataForSEO"))
+      |> Enum.map(&put_error(&1, 2, "No DataForSEO credentials"))
 
     run = insert(:run, account: scope.account, status: :failed, steps: steps)
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#step-2-status", "Błąd")
-    assert has_element?(view, "#step-2-error", "Brak danych logowania DataForSEO")
-    assert has_element?(view, "#resume-run", "Wznów")
-    assert has_element?(view, "#run-status-line", "Krok 2 się nie udał: Brak danych logowania DataForSEO.")
+    assert has_element?(view, "#step-2-status", "Failed")
+    assert has_element?(view, "#step-2-error", "No DataForSEO credentials")
+    assert has_element?(view, "#resume-run", "Resume")
+    assert has_element?(view, "#run-status-line", "Step 2 failed: No DataForSEO credentials.")
   end
 
   test "the phrases so far link to the run's results", %{conn: conn} do
@@ -271,7 +272,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#show-phrases[href='/app/runs/#{run.id}/results']", "Pokaż dotychczasowe frazy")
+    assert has_element?(view, "#show-phrases[href='/app/runs/#{run.id}/results']", "Show phrases so far")
   end
 
   test "the top bar names the run's description, country and city, with no hero on the screen", %{conn: conn} do
@@ -287,8 +288,8 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#app-context", "/ Wypożyczalnia rowerów cargo · Polska · Toruń")
-    assert has_element?(view, "#app-note", "Nowy pomysł")
+    assert has_element?(view, "#app-context", "/ Wypożyczalnia rowerów cargo · Poland · Toruń")
+    assert has_element?(view, "#app-note", "New idea")
     assert has_element?(view, "#app-nav #nav-runs[aria-current=page]")
     assert has_element?(view, "#app-main #run #run-steps")
     assert has_element?(view, "#app-main #run #run-detail")
@@ -301,14 +302,14 @@ defmodule DirmoonWeb.RunLiveTest do
     run = insert(:run, steps: build_run_steps(%{1 => :running}))
 
     assert {:error, {:live_redirect, %{to: "/app/runs", flash: flash}}} = live(conn, ~p"/app/runs/#{run}")
-    assert flash["error"] == "Nie znaleziono researchu"
+    assert flash["error"] == "Research not found"
   end
 
   test "a malformed run id is not found", %{conn: conn} do
     %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     assert {:error, {:live_redirect, %{to: "/app/runs", flash: flash}}} = live(conn, "/app/runs/nie-ma-takiego")
-    assert flash["error"] == "Nie znaleziono researchu"
+    assert flash["error"] == "Research not found"
   end
 
   test "a signed-out visitor is sent to sign in", %{conn: conn} do
@@ -324,7 +325,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, %Run{}} = Research.stop_run(scope, run.id)
 
-    assert has_element?(view, "#run-status-line", "Zatrzymałem research na kroku 2. Możesz go wznowić.")
+    assert has_element?(view, "#run-status-line", "I stopped the research at step 2. You can resume it.")
   end
 
   test "progress of a Step other than Step 5 changes nothing on the screen", %{conn: conn} do
@@ -334,7 +335,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     Research.broadcast_progress(run, progress(insert(:phrase), %{step: 3, checked: 2, total: 9}))
 
-    assert has_element?(view, "#run-status-line", "Sprawdzam wolumeny i CPC dla każdej frazy.")
+    assert has_element?(view, "#run-status-line", "I'm checking the volume and CPC of every phrase.")
     refute has_element?(view, "#run-progress")
   end
 
@@ -354,7 +355,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#run-detail", "Pracuję nad researchem")
+    assert has_element?(view, "#run-detail", "Working on the research")
   end
 
   test "a run whose Brief is written awaits a choice and offers the results", %{conn: conn} do
@@ -364,8 +365,8 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#step-8-status", "Gotowe")
-    assert has_element?(view, "#run-detail", "Nisze ocenione.")
+    assert has_element?(view, "#step-8-status", "Done")
+    assert has_element?(view, "#run-detail", "The niches are scored.")
     assert has_element?(view, "#run-detail #see-results[href='/app/runs/#{run.id}/results']")
   end
 
@@ -375,7 +376,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#run-detail", "Wznów, a dokończę research.")
+    assert has_element?(view, "#run-detail", "Resume and I'll finish the research.")
     assert has_element?(view, "#resume-run")
   end
 
@@ -387,7 +388,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     view |> element("#stop-run") |> render_click()
 
-    assert has_element?(view, "#flash-error", "Research już nie trwa.")
+    assert has_element?(view, "#flash-error", "The research is no longer running.")
     assert has_element?(view, "#resume-run")
   end
 
@@ -402,7 +403,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     view |> element("#resume-run") |> render_click()
 
-    assert has_element?(view, "#flash-error", "Tego researchu nie da się teraz wznowić.")
+    assert has_element?(view, "#flash-error", "This research can't be resumed now.")
     assert has_element?(view, "#stop-run")
     refute_enqueued(worker: ExpandPhrases)
   end
@@ -415,7 +416,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     view |> element("#stop-run") |> render_click()
 
-    assert {"/app/runs", %{"error" => "Nie znaleziono researchu"}} = assert_redirect(view)
+    assert {"/app/runs", %{"error" => "Research not found"}} = assert_redirect(view)
   end
 
   test "an update for a run deleted meanwhile goes back to the runs with a not-found error", %{conn: conn} do
@@ -426,7 +427,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     Research.broadcast_run_updated(run)
 
-    assert {"/app/runs", %{"error" => "Nie znaleziono researchu"}} = assert_redirect(view)
+    assert {"/app/runs", %{"error" => "Research not found"}} = assert_redirect(view)
   end
 
   defp running_step(number) do
@@ -443,7 +444,7 @@ defmodule DirmoonWeb.RunLiveTest do
         total: 30,
         phrase: phrase.phrase,
         keyword_id: phrase.id,
-        holders: "poradniki i blogi",
+        holders: "guides and blogs",
         verdict: :weak
       },
       overrides

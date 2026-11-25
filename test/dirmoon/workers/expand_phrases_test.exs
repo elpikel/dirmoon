@@ -24,7 +24,7 @@ defmodule Dirmoon.Workers.ExpandPhrasesTest do
 
     assert :ok = perform_job(ExpandPhrases, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "3 realne frazy", output: %{"phrases" => 3, "requests" => 1}} =
+    assert %RunStep{status: :done, result: "3 real phrases", output: %{"phrases" => 3, "requests" => 1}} =
              step(run, 2)
 
     run_phrases =
@@ -82,7 +82,7 @@ defmodule Dirmoon.Workers.ExpandPhrasesTest do
 
     assert :ok = perform_job(ExpandPhrases, %{run_id: run.id})
 
-    assert %RunStep{result: "2 realne frazy", output: %{"requests" => 2}} = step(run, 2)
+    assert %RunStep{result: "2 real phrases", output: %{"requests" => 2}} = step(run, 2)
   end
 
   test "a phrase another account's run already stored is linked to this run, not duplicated" do
@@ -201,7 +201,7 @@ defmodule Dirmoon.Workers.ExpandPhrasesTest do
 
     assert :ok = perform_job(ExpandPhrases, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "1 realna fraza"} = step(run, 2)
+    assert %RunStep{status: :done, result: "1 real phrase"} = step(run, 2)
     assert Repo.aggregate(Phrase, :count) == 1
     assert Repo.aggregate(Metrics, :count) == 1
     assert Repo.aggregate(RunPhrase, :count) == 1
@@ -244,7 +244,7 @@ defmodule Dirmoon.Workers.ExpandPhrasesTest do
 
     assert :ok = perform_job(ExpandPhrases, %{run_id: run.id}, attempt: 2)
 
-    assert %RunStep{status: :done, result: "2 realne frazy"} = step(run, 2)
+    assert %RunStep{status: :done, result: "2 real phrases"} = step(run, 2)
     assert Repo.aggregate(ApiRequest, :count) == 2
   end
 
@@ -254,7 +254,7 @@ defmodule Dirmoon.Workers.ExpandPhrasesTest do
 
     assert {:cancel, :data_for_seo_not_configured} = perform_job(ExpandPhrases, %{run_id: run.id})
 
-    assert %RunStep{status: :failed, error: "Brak danych logowania DataForSEO"} = step(run, 2)
+    assert %RunStep{status: :failed, error: "No DataForSEO credentials"} = step(run, 2)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
     assert all_enqueued() == []
   end
@@ -262,25 +262,25 @@ defmodule Dirmoon.Workers.ExpandPhrasesTest do
   test "a run without seeds from step 1 fails the step on the last attempt without calling the API" do
     run = insert(:run, steps: build_run_steps(%{1 => :done}, %{1 => %{"seeds" => [], "questions" => []}}))
 
-    assert {:cancel, "Brak fraz startowych z kroku 1"} = perform_job(ExpandPhrases, %{run_id: run.id}, attempt: 3)
+    assert {:cancel, "No seed phrases from step 1"} = perform_job(ExpandPhrases, %{run_id: run.id}, attempt: 3)
 
-    assert %RunStep{status: :failed, error: "Brak fraz startowych z kroku 1"} = step(run, 2)
+    assert %RunStep{status: :failed, error: "No seed phrases from step 1"} = step(run, 2)
   end
 
   test "no phrases for the seeds fail the step on the last attempt" do
     run = run_with_seeds(seed_list(2))
     expect(Dirmoon.DataForSEOMock, :phrase_ideas, 1, fn _request -> ideas([]) end)
 
-    assert {:cancel, "Brak fraz dla tych załążków"} = perform_job(ExpandPhrases, %{run_id: run.id}, attempt: 3)
+    assert {:cancel, "No phrases for these seeds"} = perform_job(ExpandPhrases, %{run_id: run.id}, attempt: 3)
 
-    assert %RunStep{status: :failed, error: "Brak fraz dla tych załążków"} = step(run, 2)
+    assert %RunStep{status: :failed, error: "No phrases for these seeds"} = step(run, 2)
   end
 
   defp run_with_seeds(seeds) do
     insert(:run, steps: build_run_steps(%{1 => :done}, %{1 => %{"seeds" => seeds, "questions" => []}}))
   end
 
-  defp seed_list(count), do: Enum.map(1..count, &"fraza startowa #{&1}")
+  defp seed_list(count), do: Enum.map(1..count, &"seed phrase #{&1}")
 
   defp row(phrase, search_volume) do
     %{phrase: phrase, search_volume: search_volume, cpc: Decimal.new("0.40"), currency: "USD", trend: []}

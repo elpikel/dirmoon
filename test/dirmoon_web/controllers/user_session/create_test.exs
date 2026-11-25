@@ -14,7 +14,7 @@ defmodule DirmoonWeb.Controllers.UserSession.CreateTest do
 
     assert get_session(conn, :user_token)
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Witaj ponownie!"
+    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Welcome back!"
 
     document = conn |> get(~p"/app/research/new") |> html_response(200) |> LazyHTML.from_document()
     assert document |> LazyHTML.query("#user-email") |> LazyHTML.text() == user.email
@@ -50,14 +50,14 @@ defmodule DirmoonWeb.Controllers.UserSession.CreateTest do
 
     assert get_session(conn, :user_token)
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Konto potwierdzone. Witaj w dirmoon!"
+    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Account confirmed. Welcome to dirmoon!"
     assert Repo.get!(User, user.id).confirmed_at
   end
 
   test "an invalid magic link redirects to sign-in with an error", %{conn: conn} do
     conn = post(conn, ~p"/users/log-in", %{"user" => %{"token" => "invalid"}})
 
-    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Link logowania jest nieprawidłowy albo wygasł."
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) == "The sign-in link is invalid or has expired."
     assert redirected_to(conn) == ~p"/users/log-in"
     refute get_session(conn, :user_token)
   end

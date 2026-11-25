@@ -1,8 +1,8 @@
 defmodule DirmoonWeb.RunExportController do
   @moduledoc """
-  "Eksport CSV" on the results screen: every Phrase of a run, kept and
+  "Export CSV" on the results screen: every Phrase of a run, kept and
   rejected, as one UTF-8 CSV file (with a byte order mark, so spreadsheets
-  read Polish letters). Cells are quoted when needed, and a cell a
+  read letters such as Polish ones). Cells are quoted when needed, and a cell a
   spreadsheet would run as a formula gets a leading apostrophe.
   """
   use DirmoonWeb, :controller
@@ -13,7 +13,7 @@ defmodule DirmoonWeb.RunExportController do
   alias DirmoonWeb.RunDisplay
 
   @byte_order_mark <<0xEF, 0xBB, 0xBF>>
-  @header ~w(fraza nisza wolumen_kraj wolumen_miasto cpc waluta top10 werdykt pozycja szybka_wygrana odrzucona powod)
+  @header ~w(phrase niche country_volume city_volume cpc currency top10 verdict position quick_win rejected reason)
   @formula_triggers ["=", "+", "-", "@", "\t", "\r"]
 
   def show(conn, %{"id" => run_id}) do
@@ -54,8 +54,8 @@ defmodule DirmoonWeb.RunExportController do
     ]
   end
 
-  defp yes_no(true), do: "tak"
-  defp yes_no(false), do: "nie"
+  defp yes_no(true), do: "yes"
+  defp yes_no(false), do: "no"
 
   defp to_csv(rows) do
     lines = Enum.map_join(rows, &line/1)

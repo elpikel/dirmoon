@@ -1,7 +1,7 @@
 defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
   use DirmoonWeb.ConnCase, async: true
 
-  @header "fraza,nisza,wolumen_kraj,wolumen_miasto,cpc,waluta,top10,werdykt,pozycja,szybka_wygrana,odrzucona,powod"
+  @header "phrase,niche,country_volume,city_volume,cpc,currency,top10,verdict,position,quick_win,rejected,reason"
 
   test "the run's Phrases download as a UTF-8 CSV named after the run", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
@@ -37,7 +37,7 @@ defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
     lines = export_lines(conn, run)
 
     assert Enum.at(lines, 1) ==
-             "#{phrase.phrase},Nisza testowa eksportu,1234,17,0.73,USD,poradniki i blogi,Słaba,12.5,tak,nie,"
+             "#{phrase.phrase},Nisza testowa eksportu,1234,17,0.73,USD,guides and blogs,Weak,12.5,yes,no,"
   end
 
   test "Rejected Phrases come with their reason", %{conn: conn} do
@@ -46,7 +46,7 @@ defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
     phrase = insert(:phrase, phrase: unique_phrase_text("kurs żeglarski"))
     insert(:run_phrase, run: run, phrase: phrase, status: :rejected, rejection_reason: "poza ofertą testową")
 
-    assert export_lines(conn, run) == [@header, "#{phrase.phrase},,,,,,,,,nie,tak,poza ofertą testową"]
+    assert export_lines(conn, run) == [@header, "#{phrase.phrase},,,,,,,,,no,yes,poza ofertą testową"]
   end
 
   test "a Phrase ranked outside positions 8 to 20 is not a Quick Win in the CSV", %{conn: conn} do
@@ -55,7 +55,7 @@ defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
     phrase = insert(:phrase, phrase: unique_phrase_text("czarter jachtu"))
     insert(:run_phrase, run: run, phrase: phrase, current_position: Decimal.new("3.0"))
 
-    assert export_lines(conn, run) == [@header, "#{phrase.phrase},,,,,,,,3.0,nie,nie,"]
+    assert export_lines(conn, run) == [@header, "#{phrase.phrase},,,,,,,,3.0,no,no,"]
   end
 
   test "a cell with a comma, a quote or a line break is quoted", %{conn: conn} do
@@ -79,8 +79,8 @@ defmodule DirmoonWeb.Controllers.RunExport.ShowTest do
     body = conn |> get(~p"/app/runs/#{run}/export.csv") |> response(200)
 
     assert body =~ ~s|"'=HYPERLINK(""http://zly.example"")|
-    assert body =~ ",tak,'@SUM(A1:A2)\r\n"
-    assert body =~ ",tak,'+48 test\r\n"
+    assert body =~ ",yes,'@SUM(A1:A2)\r\n"
+    assert body =~ ",yes,'+48 test\r\n"
   end
 
   test "another Account's run is not found", %{conn: conn} do

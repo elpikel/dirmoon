@@ -26,9 +26,4 @@ defmodule DirmoonWeb.PageDisplayTest do
     assert PageDisplay.title(untitled) == untitled.brief.h1
     assert PageDisplay.title(writing) == niche.name
   end
-
-  test "a page's address is its slug after the domain Placeholder" do
-    assert PageDisplay.address("strona-testowa") == "[TWOJA-DOMENA]/strona-testowa"
-    assert PageDisplay.address(nil) == "[TWOJA-DOMENA]/"
-  end
 end

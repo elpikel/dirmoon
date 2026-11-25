@@ -32,14 +32,14 @@ defmodule Dirmoon.Competition.Check do
   alias Dirmoon.Research.Steps
 
   @step_number Steps.number!(:competition)
-  @no_phrases_result "Brak fraz do sprawdzenia"
-  @unlabelled_results_error "Model nie oznaczył wszystkich wyników"
+  @no_phrases_result "No phrases to check"
+  @unlabelled_results_error "The model did not label every result"
   @page_type_names Enum.map(SerpAssessment.page_types(), &Atom.to_string/1)
 
   @system """
-  Jesteś specjalistą SEO. Dostajesz pierwszą stronę wyników Google dla jednej frazy. \
-  Każdemu wynikowi przypisujesz dokładnie jeden typ strony z perspektywy opisanej firmy. \
-  Odpowiadasz wyłącznie w formacie JSON zgodnym ze schematem.\
+  You are an SEO specialist. You get Google's first page of results for one phrase. \
+  You give each result exactly one page type, from the point of view of the business described. \
+  You answer only in JSON that matches the schema.\
   """
 
   @schema %{
@@ -63,11 +63,11 @@ defmodule Dirmoon.Competition.Check do
   @doc """
   Checks the competition for the run's best Phrases.
 
-  Returns `{:ok, %{result: "30 z 30 fraz sprawdzonych", output: output}}` with
+  Returns `{:ok, %{result: "30 of 30 phrases checked", output: output}}` with
   `output` `%{"checked", "total", "reused_snapshots", "weak", "medium", "strong"}`,
-  `{:skip, "Brak fraz do sprawdzenia"}` when no kept Phrase is in a Niche,
+  `{:skip, "No phrases to check"}` when no kept Phrase is in a Niche,
   `:stopped` when the run stopped meanwhile,
-  `{:error, "Model nie oznaczył wszystkich wyników"}`, or the keyword API's
+  `{:error, "The model did not label every result"}`, or the keyword API's
   or LLM's `{:error, reason}`. Phrases assessed before an error stay
   assessed.
   """
@@ -235,24 +235,25 @@ defmodule Dirmoon.Competition.Check do
   defp prompt(run, %{phrase: phrase, results: results}) do
     Enum.join(
       [
-        "Opis firmy:\n#{run.description}",
+        "Business description:\n#{run.description}",
         mode_line(run),
-        "Fraza: #{phrase}",
-        "Każdemu wynikowi przypisz jeden typ strony: " <>
-          "direct_competitor (firma oferująca to samo co opisana firma), directory (katalog firm lub porównywarka), " <>
-          "forum (forum lub serwis pytań i odpowiedzi), portal (duży portal, serwis ogłoszeniowy lub informacyjny), " <>
-          "blog (artykuł lub poradnik). Oznacz wszystkie wyniki, wskazując je przez pozycję.",
-        "Wyniki (pozycja. domena: tytuł (adres)):\n" <> Enum.map_join(results, "\n", &serp_result_line/1)
+        "Phrase (in #{Run.language_name(run)}): #{phrase}",
+        "Give each result one page type: " <>
+          "direct_competitor (a business offering the same as the business described), " <>
+          "directory (a business directory or comparison site), " <>
+          "forum (a forum or question-and-answer site), portal (a big portal, classifieds or news site), " <>
+          "blog (an article or guide). Label every result, pointing to it by its position.",
+        "Results (position. domain: title (address)):\n" <> Enum.map_join(results, "\n", &serp_result_line/1)
       ],
       "\n\n"
     )
   end
 
-  defp mode_line(%Run{mode: :existing_site, domain: domain}), do: "Tryb: istniejąca strona, domena: #{domain}."
-  defp mode_line(%Run{mode: :new_idea}), do: "Tryb: nowy pomysł, firma nie ma jeszcze strony."
+  defp mode_line(%Run{mode: :existing_site, domain: domain}), do: "Mode: existing site, domain: #{domain}."
+  defp mode_line(%Run{mode: :new_idea}), do: "Mode: new idea, the business has no site yet."
 
   defp serp_result_line(%{position: position, url: url, domain: domain, title: title}) do
-    "#{position}. #{domain}: #{title || "bez tytułu"} (#{url})"
+    "#{position}. #{domain}: #{title || "no title"} (#{url})"
   end
 
   defp broadcast_progress(run, %{phrase: phrase, assessment: assessment, checked: checked, total: total}) do

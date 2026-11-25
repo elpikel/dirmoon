@@ -10,7 +10,7 @@ defmodule DirmoonWeb.UserLive.LoginLocalMailTest do
 
     {:ok, view, _html} = live(conn, ~p"/users/log-in")
 
-    assert has_element?(view, "#local-mail-adapter-notice a[href='/dev/mailbox']", "skrzynce deweloperskiej")
+    assert has_element?(view, "#local-mail-adapter-notice a[href='/dev/mailbox']", "dev mailbox")
   end
 
   test "with any other mail adapter the sign-in page shows no dev mailbox notice", %{conn: conn} do

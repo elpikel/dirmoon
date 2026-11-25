@@ -3,7 +3,12 @@ defmodule Dirmoon.LLM.Demo do
   Demo Data for the LLM: deterministic, visibly synthetic answers built from
   the request's `input`, at no cost. Used in dev while no provider is chosen.
   Free text starts with the Demo Data marker, `Dirmoon.demo_marker/0`; it never refers to an id it wasn't given and
-  never writes a phone number, price, e-mail or address.
+  never writes a phone number, price, e-mail or address: it finds no
+  Competitor Offers on any page.
+
+  What the owner reads (Niche names, intents, Readings, rejection reasons)
+  is English; Seeds, questions and Brief text are Polish, the market of the
+  only location a run can target.
   """
 
   @behaviour Dirmoon.LLM
@@ -16,7 +21,7 @@ defmodule Dirmoon.LLM.Demo do
   @section_count 4
   @minimum_seed_word_length 4
   @page_types ~w(direct_competitor directory forum portal blog)
-  @intents ["#{@marker} transakcyjna", "#{@marker} informacyjna", "#{@marker} lokalna", "#{@marker} porównawcza"]
+  @intents ["#{@marker} transactional", "#{@marker} informational", "#{@marker} local", "#{@marker} comparison"]
   @fallback_word "usługa"
 
   @impl Dirmoon.LLM
@@ -24,6 +29,7 @@ defmodule Dirmoon.LLM.Demo do
   def structured(%{task: :filter_and_group, input: input}), do: answer(filter_and_group(input))
   def structured(%{task: :label_serp, input: input}), do: answer(label_serp(input))
   def structured(%{task: :brief, input: input}), do: answer(brief(input))
+  def structured(%{task: :competitor_prices}), do: answer(%{"offers" => []})
   def structured(%{task: task}), do: {:error, {:unknown_llm_task, task}}
 
   defp answer(output), do: {:ok, output, Decimal.new(0)}
@@ -89,7 +95,9 @@ defmodule Dirmoon.LLM.Demo do
     %{
       "niches" => kept |> Enum.map(&elem(&1, 0)) |> niches(),
       "rejected" =>
-        Enum.map(rejected, fn {phrase, _position} -> %{"phrase_id" => phrase.id, "reason" => "#{@marker} poza ofertą"} end)
+        Enum.map(rejected, fn {phrase, _position} ->
+          %{"phrase_id" => phrase.id, "reason" => "#{@marker} outside the offer"}
+        end)
     }
   end
 
@@ -104,9 +112,9 @@ defmodule Dirmoon.LLM.Demo do
     |> Enum.sort_by(fn {niche_index, _phrases} -> niche_index end)
     |> Enum.map(fn {niche_index, [first_phrase | _rest] = niche_phrases} ->
       %{
-        "name" => "#{@marker} Nisza: #{first_phrase.phrase}",
+        "name" => "#{@marker} Niche: #{first_phrase.phrase}",
         "intent" => Enum.at(@intents, niche_index),
-        "reading" => "#{@marker} Ludzie szukają: #{first_phrase.phrase}",
+        "reading" => "#{@marker} People search for: #{first_phrase.phrase}",
         "phrase_ids" => Enum.map(niche_phrases, & &1.id)
       }
     end)
@@ -137,15 +145,8 @@ defmodule Dirmoon.LLM.Demo do
       "title" => "#{@marker} #{topic}#{place}",
       "h1" => "#{@marker} #{topic}",
       "slug" => slug(topic),
-      "breadcrumb" => "Strona główna / #{niche_name}",
       "intro" => "#{@marker} Wstęp o tym, czego szukają klienci: #{topic}.",
-      "cta_label" => "#{@marker} Zapytaj o termin",
-      "business_name" => "[NAZWA FIRMY]",
-      "fact_tiles" => [
-        %{"label" => "Cena", "value" => "[CENA]"},
-        %{"label" => "Telefon", "value" => "[TELEFON]"},
-        %{"label" => "Obszar działania", "value" => "[OBSZAR]"}
-      ],
+      "business_name" => "[BUSINESS NAME]",
       "sections" => sections,
       "short_answer" => "#{@marker} Krótka odpowiedź: #{hd(sections)["question"]}",
       "phrases" => Enum.take(phrases, @brief_phrase_count),

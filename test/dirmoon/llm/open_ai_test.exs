@@ -81,7 +81,7 @@ defmodule Dirmoon.LLM.OpenAITest do
     put_config(model: "gpt-unknown")
     stub_json(completed_body(%{text: "{}", usage: %{}}))
 
-    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: brak cennika dla modelu gpt-unknown"}
+    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: no prices for model gpt-unknown"}
     refute_received {:request, _request}
   end
 
@@ -91,19 +91,19 @@ defmodule Dirmoon.LLM.OpenAITest do
       "output" => [%{"type" => "message", "content" => [%{"type" => "refusal", "refusal" => "I can't help."}]}]
     })
 
-    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: model odmówił odpowiedzi"}
+    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: the model refused to answer"}
   end
 
   test "an answer cut short is an error that names the reason" do
     stub_json(%{"status" => "incomplete", "incomplete_details" => %{"reason" => "max_output_tokens"}, "output" => []})
 
-    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: odpowiedź przerwana (max_output_tokens)"}
+    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: answer cut short (max_output_tokens)"}
   end
 
   test "an answer cut short without a reason is still an error" do
     stub_json(%{"status" => "incomplete", "output" => []})
 
-    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: odpowiedź przerwana (nieznany powód)"}
+    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: answer cut short (unknown reason)"}
   end
 
   test "a failed response returns its error message" do
@@ -115,21 +115,21 @@ defmodule Dirmoon.LLM.OpenAITest do
   test "a completed response with no message is an error" do
     stub_json(%{"status" => "completed", "output" => [%{"type" => "reasoning", "summary" => []}]})
 
-    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: odpowiedź bez treści"}
+    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: answer has no content"}
   end
 
   test "a response in an unknown shape is an error" do
     stub_json(%{"status" => "queued"})
 
-    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: odpowiedź bez treści"}
+    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: answer has no content"}
   end
 
   test "text that is not a JSON object is an error" do
     stub_json(completed_body(%{text: "[1, 2]", usage: %{}}))
-    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: odpowiedź nie jest obiektem JSON"}
+    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: the answer is not a JSON object"}
 
     stub_json(completed_body(%{text: "not json", usage: %{}}))
-    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: odpowiedź nie jest obiektem JSON"}
+    assert OpenAI.structured(seeds_request()) == {:error, "OpenAI: the answer is not a JSON object"}
   end
 
   test "an HTTP error returns OpenAI's message" do

@@ -6,7 +6,7 @@ The kit's commands, agents and skills are generic Elixir/Phoenix. Everything spe
 
 | Setting | Value |
 |---|---|
-| Name | dirmoon: turns a business description into scored search niches, then writes a brief and a landing page for the chosen niche |
+| Name | dirmoon: turns a business description into scored search niches, then writes a brief (the plan and text of one page) for the chosen niche |
 | Stage | ongoing |
 | OTP app | `:dirmoon` |
 | Context root | `lib/dirmoon/` (`Dirmoon.*`) |
@@ -43,7 +43,7 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 | Test data | ExMachina factory `Dirmoon.Factory` in `test/support/factory.ex`, `insert(:factory)` |
 | External API mocks | Mox: mocks defined in `test/test_helper.exs` (added with each client) |
 | API spec | none |
-| Web UI | LiveView app under `/app` (`Layouts.app/1`, `DirmoonWeb.UI` components); controller-rendered landing page at `/`; controllers for downloads, CSV export and the Search Console OAuth |
+| Web UI | LiveView app under `/app` (`Layouts.app/1`, `DirmoonWeb.UI` components); controller-rendered landing page at `/`; controllers for the CSV export and the Search Console OAuth |
 
 ## Tests
 
@@ -75,7 +75,7 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 - Shared market data (`keywords`, `keyword_metrics`, `serp_snapshots`) never holds anything that identifies an Account or its business: no description, domain, run id or Search Console figure (ADR-0002). Per-run choices (kept/rejected, Niche, Page Type labels, current positions) live in per-run tables.
 - API keys, the Netlify token and Google OAuth tokens come from runtime config or encrypted columns, and never reach a template, a log line, a CSV or a stored raw response. Google refresh tokens are stored encrypted.
 - The Search Console OAuth callback accepts only a `state` issued to the same session.
-- A Page contains no invented price, phone, address or e-mail; a missing value is a visible Placeholder.
+- A Brief contains no invented price, phone, address or e-mail; a missing value is a visible Placeholder.
 - Final Phrases come from the keyword API, never from the LLM.
 - A paid request a run already stored is never sent again for that run; fresh (< 30 days) Volumes and SERP Snapshots are reused across runs.
 

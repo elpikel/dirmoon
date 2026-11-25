@@ -25,9 +25,9 @@ defmodule DirmoonWeb.PagesLiveTest do
 
     assert has_element?(view, "#pages-#{page.id}-title", brief.title)
     assert has_element?(view, "#pages-#{page.id}-niche", page.niche.name)
-    assert has_element?(view, "#pages-#{page.id}-mode", "Istniejąca strona")
-    assert has_element?(view, "#pages-#{page.id}-status.rounded-pill", "Gotowa")
-    assert has_element?(view, "#pages-#{page.id}-date", "03.11.2026")
+    assert has_element?(view, "#pages-#{page.id}-mode", "Existing site")
+    assert has_element?(view, "#pages-#{page.id}-status.rounded-pill", "Ready")
+    assert has_element?(view, "#pages-#{page.id}-date", "3 Nov 2026")
   end
 
   test "a page whose Brief is being written is listed under its Niche's name", %{conn: conn} do
@@ -37,7 +37,7 @@ defmodule DirmoonWeb.PagesLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/pages")
 
     assert has_element?(view, "#pages-#{page.id}-title", page.niche.name)
-    assert has_element?(view, "#pages-#{page.id}-status", "Piszę")
+    assert has_element?(view, "#pages-#{page.id}-status", "Writing")
   end
 
   test "a page whose Brief failed shows the error status", %{conn: conn} do
@@ -46,7 +46,7 @@ defmodule DirmoonWeb.PagesLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/pages")
 
-    assert has_element?(view, "#pages-#{page.id}-status.text-warn", "Błąd")
+    assert has_element?(view, "#pages-#{page.id}-status.text-warn", "Failed")
   end
 
   test "each page links to its page screen", %{conn: conn} do
@@ -67,30 +67,35 @@ defmodule DirmoonWeb.PagesLiveTest do
 
     assert has_element?(view, "#pages-#{own.id}")
     refute has_element?(view, "#pages-#{foreign.id}")
-    assert has_element?(view, "#pages-status-line", "Mam 1 stronę dla Twoich nisz.")
+    assert has_element?(view, "#pages-status-line", "I have 1 brief for your niches.")
   end
 
-  test "with no pages it invites the User to pick a Niche in the results", %{conn: conn} do
+  test "with no briefs it invites the User to pick a Niche in the results", %{conn: conn} do
     %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     {:ok, view, _html} = live(conn, ~p"/app/pages")
 
-    assert has_element?(view, "#pages-empty")
+    assert has_element?(view, "#pages-empty", "Your briefs will show up here.")
+    assert has_element?(view, "#pages-empty", "I'll write a brief for it.")
+    refute has_element?(view, "#pages-empty", "a page for it")
     assert has_element?(view, "#pages-empty a#go-to-results[href='/app/runs']")
 
     assert has_element?(
              view,
              "#pages-status-line",
-             "Nie mam jeszcze żadnej strony. Wybierz niszę w wynikach, a napiszę dla niej brief."
+             "No briefs yet. Choose a niche in the results and I'll write a brief for it."
            )
   end
 
-  test "the \"Strony\" nav link leads here and is marked current", %{conn: conn} do
+  test "the \"Briefs\" nav link leads here and is marked current, and the screen is called Briefs", %{conn: conn} do
     %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     {:ok, view, _html} = live(conn, ~p"/app/pages")
 
-    assert has_element?(view, "a[href='/app/pages'][aria-current=page]", "Strony")
+    assert has_element?(view, "a[href='/app/pages'][aria-current=page]", "Briefs")
+    assert has_element?(view, "#pages-screen h1", "Briefs")
+    assert has_element?(view, "#app-context", "/ briefs")
+    assert page_title(view) =~ "Briefs"
   end
 
   test "a signed-out visitor is sent to sign in", %{conn: conn} do

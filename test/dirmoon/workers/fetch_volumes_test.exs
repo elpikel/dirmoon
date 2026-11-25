@@ -33,7 +33,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert Decimal.equal?(cpc, Decimal.new("1.75"))
     assert %Run{city_location_code: @city_location_code} = Repo.get!(Run, run.id)
-    assert %RunStep{status: :done, result: "Polska i Gdańsk, trend 12 miesięcy"} = step(run, 3)
+    assert %RunStep{status: :done, result: "Poland and Gdańsk, 12-month trend"} = step(run, 3)
   end
 
   test "decimals in the city volume rows and raw answer are stored as decimal strings in every jsonb column" do
@@ -122,7 +122,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "Brak danych dla miasta, używam wolumenu krajowego"} = step(run, 3)
+    assert %RunStep{status: :done, result: "No data for the city, using the country volume"} = step(run, 3)
     assert %Run{city_location_code: nil} = Repo.get!(Run, run.id)
   end
 
@@ -150,7 +150,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "Brak danych dla miasta, używam wolumenu krajowego"} = step(run, 3)
+    assert %RunStep{status: :done, result: "No data for the city, using the country volume"} = step(run, 3)
   end
 
   test "a run without a city whose country volumes are all stored finishes without an API call" do
@@ -162,7 +162,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert %RunStep{
              status: :done,
-             result: "Polska, trend 12 miesięcy",
+             result: "Poland, 12-month trend",
              output: %{"country" => %{"requested" => 0, "reused" => 2}, "city" => nil}
            } = step(run, 3)
 
@@ -289,7 +289,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "Polska i Gdańsk, trend 12 miesięcy"} = step(run, 3)
+    assert %RunStep{status: :done, result: "Poland and Gdańsk, 12-month trend"} = step(run, 3)
     assert Repo.aggregate(ApiRequest, :count) == 3
   end
 

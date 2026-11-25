@@ -10,7 +10,7 @@ defmodule DirmoonWeb.RunLive do
   use DirmoonWeb, :live_view
 
   alias Dirmoon.Competition
-  alias Dirmoon.Polish
+  alias Dirmoon.Format
   alias Dirmoon.Research
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
@@ -20,17 +20,17 @@ defmodule DirmoonWeb.RunLive do
 
   @competition_step Steps.number!(:competition)
   @checked_phrases_limit 8
-  @not_found_message "Nie znaleziono researchu"
+  @not_found_message "Research not found"
 
   @step_hints %{
-    seeds: "Frazy startowe i pytania klientów",
-    expansion: "Frazy, które ludzie naprawdę wpisują",
-    volumes: "Wyszukiwania w kraju i w mieście, CPC, trend 12 miesięcy",
-    filter_and_group: "Odsiew fraz spoza oferty, grupowanie w nisze",
-    competition: "Kto trzyma top 10 dla najlepszych fraz",
-    current_positions: "Pozycje strony z Search Console",
-    scoring: "Wolumen, CPC, słabość konkurencji",
-    brief_and_content: "Po wyborze niszy"
+    seeds: "Seed phrases and customer questions",
+    expansion: "The phrases people really type",
+    volumes: "Searches in the country and the city, CPC, 12-month trend",
+    filter_and_group: "Dropping phrases outside the business, grouping into niches",
+    competition: "Who holds the top 10 for the best phrases",
+    current_positions: "The site's positions from Search Console",
+    scoring: "Volume, CPC, weakness of the competition",
+    brief: "After you choose a niche"
   }
 
   @impl true
@@ -111,7 +111,7 @@ defmodule DirmoonWeb.RunLive do
               size="large"
               navigate={@results_path}
             >
-              Pokaż dotychczasowe frazy
+              Show phrases so far
             </.button>
             <.button
               :if={@run.status == :running}
@@ -119,9 +119,9 @@ defmodule DirmoonWeb.RunLive do
               variant="outline"
               size="large"
               phx-click="stop"
-              phx-disable-with="Zatrzymuję…"
+              phx-disable-with="Stopping…"
             >
-              Zatrzymaj
+              Stop
             </.button>
             <.button
               :if={@run.status in [:stopped, :failed]}
@@ -129,12 +129,12 @@ defmodule DirmoonWeb.RunLive do
               variant="lime"
               size="large"
               phx-click="resume"
-              phx-disable-with="Wznawiam…"
+              phx-disable-with="Resuming…"
             >
-              Wznów
+              Resume
             </.button>
             <span id="run-cost" class="ml-auto font-mono text-xs text-on-app-muted">
-              Koszt API: {Polish.usd(@cost)}
+              API cost: {Format.usd(@cost)}
             </span>
           </div>
         </div>
@@ -186,13 +186,13 @@ defmodule DirmoonWeb.RunLive do
   def handle_event("stop", _params, socket) do
     socket.assigns.current_scope
     |> Research.stop_run(socket.assigns.run.id)
-    |> after_run_action(socket, "Research już nie trwa.")
+    |> after_run_action(socket, "The research is no longer running.")
   end
 
   def handle_event("resume", _params, socket) do
     socket.assigns.current_scope
     |> Research.resume_run(socket.assigns.run.id)
-    |> after_run_action(socket, "Tego researchu nie da się teraz wznowić.")
+    |> after_run_action(socket, "This research can't be resumed now.")
   end
 
   attr :id, :string, required: true
@@ -243,7 +243,7 @@ defmodule DirmoonWeb.RunLive do
     ~H"""
     <div class="flex flex-col gap-2">
       <span class="font-mono text-[11px] text-on-app-muted">
-        krok {@step.label_number} · {String.downcase(@step.name)}
+        step {@step.label_number} · {String.downcase(@step.name)}
       </span>
       <%= if @progress do %>
         <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">
@@ -252,7 +252,7 @@ defmodule DirmoonWeb.RunLive do
         <div
           id="run-progress"
           role="progressbar"
-          aria-label="Sprawdzone frazy"
+          aria-label="Phrases checked"
           aria-valuemin="0"
           aria-valuemax={@progress.total}
           aria-valuenow={@progress.checked}
@@ -262,13 +262,13 @@ defmodule DirmoonWeb.RunLive do
         </div>
       <% else %>
         <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">
-          Sprawdzam pierwsze frazy w Google
+          Checking the first phrases on Google
         </span>
       <% end %>
     </div>
     <div class="flex flex-col gap-2">
       <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-on-app-muted">
-        Ostatnio sprawdzone
+        Recently checked
       </span>
       <ul
         id="checked-phrases"
@@ -279,7 +279,7 @@ defmodule DirmoonWeb.RunLive do
           id="checked-phrases-empty"
           class="hidden px-[18px] py-3.5 text-sm text-on-app-muted only:block"
         >
-          Czekam na pierwsze wyniki z Google.
+          Waiting for the first results from Google.
         </li>
         <li
           :for={{dom_id, entry} <- @checked_phrases}
@@ -300,7 +300,7 @@ defmodule DirmoonWeb.RunLive do
   defp step_detail(%{step: nil} = assigns) do
     ~H"""
     <div class="flex flex-col gap-2">
-      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Pracuję nad researchem</span>
+      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Working on the research</span>
     </div>
     """
   end
@@ -309,7 +309,7 @@ defmodule DirmoonWeb.RunLive do
     ~H"""
     <div class="flex flex-col gap-2">
       <span class="font-mono text-[11px] text-on-app-muted">
-        krok {@step.label_number} · {String.downcase(@step.name)}
+        step {@step.label_number} · {String.downcase(@step.name)}
       </span>
       <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">{@step.name}</span>
       <p class="m-0 text-[15px] leading-normal text-on-app-2">{@step.summary}</p>
@@ -324,12 +324,12 @@ defmodule DirmoonWeb.RunLive do
   defp state_detail(%{run: %Run{status: :awaiting_choice}} = assigns) do
     ~H"""
     <div class="flex flex-col items-start gap-3">
-      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Nisze ocenione.</span>
+      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">The niches are scored.</span>
       <p class="m-0 text-[15px] leading-normal text-on-app-2">
-        Wybierz niszę, a napiszę dla niej brief i stronę.
+        Choose a niche and I'll write a brief for it.
       </p>
       <.button id="see-results" variant="lime" size="large" navigate={@results_path}>
-        Zobacz wyniki <.icon name="hero-arrow-right" class="size-[18px]" />
+        See results <.icon name="hero-arrow-right" class="size-[18px]" />
       </.button>
     </div>
     """
@@ -339,11 +339,11 @@ defmodule DirmoonWeb.RunLive do
     ~H"""
     <div class="flex flex-col gap-3">
       <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">
-        Krok {@step.number} się nie udał.
+        Step {@step.number} failed.
       </span>
       <p id="run-failure-reason" class="m-0 text-[15px] leading-normal text-warn">{@step.error}</p>
       <p class="m-0 text-[15px] leading-normal text-on-app-2">
-        Wznów, a zacznę od tego kroku. Gotowych kroków nie powtórzę.
+        Resume and I'll start from this step. I won't repeat the steps that are done.
       </p>
     </div>
     """
@@ -352,9 +352,9 @@ defmodule DirmoonWeb.RunLive do
   defp state_detail(%{step: %{number: _number}} = assigns) do
     ~H"""
     <div class="flex flex-col gap-3">
-      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Research zatrzymany.</span>
+      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Research stopped.</span>
       <p class="m-0 text-[15px] leading-normal text-on-app-2">
-        Wznów, a zacznę od kroku {@step.number}. Gotowych kroków nie powtórzę.
+        Resume and I'll start from step {@step.number}. I won't repeat the steps that are done.
       </p>
     </div>
     """
@@ -363,9 +363,9 @@ defmodule DirmoonWeb.RunLive do
   defp state_detail(assigns) do
     ~H"""
     <div class="flex flex-col gap-3">
-      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Research zatrzymany.</span>
+      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Research stopped.</span>
       <p class="m-0 text-[15px] leading-normal text-on-app-2">
-        Wznów, a dokończę research. Gotowych kroków nie powtórzę.
+        Resume and I'll finish the research. I won't repeat the steps that are done.
       </p>
     </div>
     """

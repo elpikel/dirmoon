@@ -52,13 +52,13 @@ defmodule Dirmoon.AccountsTest do
     assert :ok = Accounts.sign_up(%{"email" => String.upcase(user.email)}, &"/users/log-in/#{&1}")
 
     assert Repo.aggregate(User, :count) == 1
-    assert_email_sent(subject: "Twój link logowania do dirmoon")
+    assert_email_sent(subject: "Your dirmoon sign-in link")
   end
 
   test "sign-up with an invalid email returns an email error, creates nothing and sends nothing" do
     assert {:error, changeset} = Accounts.sign_up(%{"email" => "not an email"}, & &1)
 
-    assert %{email: ["musi zawierać @ i nie może mieć spacji"]} = errors_on(changeset)
+    assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
     assert Repo.aggregate(User, :count) == 0
     assert Repo.aggregate(Account, :count) == 0
     assert_no_email_sent()
@@ -83,7 +83,7 @@ defmodule Dirmoon.AccountsTest do
   test "create_user_with_account rejects an email without @ or with spaces" do
     {:error, changeset} = Accounts.create_user_with_account(%{email: "not valid"})
 
-    assert %{email: ["musi zawierać @ i nie może mieć spacji"]} = errors_on(changeset)
+    assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
   end
 
   test "create_user_with_account rejects an email longer than 160 characters" do
@@ -333,13 +333,13 @@ defmodule Dirmoon.AccountsTest do
     assert user_token.context == "login"
   end
 
-  test "sign-in emails come from dirmoon in Polish" do
+  test "sign-in emails come from dirmoon in English" do
     user = insert(:user, confirmed_at: nil)
 
     {:ok, email} = Accounts.deliver_login_instructions(user, &"/users/log-in/#{&1}")
 
     assert email.from == {"dirmoon", "contact@example.com"}
-    assert email.subject == "Potwierdź konto w dirmoon"
-    assert email.text_body =~ "aby potwierdzić konto i zalogować się do dirmoon"
+    assert email.subject == "Confirm your dirmoon account"
+    assert email.text_body =~ "to confirm your account and sign in to dirmoon"
   end
 end

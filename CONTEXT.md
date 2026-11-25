@@ -1,6 +1,6 @@
 # dirmoon
 
-dirmoon turns a plain-language business description into a ranked list of search niches worth going after, and writes a Brief and a Page for the one the owner picks. It exists to answer "does anyone search for this?" before anything is built.
+dirmoon turns a plain-language business description into a ranked list of search niches worth going after, and writes a Brief for the one the owner picks: the plan and the text of one page, which the owner hands to whoever builds their site. dirmoon does not build, host or publish the page. It exists to answer "does anyone search for this?" before anything is built.
 
 ## Language
 
@@ -33,11 +33,11 @@ _Avoid_: Job, search, analysis, project
 Which kind of business a Research Run is for: **New Idea** (nothing exists yet) or **Existing Site** (a site with a domain and Search Console data).
 
 **Step**:
-One of the eight parts of a Research Run (Seeds, Expansion, Volumes, Filter and Group, Competition, Current Positions, Scoring, Brief and Content), each with its own status and stored output. Steps 1–7 follow each other on their own; Step 8 starts only when the owner chooses a Niche.
+One of the eight parts of a Research Run (Seeds, Expansion, Volumes, Filter and Group, Competition, Current Positions, Scoring, Brief), each with its own status and stored output. Steps 1–7 follow each other on their own; Step 8 starts only when the owner chooses a Niche.
 _Avoid_: Stage, phase, task
 
 **Step Group**:
-One of the four groups the eight Steps are shown in: Frazy (Steps 1–2), Popyt (3–4), Konkurencja (5–7), Strona (8).
+One of the four groups the eight Steps are shown in: Phrases (Steps 1–2), Demand (3–4), Competition (5–7), Brief (8).
 _Avoid_: Stage
 
 **Awaiting Choice**:
@@ -93,6 +93,16 @@ Where an Existing Site already ranks for a Phrase, from Search Console: its aver
 **Quick Win**:
 A Phrase whose Current Position is between 8 and 20: the cheapest to push up.
 
+**Price Check**:
+What a Niche's direct competitors charge, looked up on demand: the owner starts it for one Niche on the results screen and dirmoon reads up to five Competitor Pages for the Competitor Offers they state. It is not a Step: the run keeps its eight Steps, and the LLM requests it sends add to the run's API Cost.
+_Avoid_: Pricing (as a model name)
+
+**Competitor Page**:
+One direct competitor's address a Price Check reads: the best-placed address of one domain labelled direct competitor on Google's first page for the Niche's Phrases. It is not a Page (the record of a Brief): dirmoon keeps only what it states. A Price Check notes for each one: prices found, no prices found, or the page could not be opened.
+
+**Competitor Offer**:
+One price a Competitor Page states: what it is for, the price exactly as written on the page and a quote from the page that contains it. An offer whose quote is not in the page text, or whose price is not in its quote, is dropped, so no price is ever invented.
+
 ### Niches
 
 **Niche**:
@@ -112,7 +122,7 @@ The LLM's two-sentence comment on a Niche, written in Step 4: what the people se
 A Niche Step 4 proposed that the owner has neither chosen nor rejected; every Niche starts proposed.
 
 **Chosen Niche**:
-A Niche the owner picked to get a Brief and a Page. A Research Run can have several, chosen one at a time.
+A Niche the owner picked to get a Brief. A Research Run can have several, chosen one at a time.
 
 **Rejected Niche**:
 A Niche the owner dropped from the results.
@@ -120,26 +130,20 @@ A Niche the owner dropped from the results.
 ### Output
 
 **Brief**:
-The plan and content for one page for the Chosen Niche: title, H1, URL slug, sections as customer questions with their answers, the Phrases to cover, and the business details the owner fills in.
-
-**Fact Tile**:
-One of the three label–value tiles in a Page's hero (e.g. "Cena za dobę: [CENA]").
+The plan and the text of one page about the Chosen Niche, written by Step 8 in the market language for the owner to hand to whoever builds their site: title, H1, URL slug, intro, sections as customer questions with their answers, the Short Answer, the Phrases to cover, and the business details the owner fills in. dirmoon builds no page from it.
 
 **Short Answer**:
-The one-sentence direct answer to a Brief's first question, shown in the "W skrócie" box.
+The one-sentence direct answer to a Brief's first question, for the top of the page.
 
 **Page**:
-The page dirmoon writes from a Brief by filling the fixed template: one self-contained HTML document, one per Chosen Niche. New Idea and Existing Site both download it as a Content File; dirmoon does not host or publish it.
+The record that holds one Chosen Niche's Brief, with its status while Step 8 writes it (writing, ready, failed). Stored in `pages`, one per Chosen Niche; the owner sees it as a brief. It is not a web page: dirmoon builds, hosts and publishes none.
 _Avoid_: Produced page, Landing page (for the record), article, post
 
-**Content File**:
-A Page downloaded as one `.html` file with its CSS inlined, ready to open or drop into a site.
-
 **Demo Data**:
-Obviously synthetic output from a demo adapter, used in dev while an external service has no credentials; the app shows "DANE TESTOWE" with the names of the services answered this way.
+Obviously synthetic output from a demo adapter, used in dev while an external service has no credentials; the app shows "TEST DATA" with the names of the services answered this way.
 
 **Placeholder**:
-Bracketed upper-case text (`[CENA]`, `[TELEFON]`, `[NAZWA FIRMY]`) marking a value the business owner must supply; the generator never fills it in, and a price, phone, e-mail or address the LLM writes is replaced by one.
+Bracketed upper-case English text (`[PRICE]`, `[PHONE]`, `[BUSINESS NAME]`) marking a value the business owner must supply; the generator never fills it in, and a price, phone, e-mail or address the LLM writes is replaced by one.
 
 **API Cost**:
 What a Research Run has itself spent on paid API requests, in USD, shown on the run. Shared market data it reused and requests it had already paid for add nothing.

@@ -10,8 +10,8 @@ defmodule DirmoonWeb.LayoutsTest do
   test "the app layout is a full-screen dark gray shell, not the dotted page with a nav card" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.app flash={%{}} context="wyniki">
-  <p id="content">Treść</p>
+    document = parse(~H|<Layouts.app flash={%{}} context="results">
+  <p id="content">Content</p>
 </Layouts.app>|)
 
     assert has_class?(document, "[data-layout=app][data-surface=dark]", "bg-app")
@@ -27,7 +27,7 @@ defmodule DirmoonWeb.LayoutsTest do
   test "the top bar shows the moon mark and dirmoon with the screen's context" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.app flash={%{}} context="wynajem kamperów">Treść</Layouts.app>|)
+    document = parse(~H|<Layouts.app flash={%{}} context="camper rental">Content</Layouts.app>|)
 
     assert document |> LazyHTML.query("#app-top-bar a[data-part=brand] svg[data-moon-mark]") |> Enum.count() == 1
 
@@ -35,20 +35,20 @@ defmodule DirmoonWeb.LayoutsTest do
              "/app/research/new"
            ]
 
-    assert link_text(document, "#app-top-bar") =~ "dirmoon / wynajem kamperów"
+    assert link_text(document, "#app-top-bar") =~ "dirmoon / camper rental"
     assert has_class?(document, "#app-top-bar > div", "font-mono")
   end
 
-  test "the sidebar links to a new research, the results and the pages" do
+  test "the sidebar links to a new research, the results and the briefs" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.app flash={%{}} context="wyniki">Treść</Layouts.app>|)
+    document = parse(~H|<Layouts.app flash={%{}} context="results">Content</Layouts.app>|)
 
     assert link_text(document, "#app-nav a#nav-new-research[href='/app/research/new'][data-variant=action]") ==
-             "Nowy research"
+             "New research"
 
-    assert link_text(document, "#app-nav a#nav-runs[href='/app/runs']") == "Wyniki"
-    assert link_text(document, "#app-nav a#nav-pages[href='/app/pages']") == "Strony"
+    assert link_text(document, "#app-nav a#nav-runs[href='/app/runs']") == "Results"
+    assert link_text(document, "#app-nav a#nav-pages[href='/app/pages']") == "Briefs"
     assert document |> LazyHTML.query("#app-nav [aria-current]") |> Enum.count() == 0
 
     for link <- ~w(#nav-new-research #nav-runs #nav-pages) do
@@ -59,7 +59,7 @@ defmodule DirmoonWeb.LayoutsTest do
   test "the sidebar marks the active link as the current page" do
     for {active, id} <- [new_research: "nav-new-research", runs: "nav-runs", pages: "nav-pages"] do
       assigns = %{active: active}
-      document = parse(~H|<Layouts.app flash={%{}} context="wyniki" active={@active}>Treść</Layouts.app>|)
+      document = parse(~H|<Layouts.app flash={%{}} context="results" active={@active}>Content</Layouts.app>|)
 
       assert ["page"] = document |> LazyHTML.query("#app-nav ##{id}") |> LazyHTML.attribute("aria-current")
       assert has_class?(document, "##{id}", "bg-app-selected")
@@ -70,7 +70,7 @@ defmodule DirmoonWeb.LayoutsTest do
   test "on phones the sidebar becomes a row of links under the top bar" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.app flash={%{}} context="wyniki">Treść</Layouts.app>|)
+    document = parse(~H|<Layouts.app flash={%{}} context="results">Content</Layouts.app>|)
 
     assert has_class?(document, "#app-nav", "flex-wrap")
     assert has_class?(document, "#app-nav", "min-[860px]:flex-col")
@@ -83,9 +83,9 @@ defmodule DirmoonWeb.LayoutsTest do
 
     document =
       parse(~H"""
-      <Layouts.app flash={%{}} context="wyniki" note="3 researche">
+      <Layouts.app flash={%{}} context="results" note="3 researche">
         <:status><span id="sentence">Masz 3 researche.</span></:status>
-        Treść
+        Content
       </Layouts.app>
       """)
 
@@ -100,9 +100,9 @@ defmodule DirmoonWeb.LayoutsTest do
 
     document =
       parse(~H"""
-      <Layouts.app flash={%{}} context="wyniki" demo_services={["Search Console"]}>
+      <Layouts.app flash={%{}} context="results" demo_services={["Search Console"]}>
         <:status>Masz 3 researche.</:status>
-        Treść
+        Content
       </Layouts.app>
       """)
 
@@ -117,34 +117,34 @@ defmodule DirmoonWeb.LayoutsTest do
   test "a screen with no status sentence and no note has no status row" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.app flash={%{}} context="wyniki">Treść</Layouts.app>|)
+    document = parse(~H|<Layouts.app flash={%{}} context="results">Content</Layouts.app>|)
 
     assert document |> LazyHTML.query("#app-status") |> Enum.count() == 0
   end
 
-  test "the app layout shows the DANE TESTOWE strip at the very top when demo data is on" do
+  test "the app layout shows the TEST DATA strip at the very top when demo data is on" do
     assigns = %{}
 
     document =
       parse(~H|<Layouts.app
   flash={%{}}
-  context="wyniki"
-  demo_services={["frazy i konkurencja (DataForSEO)", "Search Console"]}
+  context="results"
+  demo_services={["phrases and competition (DataForSEO)", "Search Console"]}
 >
-  Treść
+  Content
 </Layouts.app>|)
 
     banner_text = link_text(document, "[data-layout=app] > #demo-data-banner:first-child")
-    assert banner_text =~ "DANE TESTOWE"
+    assert banner_text =~ "TEST DATA"
 
     assert link_text(document, "#demo-data-services") ==
-             "Dane demonstracyjne zamiast prawdziwych: frazy i konkurencja (DataForSEO), Search Console."
+             "Demo data instead of real data: phrases and competition (DataForSEO), Search Console."
   end
 
-  test "the app layout has no DANE TESTOWE strip when no service is on demo data" do
+  test "the app layout has no TEST DATA strip when no service is on demo data" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.app flash={%{}} context="wyniki" demo_services={[]}>Treść</Layouts.app>|)
+    document = parse(~H|<Layouts.app flash={%{}} context="results" demo_services={[]}>Content</Layouts.app>|)
 
     assert document |> LazyHTML.query("#demo-data-banner") |> Enum.count() == 0
   end
@@ -153,7 +153,7 @@ defmodule DirmoonWeb.LayoutsTest do
     user = build(:user)
     assigns = %{scope: Scope.for_user(user, build(:account))}
 
-    document = parse(~H|<Layouts.app flash={%{}} context="wyniki" current_scope={@scope}>Treść</Layouts.app>|)
+    document = parse(~H|<Layouts.app flash={%{}} context="results" current_scope={@scope}>Content</Layouts.app>|)
 
     assert has_class?(document, "#app-top-bar #user-menu #user-email", "max-sm:sr-only")
     assert [user.email] == document |> LazyHTML.query("#user-email") |> LazyHTML.attribute("title")
@@ -163,7 +163,7 @@ defmodule DirmoonWeb.LayoutsTest do
   test "settings and log out sit in the top bar on one row and are at least 44px tall" do
     assigns = %{scope: Scope.for_user(build(:user), build(:account))}
 
-    document = parse(~H|<Layouts.app flash={%{}} context="wyniki" current_scope={@scope}>Treść</Layouts.app>|)
+    document = parse(~H|<Layouts.app flash={%{}} context="results" current_scope={@scope}>Content</Layouts.app>|)
 
     assert has_class?(document, "#user-menu", "flex-nowrap")
 
@@ -184,8 +184,8 @@ defmodule DirmoonWeb.LayoutsTest do
     assigns = %{}
 
     document =
-      parse(~H|<Layouts.app flash={%{"info" => "Zapisano", "error" => "Błąd"}} context="wyniki">
-  Treść
+      parse(~H|<Layouts.app flash={%{"info" => "Saved", "error" => "Error"}} context="results">
+  Content
 </Layouts.app>|)
 
     assert [hook] = document |> LazyHTML.query("#flash-group #flash-info") |> LazyHTML.attribute("phx-hook")
@@ -197,7 +197,7 @@ defmodule DirmoonWeb.LayoutsTest do
   test "in the app the flash group stays at the bottom, clear of the top bar and the status row" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.app flash={%{"info" => "Zapisano"}} context="wyniki">Treść</Layouts.app>|)
+    document = parse(~H|<Layouts.app flash={%{"info" => "Saved"}} context="results">Content</Layouts.app>|)
 
     for class <- ~w(fixed bottom-4 inset-x-gutter-phone sm:right-gutter sm:w-96) do
       assert has_class?(document, "#flash-group", class)
@@ -211,8 +211,8 @@ defmodule DirmoonWeb.LayoutsTest do
     assigns = %{}
 
     document =
-      parse(~H|<Layouts.app flash={%{"info" => "Zapisano", "error" => "Błąd"}} context="wyniki">
-  Treść
+      parse(~H|<Layouts.app flash={%{"info" => "Saved", "error" => "Error"}} context="results">
+  Content
 </Layouts.app>|)
 
     assert has_class?(document, "#flash-info [data-kind=info]", "bg-app-raised")
@@ -225,7 +225,7 @@ defmodule DirmoonWeb.LayoutsTest do
   test "on the sign-in pages the flash notices stay white cards" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.auth flash={%{"info" => "Zapisano"}}>Treść</Layouts.auth>|)
+    document = parse(~H|<Layouts.auth flash={%{"info" => "Saved"}}>Content</Layouts.auth>|)
 
     assert has_class?(document, "#flash-info [data-kind=info]", "bg-white")
     assert has_class?(document, "#flash-info [data-kind=info]", "border-line")
@@ -236,7 +236,7 @@ defmodule DirmoonWeb.LayoutsTest do
   test "on the sign-in pages the flash group sits on the top right on desktop" do
     assigns = %{}
 
-    document = parse(~H|<Layouts.auth flash={%{"info" => "Zapisano"}}>Treść</Layouts.auth>|)
+    document = parse(~H|<Layouts.auth flash={%{"info" => "Saved"}}>Content</Layouts.auth>|)
 
     for class <- ~w(fixed bottom-4 lg:top-36 lg:bottom-auto) do
       assert has_class?(document, "#flash-group", class)
@@ -249,7 +249,7 @@ defmodule DirmoonWeb.LayoutsTest do
     document =
       parse(~H"""
       <Layouts.landing>
-        <:nav><a id="sign-in" href="/users/log-in">Zaloguj się</a></:nav>
+        <:nav><a id="sign-in" href="/users/log-in">Sign in</a></:nav>
         <section id="hero">Hero</section>
       </Layouts.landing>
       """)
@@ -268,7 +268,7 @@ defmodule DirmoonWeb.LayoutsTest do
     assigns = %{}
 
     document = parse(~H|<Layouts.auth flash={%{}}>
-  <h1 id="title">Zaloguj się</h1>
+  <h1 id="title">Sign in</h1>
 </Layouts.auth>|)
 
     assert has_class?(document, "[data-layout=auth]", "page-dots")
@@ -277,10 +277,11 @@ defmodule DirmoonWeb.LayoutsTest do
     assert document |> LazyHTML.query("main #title") |> Enum.count() == 1
   end
 
-  test "pages are served in Polish with the dirmoon title and no theme toggle script", %{conn: conn} do
-    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+  test "pages other than the landing page are served in English with the dirmoon title and no theme toggle script",
+       %{conn: conn} do
+    document = conn |> get(~p"/users/log-in") |> html_response(200) |> LazyHTML.from_document()
 
-    assert ["pl"] = document |> LazyHTML.query("html") |> LazyHTML.attribute("lang")
+    assert ["en"] = document |> LazyHTML.query("html") |> LazyHTML.attribute("lang")
     assert document |> LazyHTML.query("title") |> LazyHTML.text() |> String.trim() =~ ~r/ · dirmoon$/
     refute document |> LazyHTML.query("script") |> LazyHTML.text() =~ "phx:theme"
   end

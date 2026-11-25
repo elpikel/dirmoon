@@ -38,9 +38,9 @@ defmodule DirmoonWeb.RunDisplayTest do
   test "the country name and language come from the run's location" do
     run = build(:run, country_code: "PL", city: "Toruń")
 
-    assert RunDisplay.country_name(run) == "Polska"
-    assert RunDisplay.country_and_language(run) == "Polska · polski"
-    assert RunDisplay.location(run) == "Polska · Toruń"
+    assert RunDisplay.country_name(run) == "Poland"
+    assert RunDisplay.country_and_language(run) == "Poland · Polish"
+    assert RunDisplay.location(run) == "Poland · Toruń"
   end
 
   test "the short description is the description's first sentence" do

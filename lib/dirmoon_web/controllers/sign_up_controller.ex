@@ -4,7 +4,8 @@ defmodule DirmoonWeb.SignUpController do
   alias Dirmoon.Accounts
   alias DirmoonWeb.PageHTML
 
-  @delivery_failed_message "Nie udało się wysłać e-maila z linkiem logowania. Spróbuj ponownie za chwilę."
+  @invalid_email_message "Enter a valid email address."
+  @delivery_failed_message "We couldn't send the sign-in email. Try again in a moment."
 
   def create(conn, %{"user" => user_params} = params) do
     submitted_form = PageHTML.submitted_sign_up_form_name(params["form"])
@@ -15,10 +16,10 @@ defmodule DirmoonWeb.SignUpController do
         |> put_flash(:signed_up, PageHTML.sign_up_confirmation_message(user_params["email"]))
         |> redirect(to: PageHTML.sign_up_form_path(submitted_form))
 
-      {:error, %Ecto.Changeset{} = changeset} ->
+      {:error, %Ecto.Changeset{}} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> render_landing(PageHTML.sign_up_forms(submitted_form, changeset))
+        |> render_landing(PageHTML.sign_up_forms(submitted_form, user_params, @invalid_email_message))
 
       {:error, _delivery_reason} ->
         conn
@@ -30,6 +31,6 @@ defmodule DirmoonWeb.SignUpController do
   defp render_landing(conn, sign_up_forms) do
     conn
     |> put_view(PageHTML)
-    |> render(:home, sign_up_forms: sign_up_forms)
+    |> render(:home, PageHTML.landing_assigns(sign_up_forms))
   end
 end

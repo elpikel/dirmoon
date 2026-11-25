@@ -6,53 +6,53 @@ defmodule Dirmoon.Pages.StatusLineTest do
   alias Dirmoon.Pages.Brief
   alias Dirmoon.Pages.StatusLine
 
-  @approval "Odpowiedzi prawne, medyczne i finansowe musi zatwierdzić właściciel firmy przed publikacją."
+  @approval "The business owner must approve legal, medical and financial answers before publishing."
 
   test "a ready page counts the Brief's questions and leaves prices and contact data to the User" do
     page = ready_page(%{mode: :new_idea, questions: 4})
 
     assert StatusLine.sentence(page) ==
-             "Ułożyłem stronę z 4 pytań klientów. Ceny i dane kontaktowe uzupełniasz Ty."
+             "I wrote the brief: it answers 4 customer questions. You fill in the prices and contact details."
   end
 
   test "the question count agrees with its noun" do
-    assert StatusLine.sentence(ready_page(%{mode: :new_idea, questions: 1})) =~ "z 1 pytania klientów"
-    assert StatusLine.sentence(ready_page(%{mode: :new_idea, questions: 3})) =~ "z 3 pytań klientów"
+    assert StatusLine.sentence(ready_page(%{mode: :new_idea, questions: 1})) =~ "it answers 1 customer question."
+    assert StatusLine.sentence(ready_page(%{mode: :new_idea, questions: 3})) =~ "it answers 3 customer questions."
   end
 
   test "an Existing Site page adds that legal, medical or financial answers need the owner's approval" do
     page = ready_page(%{mode: :existing_site, questions: 2})
 
     assert StatusLine.sentence(page) ==
-             "Ułożyłem stronę z 2 pytań klientów. Ceny i dane kontaktowe uzupełniasz Ty. " <> @approval
+             "I wrote the brief: it answers 2 customer questions. You fill in the prices and contact details. " <>
+               @approval
   end
 
   test "a page being written says so" do
     assert StatusLine.sentence(build(:page, status: :writing, brief: nil)) ==
-             "Piszę brief i treść strony. Pokażę je tutaj, gdy skończę."
+             "I'm writing the brief. I'll show it here when I'm done."
   end
 
   test "a page waiting on a stopped run says the research must be resumed" do
     stopped_run = build(:run, status: :stopped)
 
     assert StatusLine.sentence(build(:page, status: :writing, brief: nil, run: stopped_run)) ==
-             "Research jest zatrzymany, więc brief czeka. Wznów go na ekranie researchu."
+             "The research is stopped, so the brief is waiting. Resume it on the research screen."
   end
 
   test "a failed page gives its error" do
-    assert StatusLine.sentence(build(:page, status: :failed, brief: nil, error: "Model zwrócił niepoprawny brief")) ==
-             "Brief się nie udał: Model zwrócił niepoprawny brief."
+    assert StatusLine.sentence(build(:page, status: :failed, brief: nil, error: "The model returned an invalid brief")) ==
+             "The brief failed: The model returned an invalid brief."
 
-    assert StatusLine.sentence(build(:page, status: :failed, brief: nil, error: nil)) == "Brief się nie udał."
+    assert StatusLine.sentence(build(:page, status: :failed, brief: nil, error: nil)) == "The brief failed."
   end
 
-  test "the pages list counts the pages, or invites the User to pick a Niche" do
+  test "the briefs list counts the briefs, or invites the User to pick a Niche" do
     assert StatusLine.list_sentence([]) ==
-             "Nie mam jeszcze żadnej strony. Wybierz niszę w wynikach, a napiszę dla niej brief."
+             "No briefs yet. Choose a niche in the results and I'll write a brief for it."
 
-    assert StatusLine.list_sentence(build_list(1, :page)) == "Mam 1 stronę dla Twoich nisz."
-    assert StatusLine.list_sentence(build_list(3, :page)) == "Mam 3 strony dla Twoich nisz."
-    assert StatusLine.list_sentence(build_list(5, :page)) == "Mam 5 stron dla Twoich nisz."
+    assert StatusLine.list_sentence(build_list(1, :page)) == "I have 1 brief for your niches."
+    assert StatusLine.list_sentence(build_list(3, :page)) == "I have 3 briefs for your niches."
   end
 
   defp ready_page(%{mode: mode, questions: count}) do

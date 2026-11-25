@@ -21,9 +21,9 @@ defmodule Dirmoon.Research.Run do
       country_code: "PL",
       language_code: "pl",
       location_code: 2616,
-      country_name: "Polska",
-      language_name: "polski",
-      label: "Polska · polski"
+      country_name: "Poland",
+      language_name: "Polish",
+      label: "Poland · Polish"
     }
   ]
 
@@ -56,6 +56,18 @@ defmodule Dirmoon.Research.Run do
   API's location code. The country is chosen; the rest is derived from it.
   """
   def locations, do: @locations
+
+  @doc """
+  The name of the run's market language ("Polish"), which prompts name so the
+  LLM writes Seeds and the Brief in it; the bare code for a language no
+  location has.
+  """
+  def language_name(%__MODULE__{language_code: language_code}) do
+    case Enum.find(@locations, &(&1.language_code == language_code)) do
+      nil -> language_code
+      location -> location.language_name
+    end
+  end
 
   @doc """
   Whether the run's results are ready: Step 7 (Scoring) is done, so its

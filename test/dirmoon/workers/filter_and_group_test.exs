@@ -66,7 +66,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
 
     :ok = perform_job(FilterAndGroup, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "2 nisze, 2 frazy odrzucone", output: output} = step(run, 4)
+    assert %RunStep{status: :done, result: "2 niches, 2 phrases rejected", output: output} = step(run, 4)
     assert output == %{"niches" => 2, "kept" => 2, "rejected" => 2}
     assert Repo.get!(RunPhrase, fourth.id).status == :rejected
   end
@@ -146,7 +146,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
 
     :ok = perform_job(FilterAndGroup, %{run_id: run.id})
 
-    assert %RunPhrase{status: :rejected, rejection_reason: "pominięta przez model", cluster_id: nil} =
+    assert %RunPhrase{status: :rejected, rejection_reason: "left out by the model", cluster_id: nil} =
              Repo.get!(RunPhrase, left_out.id)
   end
 
@@ -173,12 +173,12 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     for variant <- [plain, half] do
       assert %RunPhrase{
                status: :rejected,
-               rejection_reason: "inna pisownia frazy „wypożyczalnia łyżew spellingtest”",
+               rejection_reason: "another spelling of “wypożyczalnia łyżew spellingtest”",
                cluster_id: nil
              } = Repo.get!(RunPhrase, variant.id)
     end
 
-    assert %RunStep{status: :done, result: "1 nisza, 2 frazy odrzucone"} = step(run, 4)
+    assert %RunStep{status: :done, result: "1 niche, 2 phrases rejected"} = step(run, 4)
   end
 
   test "of two spellings with as many Polish letters one stays and the other is rejected as its variant" do
@@ -197,7 +197,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
              |> Enum.map(&(RunPhrase |> Repo.get!(&1) |> Repo.preload(:phrase)))
              |> Enum.sort_by(& &1.status)
 
-    assert rejected.rejection_reason == "inna pisownia frazy „#{kept.phrase.phrase}”"
+    assert rejected.rejection_reason == "another spelling of “#{kept.phrase.phrase}”"
   end
 
   test "a phrase named in several niches stays in the first, and a niche left empty is dropped" do
@@ -257,7 +257,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     assert [%Niche{name: "Hotel dla psa", intent: "lokalna", reading: "Zdanie pierwsze. Zdanie drugie."}] =
              Niche |> from(as: :niche) |> where([niche: niche], niche.run_id == ^run.id) |> Repo.all()
 
-    assert %RunPhrase{status: :rejected, rejection_reason: "pominięta przez model"} = Repo.get!(RunPhrase, nameless.id)
+    assert %RunPhrase{status: :rejected, rejection_reason: "left out by the model"} = Repo.get!(RunPhrase, nameless.id)
   end
 
   test "a niche name longer than the column allows is cut to the maximum length and stored" do
@@ -300,7 +300,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
            ]
 
     assert prompt =~ "#{with_volume.id}: #{with_volume.phrase.phrase} (300)"
-    assert prompt =~ "#{without_volume.id}: #{without_volume.phrase.phrase} (brak danych)"
+    assert prompt =~ "#{without_volume.id}: #{without_volume.phrase.phrase} (no data)"
     refute prompt =~ other_run_phrase.phrase.phrase
     refute Enum.any?(phrases, &(&1.id == other_run_phrase.id))
   end
@@ -328,8 +328,26 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     assert prompt =~ "Hotel dla psów pod miastem"
     assert prompt =~ "hotel dla psów, spacery z psem"
     assert prompt =~ "Gdańsk"
-    assert prompt =~ "nowy pomysł"
-    assert system =~ "identyfikator"
+    assert prompt =~ "new idea"
+    assert system =~ "ids"
+  end
+
+  test "the prompt names the phrases' market language and asks for what the owner reads in English" do
+    run = insert(:run, language_code: "pl", steps: build_run_steps())
+    kept = phrase_in_run(run, "hotel dla psów", 300)
+    test_process = self()
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn request ->
+      send(test_process, {:llm_request, request})
+      answer(%{"niches" => [niche_answer("Hotel dla psa", [kept.id])], "rejected" => []})
+    end)
+
+    :ok = perform_job(FilterAndGroup, %{run_id: run.id})
+
+    assert_received {:llm_request, %{prompt: prompt, system: system}}
+    assert prompt =~ "The phrases are in Polish"
+    assert prompt =~ "Write every niche name, intent, reading and rejection reason in English"
+    assert system =~ "in English"
   end
 
   test "the prompt of an existing site names its domain" do
@@ -345,7 +363,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     :ok = perform_job(FilterAndGroup, %{run_id: run.id})
 
     assert_received {:llm_request, %{prompt: prompt}}
-    assert prompt =~ "Tryb: istniejąca strona, domena: hotel-testowy.example."
+    assert prompt =~ "Mode: existing site, domain: hotel-testowy.example."
   end
 
   test "a niche name or rejection reason that is not text counts as missing" do
@@ -369,8 +387,8 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     assert [%Niche{name: "Hotel dla psa"}] =
              Niche |> from(as: :niche) |> where([niche: niche], niche.run_id == ^run.id) |> Repo.all()
 
-    assert %RunPhrase{status: :rejected, rejection_reason: "pominięta przez model"} = Repo.get!(RunPhrase, numbered.id)
-    assert %RunPhrase{status: :rejected, rejection_reason: "odrzucona przez model"} = Repo.get!(RunPhrase, dropped.id)
+    assert %RunPhrase{status: :rejected, rejection_reason: "left out by the model"} = Repo.get!(RunPhrase, numbered.id)
+    assert %RunPhrase{status: :rejected, rejection_reason: "rejected by the model"} = Repo.get!(RunPhrase, dropped.id)
   end
 
   test "the competition step is enqueued after the phrases are grouped" do
@@ -408,7 +426,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
 
     assert cluster_ids(run) == %{kept.id => niche_id}
     assert %RunPhrase{status: :rejected, rejection_reason: "inna branża"} = Repo.get!(RunPhrase, dropped.id)
-    assert %RunStep{status: :done, result: "1 nisza, 1 fraza odrzucona"} = step(run, 4)
+    assert %RunStep{status: :done, result: "1 niche, 1 phrase rejected"} = step(run, 4)
     assert [%ApiRequest{service: "llm", operation: "filter_and_group"}] = Repo.all(ApiRequest)
   end
 
@@ -424,7 +442,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
       answer(%{"niches" => [niche_answer("Hotel dla psa", [kept.id])], "rejected" => []})
     end)
 
-    assert {:error, "Model nie zwrócił żadnej niszy"} = perform_job(FilterAndGroup, %{run_id: run.id}, attempt: 1)
+    assert {:error, "The model returned no niche"} = perform_job(FilterAndGroup, %{run_id: run.id}, attempt: 1)
     assert Repo.all(ApiRequest) == []
     assert Niche |> from(as: :niche) |> where([niche: niche], niche.run_id == ^run.id) |> Repo.all() == []
 
@@ -440,9 +458,9 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     run = insert(:run, steps: build_run_steps())
     expect(Dirmoon.LLMMock, :structured, 0, fn _request -> answer(%{}) end)
 
-    assert {:cancel, "Brak fraz do pogrupowania"} = perform_job(FilterAndGroup, %{run_id: run.id}, attempt: 3)
+    assert {:cancel, "No phrases to group"} = perform_job(FilterAndGroup, %{run_id: run.id}, attempt: 3)
 
-    assert %RunStep{status: :failed, error: "Brak fraz do pogrupowania"} = step(run, 4)
+    assert %RunStep{status: :failed, error: "No phrases to group"} = step(run, 4)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
   end
 
@@ -453,7 +471,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
 
     assert {:cancel, :llm_not_configured} = perform_job(FilterAndGroup, %{run_id: run.id})
 
-    assert %RunStep{status: :failed, error: "Brak klucza API OpenAI"} = step(run, 4)
+    assert %RunStep{status: :failed, error: "No OpenAI API key"} = step(run, 4)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
     assert Niche |> from(as: :niche) |> where([niche: niche], niche.run_id == ^run.id) |> Repo.all() == []
     assert all_enqueued() == []

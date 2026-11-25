@@ -4,19 +4,20 @@ How dirmoon is built today. Planned work lives in `docs/design/README.md` (the p
 
 ## Overview
 
-A signed-in User describes a business; a Research Run takes it through eight Steps, each an Oban job that calls one context and stores its output. Steps 1–7 run on their own and end with scored Niches. The User then picks a Niche (Step 8 writes a Brief and a Page), edits the Brief and downloads the page as a Content File; dirmoon does not host or publish pages. LiveView screens follow a run over PubSub. Three external services sit behind behaviours: an LLM, DataForSEO and Google Search Console.
+A signed-in User describes a business; a Research Run takes it through eight Steps, each an Oban job that calls one context and stores its output. Steps 1–7 run on their own and end with scored Niches. The User then picks a Niche (Step 8 writes its Brief: the plan and the text of one page, kept in a `Page` record) and edits the Brief, which they hand to whoever builds their site; dirmoon does not build, host or publish pages. LiveView screens follow a run over PubSub. On the results screen the User can also start a Price Check for a Niche: a background job reads the Niche's Competitor Pages and lists the prices they state; it is not a Step. Four external services sit behind behaviours: an LLM, DataForSEO, Google Search Console and the public web (reading a page).
 
 ```mermaid
 flowchart LR
   subgraph Web["Web (DirmoonWeb)"]
     Public["Landing, sign-up, magic-link sign-in"]
-    Screens["LiveViews under /app: NewResearch, Runs, Run, Results, Pages, Page"]
-    Files["Controllers: page file, CSV export, Search Console OAuth"]
+    Screens["LiveViews under /app: NewResearch, Runs, Run, Results, Pages (briefs list), Page (brief screen)"]
+    Files["Controllers: CSV export, Search Console OAuth"]
   end
 
   subgraph Jobs["Oban queue: pipeline"]
     Auto["Steps 1-7, auto-chained: GenerateSeeds, ExpandPhrases, FetchVolumes, FilterAndGroup, CheckCompetition, FetchCurrentPositions, ScoreNiches"]
     Asked["Step 8, user-triggered: WriteBrief"]
+    Prices["Not a Step, user-triggered: CheckCompetitorPrices"]
   end
 
   subgraph Contexts["Contexts (Dirmoon)"]
@@ -27,12 +28,14 @@ flowchart LR
     Competition
     SearchConsole
     Pages
+    PriceChecks
   end
 
   subgraph Seams["Seams (behaviours)"]
     LLM["LLM"]
     DFS["DataForSEO"]
     GSC["SearchConsole.Client"]
+    Web["WebPage"]
   end
 
   subgraph Tables["PostgreSQL"]
@@ -41,6 +44,7 @@ flowchart LR
     TShared[("shared: keywords, keyword_metrics, serp_snapshots")]
     TPerRun[("per run: run_keywords, clusters, serp_assessments")]
     TAccount[("per Account: pages, search_console_connections")]
+    TPrices[("per Niche: price_checks, competitor_pages")]
     TOban[("oban_jobs")]
   end
 
@@ -50,13 +54,21 @@ flowchart LR
   Screens --> Phrases
   Screens --> Pages
   Screens --> SearchConsole
-  Files --> Pages
+  Screens --> PriceChecks
   Files --> Phrases
   Files --> SearchConsole
 
   Research -- "enqueues" --> TOban
   TOban --> Auto
   TOban --> Asked
+  TOban --> Prices
+  PriceChecks -- "enqueues" --> TOban
+  Prices --> PriceChecks
+  PriceChecks --> Niches
+  PriceChecks --> Research
+  PriceChecks --> LLM
+  PriceChecks --> Web
+  PriceChecks --> TPrices
   Auto --> Research
   Auto --> Phrases
   Auto --> Niches
@@ -85,6 +97,7 @@ flowchart LR
   LLM -.-> XLLM["OpenAI Responses API"]
   DFS -.-> XDFS["DataForSEO API"]
   GSC -.-> XGoogle["Google OAuth and Search Console API"]
+  Web -.-> XWeb["Competitors' public web pages"]
 ```
 
 ## Stack
@@ -95,7 +108,7 @@ flowchart LR
 - Phoenix.PubSub (`Dirmoon.PubSub`) for run and page updates
 - Req for every HTTP client; Swoosh for email
 - Tailwind v4 and esbuild; design tokens in `assets/css/tokens.css` (the handover tokens plus the app surface tokens `--app-*`/`--on-app*`), mapped to utilities in `assets/css/app.css`; fonts in `assets/css/fonts.css`; no daisyUI
-- Gettext with default locale `pl` (Ecto error messages); screen copy is Polish, written in the templates
+- Gettext with the default locale `en` (no translations: Ecto error messages show in English); screen copy is English, written in the templates. Market-facing text (Seeds, Phrases and the Brief) is in the run's market language (`Run.language_name/1`, named in the LLM prompts)
 - Tests: ExUnit, Mox, ExMachina, `Req.Test`, LazyHTML
 - Styler, Credo (`--strict`) and ex_slop, all run by `mix precommit`, which also runs `mix test --cover` and fails below the line-coverage threshold in `mix.exs` (`test_coverage`; generated boilerplate and test support are ignored)
 
@@ -111,16 +124,19 @@ All under `lib/dirmoon/`. Functions that take an id from params take the `Scope`
 | `Niches` | `Niche` (`clusters`); `Grouping` (Step 4), `Scoring` (pure), `ScoreStep` (Step 7) | `store_grouping/2`, `list_for_run/1`, `list_summaries/1`, `niche_detail/2`, `niche_aggregates/1`, `store_scores/2`, `get_niche/2`, `choose/2`, `reject/2`; `Scoring.worth?/1`, `Niche.choosable?/1` | `Research` (Ledger, `lock_run!/1`, `idle?/1`, `Pipeline.start_step/2`), `Phrases`, `Competition`, `Pages`, `LLM` |
 | `Competition` | `SerpSnapshot` (`serp_snapshots`), `SerpAssessment` (`serp_assessments`); `Check` (Step 5) | `fresh_snapshot/2`, `store_snapshot/1`, `store_assessment/2`, `assessments_for_run/1`, `assessment_summaries_for_run/1`, `verdict/1`, `holders/1`, `weak_share/1`, `direct_competitor_count/1`, `checked_line/2` | `Research` (Ledger, `running?/1`, `broadcast_progress/2`), `Phrases`, `DataForSEO`, `LLM` |
 | `SearchConsole` | `Connection` (`search_console_connections`); `Client` (seam), `Positions` (Step 6) | `authorize_url/2`, `connect/2`, `get_connection/1`, `connected?/1`, `disconnect/1`, `connection_for_run/1`, `refresh_token/1` | `SearchConsole.Client`, `Phrases` (`store_current_positions/2`) |
-| `Pages` | `Page` (`pages`) with the embedded `Brief`; `BriefWriter` (Step 8), `Template` + `template.css`, `Placeholders`, `StatusLine` | `get_page/2`, `list_pages/1`, `change_brief/2`, `update_brief/3`, `content_file/2`, `render/1`, `subscribe/1`; pipeline-internal: `create_for_niche/2`, `restart_writing/1`, `writing_page_for_run/1`, `store_brief/2`, `fail_writing_pages/2` | `Research` (Ledger), `Phrases`, `LLM` |
+| `PriceChecks` | `PriceCheck` (`price_checks`), `CompetitorPage` (`competitor_pages`) with the embedded `CompetitorOffer`; `Checker` (the work of a Price Check) | `start/2`, `get_for_niche/1`, `competitor_pages/1`, `page_limit/0`, `subscribe/1`; worker-internal: `get_checking/1`, `record_page/3`, `finish/1`, `fail/2`; `CompetitorOffer.verified/2` | `Niches` (`get_niche/2`, `niche_detail/2`), `Research` (Ledger, `lock_run!/1`), `Phrases`, `WebPage`, `LLM` |
+| `Pages` | `Page` (`pages`) with the embedded `Brief`; `BriefWriter` (Step 8), `Placeholders`, `StatusLine` | `get_page/2`, `list_pages/1`, `change_brief/2`, `update_brief/3`, `subscribe/1`; pipeline-internal: `create_for_niche/2`, `restart_writing/1`, `writing_page_for_run/1`, `store_brief/2`, `fail_writing_pages/2` | `Research` (Ledger), `Phrases`, `LLM` |
 
 Seam modules and helpers at the same level:
 
 | Module | What it is |
 |---|---|
-| `Dirmoon.LLM`, `Dirmoon.DataForSEO`, `Dirmoon.SearchConsole.Client` | Behaviour plus dispatch to the adapter in app config (see External services) |
-| `Dirmoon.Polish` | Polish plurals and number, decimal and money formatting (`plural/2`, `usd/1`, `money/2`, `integer/1`, `feminine_number/1`) |
-| `Dirmoon.demo_services/0`, `Dirmoon.demo_data?/0` | The services answered by a `Demo` adapter right now (read from the adapter config keys), and whether there is any; the "DANE TESTOWE" strip lists them |
-| `Dirmoon.Workers.*` | The eight Oban workers (see Background work) |
+| `Dirmoon.LLM`, `Dirmoon.DataForSEO`, `Dirmoon.SearchConsole.Client`, `Dirmoon.WebPage` | Behaviour plus dispatch to the adapter in app config (see External services) |
+| `Dirmoon.WebPage.PublicUrl`, `Dirmoon.WebPage.VisibleText` | The address guard (only http/https, no `localhost` or loopback/private/link-local/shared IP literal) and HTML → visible text, used by `WebPage.HTTP` |
+| `Dirmoon.Format` | English noun forms and number, decimal and money formatting (`plural/2`, `usd/1`, `money/2`, `integer/1`, `decimal/2`, `number_word/1`) |
+| `Dirmoon.Spelling` | Compares spellings of Polish-market Phrases (`without_diacritics/1`, `diacritic_count/1`), used by Step 4 and the DataForSEO city match |
+| `Dirmoon.demo_services/0`, `Dirmoon.demo_data?/0` | The services answered by a `Demo` adapter right now (read from the adapter config keys), and whether there is any; the "TEST DATA" strip lists them |
+| `Dirmoon.Workers.*` | The eight Step workers and `CheckCompetitorPrices` (see Background work) |
 
 Schemas reference each other across contexts (`RunPhrase` belongs to a `Niche`, `Page` belongs to a `Niche` and a `Run`, the SERP schemas belong to a `Phrase`); queries on another context's table go through that context's functions.
 
@@ -138,7 +154,7 @@ Schemas reference each other across contexts (`RunPhrase` belongs to a `Niche`, 
 
 **Auth and the Scope.** `DirmoonWeb.UserAuth` is phx.gen.auth's magic-link flow: no passwords. `:browser` runs `fetch_current_scope_for_user`, which assigns `current_scope` (`%Accounts.Scope{user:, account:}`, the Account of the User's first Membership) from the session token or the remember-me cookie. `:require_authenticated_user` (plug) and `on_mount {UserAuth, :require_authenticated}` (LiveViews) redirect a guest to `/users/log-in`; `:redirect_if_user_is_authenticated` sends a signed-in User from the landing page and sign-up to `/app`. Sign-in lands on `/app`. Every context call from a screen or controller passes `current_scope`; a foreign or malformed id reads as "not found". Sign-up answers the same for a new email and one that already has a User.
 
-Screens (all `Layouts.app`). The signed-in app is one full-screen dark shell in neutral graphite grays (the app surface tokens, not slate): chrome (top bar, sidebar, demo strip) on `--app-chrome`, the working area on `--app-bg`, cards, the status row and selected rows on `--app-raised`/`--app-selected`, inputs on `--app-field`; lime (`--accent`) is the one accent and `--warn` marks strong competition and errors. The `<body>` behind it is `--app-bg` (`on_mount {Layouts, :app_body}`); components shared with the light pages take `surface="app"` (`<.input>`, `<.prompt_box>`, the flash). The `--slate*` tokens remain for the landing page's "jak to działa" panel and the produced page. The shell has a slim top bar (moon mark, `dirmoon / <context>`, the User's email, "Ustawienia", "Wyloguj"), a sidebar ("Nowy research", "Wyniki", "Strony"; a row of links under the top bar below 860px), the status row (the screen's first-person sentence and a note) and the screen's working area filling the rest. The "DANE TESTOWE" strip sits above the top bar when Demo Data is on. No eyebrows, page-size headlines or marketing content in the app: the light dotted page, nav card, eyebrows and headlines belong to `Layouts.landing` (`/`) and `Layouts.auth` (sign-in) only. Settings (`/users/settings`) uses the app shell too.
+Screens (all `Layouts.app`). The signed-in app is one full-screen dark shell in neutral graphite grays (the app surface tokens, not slate): chrome (top bar, sidebar, demo strip) on `--app-chrome`, the working area on `--app-bg`, cards, the status row and selected rows on `--app-raised`/`--app-selected`, inputs on `--app-field`; lime (`--accent`) is the one accent and `--warn` marks strong competition and errors. The `<body>` behind it is `--app-bg` (`on_mount {Layouts, :app_body}`); components shared with the light pages take `surface="app"` (`<.input>`, `<.prompt_box>`, the flash). The `--slate*` tokens remain for the landing page's dark panel and the produced page. The shell has a slim top bar (moon mark, `dirmoon / <context>`, the User's email, "Settings", "Log out"), a sidebar ("New research", "Results", "Pages"; a row of links under the top bar below 860px), the status row (the screen's first-person sentence and a note) and the screen's working area filling the rest. The "TEST DATA" strip sits above the top bar when Demo Data is on. No eyebrows, page-size headlines or marketing content in the app: the light dotted page, nav card, eyebrows and headlines belong to `Layouts.landing` (`/`) and `Layouts.auth` (sign-in) only. Settings (`/users/settings`) uses the app shell too.
 
 | Route | Module | What it does |
 |---|---|---|
@@ -146,15 +162,14 @@ Screens (all `Layouts.app`). The signed-in app is one full-screen dark shell in 
 | `/app/research/new` | `NewResearchLive` | A tool view, no pitch: the run form (description, Mode, country, city, domain, Priority Services), example prompts, estimated API Cost, Search Console connect link, and the Account's five latest runs; `Research.start_run/2` |
 | `/app/runs` | `RunsLive` | The newest 50 runs with status and API Cost; not live |
 | `/app/runs/:id` | `RunLive` | Live Step list, Step 5 progress, stop and resume, API Cost; navigates to the results when Step 7 finishes |
-| `/app/runs/:id/results` | `ResultsLive` | Views `niches`, `phrases`, `rejected` (`?view=`, `?niche=`); Niche detail; choose and reject a Niche. Phrase views show at most 500 rows |
-| `/app/pages` | `PagesLive` | The newest 50 pages |
-| `/app/pages/:id` | `PageLive` | Brief form with a live preview (`iframe srcdoc`), save, download link (the primary action in both Modes), retry a failed Brief |
+| `/app/runs/:id/results` | `ResultsLive` | Views `niches`, `phrases`, `rejected` (`?view=`, `?niche=`); Niche detail; choose and reject a Niche. Phrase views show at most 500 rows. The Niche detail's "Competitor prices" section (`#competitor-prices`) starts a Price Check (`PriceChecks.start/2`), shows its progress, and lists each Competitor Page (domain linked to the address read, new tab, `noopener noreferrer`) with its offers as "name: price", "I found no prices on this page" or "This page could not be opened"; a failed check shows its reason and the button again; a Niche without direct competitors on page one says so instead |
+| `/app/pages` | `PagesLive` | "Briefs": the newest 50 Pages, each one Niche's Brief |
+| `/app/pages/:id` | `PageLive` | The brief screen: the Brief form (the page's text in the wide column; Phrases to cover and business details beside it), save, retry a failed Brief. No page preview or download |
 
 Controllers in the `/app` scope, outside the live session:
 
 | Route | Module | What it does |
 |---|---|---|
-| `GET /app/pages/:id/file` | `PageFileController.show/2` | Downloads the Content File (`Pages.content_file/2`) as `<slug>.html`; 404 when not found or no Brief yet |
 | `GET /app/runs/:id/export.csv` | `RunExportController.show/2` | Every Phrase of the run, kept and rejected (`Phrases.export_rows/1`), as `research-<id>.csv`: UTF-8 with BOM, CRLF, formula cells prefixed with `'` |
 | `GET /app/search-console/connect` | `SearchConsoleController.connect/2` | Puts a random `state` and a checked `return_to` (only `/app…` paths) in the session, redirects to Google |
 | `GET /app/search-console/callback` | `SearchConsoleController.callback/2` | Accepts only the `state` issued to this session (single use), exchanges the code, stores the Connection |
@@ -175,7 +190,9 @@ One Oban queue, `pipeline`. Each worker is `use Oban.Worker, queue: :pipeline, m
 | 5 Competition | `CheckCompetition` | Step 4 done | `Competition.Check.check/1` (DataForSEO SERP, asked for the run's city when it has one, else the country, and LLM labels for the 30 highest-Volume kept Phrases in Niches) | `serp_snapshots` (or reuses one under 30 days old), `serp_assessments`; broadcasts progress per Phrase |
 | 6 Current Positions | `FetchCurrentPositions` | Step 5 done; Existing Site only (the pipeline marks it skipped for New Idea) | `SearchConsole.Positions.fetch/1` (last 90 days, up to 5000 queries) | `run_keywords.current_position`; skipped with a reason when there is no usable Connection |
 | 7 Scoring | `ScoreNiches` | Step 6 done or skipped | `Niches.ScoreStep.score/1` (no external call) | `clusters.score`, `score_components`; the run becomes `awaiting_choice` |
-| 8 Brief and Content | `WriteBrief` | The User: `Niches.choose/2` | `Pages.BriefWriter.write/1` (LLM) | The run's `writing` page: `pages.brief`, status `ready`; on final failure `failed` |
+| 8 Brief | `WriteBrief` | The User: `Niches.choose/2` | `Pages.BriefWriter.write/1` (LLM) | The run's `writing` page: `pages.brief`, status `ready`; on final failure `failed` |
+
+**Price Checks** run outside the Steps. `CheckCompetitorPrices` (queue `pipeline`, `max_attempts: 3`, args `%{price_check_id: id}`, unique per args while incomplete) is enqueued by `PriceChecks.start/2`, which locks the run, needs `Run.results_ready?/1` and picks the Competitor Pages from the Niche's first pages: results labelled direct competitor with an http(s) address, one per domain at its best position, at most `price_check_page_limit` (5). One check per Niche (unique `cluster_id`); asking again while it is `checking` or `done` returns it; a `failed` one runs again for the pages still `waiting`. `PriceChecks.Checker.check/1` reads each waiting page: the page text through `WebPage.fetch_text/1` via the ledger (service `web_page`, cost 0), then one LLM request (`:competitor_prices`, via the ledger; an answer without an `offers` list is rejected and not stored), then `CompetitorOffer.verified/2` keeps only offers whose quote occurs in the page text and whose price occurs in the quote (whitespace collapsed). Each page's outcome is stored as soon as it is known: `prices_found`, `no_prices` (also a page with no visible text, which is not sent to the LLM) or `unreadable` (a fetch error; the check goes on). An LLM error is retried; on the last attempt, at once for `:llm_not_configured`, or after a crash, the check becomes `failed` with `StepRunner.readable_reason/1` and the job is cancelled. It never touches the run's Steps or status. Topic `price_checks:<run_id>` carries `{:price_check_updated, niche_id}`; `ResultsLive` subscribes to it.
 
 Pipeline rules:
 
@@ -186,7 +203,7 @@ Pipeline rules:
 - **Stop** (`Research.stop_run/2`) sets the run `stopped` and cancels its jobs that have not started. A Step at work finishes its current call; Step 5 checks `Research.running?/1` between Phrases and returns `:stopped`, which puts the Step back without an error.
 - **Resume** (`Research.resume_run/2` → `Pipeline.resume/1`) works for a `stopped` or `failed` run: failed and interrupted Steps 1–7 wait again and the first unfinished one is enqueued; an interrupted or queued Step 8 is enqueued again; a Step 8 that failed is not retried (the User chooses the Niche again). Done and skipped Steps are never rerun.
 - **Run lock:** `stop_run/2`, `resume_run/2` and `Niches.choose/2` each lock the run row first (`Research.lock_run!/1`) inside their transaction. Starting Step 8 requires `Research.idle?/1`: the run is not `running` and no Step is `queued` or `running`.
-- **API ledger:** every paid call goes through `Research.Ledger.fetch/3`, which stores request, response and cost in `api_requests`, unique per run by a hash of service, operation and request. A request the run already stored is replayed from the table, so retries and resumes never pay twice. LLM answers are validated inside the ledger function, so a rejected answer is not stored. A run's API Cost is the sum of its rows. Search Console queries do not go through the ledger.
+- **API ledger:** every paid call (and a Price Check's page reads, at cost 0) goes through `Research.Ledger.fetch/3`, which stores request, response and cost in `api_requests`, unique per run by a hash of service, operation and request. A request the run already stored is replayed from the table, so retries and resumes never pay twice. LLM answers are validated inside the ledger function, so a rejected answer is not stored. A run's API Cost is the sum of its rows. Search Console queries do not go through the ledger.
 - **Live updates:** topic `run:<id>` carries `{:run_updated, id}` and `{:run_progress, id, map}`; topic `page:<id>` carries `{:page_updated, id}`.
 
 ## Data
@@ -208,7 +225,9 @@ Migrations in `priv/repo/migrations/`. Table names keep the handover's words (`k
 | `run_keywords` | `Phrases.RunPhrase` | per run | unique (`run_id`, `keyword_id`); `status` (`kept`/`rejected`), `rejection_reason`, `cluster_id` (nilified with the Niche), `current_position`; `keyword_id` on delete restrict |
 | `clusters` | `Niches.Niche` | per run | unique (`run_id`, `position`); `score` decimal(4,2), `score_components`, `status` (`proposed`/`rejected`/`chosen`) |
 | `serp_assessments` | `Competition.SerpAssessment` | per run | unique (`run_id`, `keyword_id`); `labels` jsonb (position, Page Type), `verdict`, `reused_snapshot` |
-| `pages` | `Pages.Page` | per Account | unique `cluster_id` (one page per Niche, deleted with it); `brief` jsonb (embedded `Brief`); `status` `writing`/`ready`/`failed`; partial unique index on `run_id` where `status = 'writing'` (one Brief written per run at a time) |
+| `pages` | `Pages.Page` | per Account | unique `cluster_id` (one page per Niche, deleted with it); `brief` jsonb (embedded `Brief`; keys of Briefs written before the page build was removed, such as `fact_tiles` or `cta_label`, are ignored on load and dropped on the next save); `status` `writing`/`ready`/`failed`; partial unique index on `run_id` where `status = 'writing'` (one Brief written per run at a time) |
+| `price_checks` | `PriceChecks.PriceCheck` | per Niche | unique `cluster_id` (one check per Niche, deleted with it or the run); `status` `checking`/`done`/`failed`, `error` |
+| `competitor_pages` | `PriceChecks.CompetitorPage` | per Price Check | unique (`price_check_id`, `domain`); `google_position`, `url`, `read_url` (after redirects), `outcome` `waiting`/`prices_found`/`no_prices`/`unreadable`, `offers` jsonb (embedded `CompetitorOffer`: name, price as written, quote) |
 | `search_console_connections` | `SearchConsole.Connection` | per Account | unique `account_id`; `encrypted_refresh_token` (`Plug.Crypto`, keyed by the endpoint's `secret_key_base`) |
 | `oban_jobs` | Oban | — | Oban's own migration |
 
@@ -223,15 +242,17 @@ Each service is a behaviour with a dispatching module; the adapter is one app-co
 | `Dirmoon.LLM` (`structured/1`) | `:llm_adapter` | `LLM.OpenAI` | `OPENAI_API_KEY` (model: `OPENAI_MODEL`, default `gpt-6.2-sol`) | `LLM.Demo` / `LLM.NotConfigured` (`:llm_not_configured`) | `Dirmoon.LLMMock`; `OpenAI` itself against `Req.Test` |
 | `Dirmoon.DataForSEO` (`phrase_ideas/1`, `search_volumes/1`, `serp_top10/1`, `find_location/1`) | `:data_for_seo_adapter` | `DataForSEO.HTTP` | `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` | `DataForSEO.Demo` / `DataForSEO.NotConfigured` (`:data_for_seo_not_configured`) | `Dirmoon.DataForSEOMock`; `HTTP` itself against `Req.Test` |
 | `Dirmoon.SearchConsole.Client` (`authorize_url/1`, `exchange_code/1`, `refresh_access_token/1`, `query/1`) | `:search_console_adapter` | `SearchConsole.Client.Google` | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` | `Client.Demo` / `Client.NotConfigured` (`:search_console_not_configured`) | `Dirmoon.SearchConsoleMock`; `Google` itself against `Req.Test` |
+| `Dirmoon.WebPage` (`fetch_text/1`) | `:web_page_adapter` | `WebPage.HTTP` | Always outside test (no credentials; set in `config/config.exs`) | none | `Dirmoon.WebPageMock`; `HTTP` itself against `Req.Test` |
 
-- **The LLM is OpenAI.** `LLM.OpenAI` sends one Responses API request per structured request, with the Step's schema as a strict JSON schema (every object closed with `additionalProperties: false`) and `store: false`. The cost is the reported token usage times the prices in `config :dirmoon, Dirmoon.LLM.OpenAI` (`prices`, USD per million tokens, cached input priced apart); a model without prices is refused before any request. A refusal, a cut-short answer or text that is not a JSON object is an error. With `NotConfigured` Step 1 fails at once with "Brak klucza API OpenAI".
+- **The LLM is OpenAI.** `LLM.OpenAI` sends one Responses API request per structured request, with the Step's schema as a strict JSON schema (every object closed with `additionalProperties: false`) and `store: false`. The cost is the reported token usage times the prices in `config :dirmoon, Dirmoon.LLM.OpenAI` (`prices`, USD per million tokens, cached input priced apart); a model without prices is refused before any request. A refusal, a cut-short answer or text that is not a JSON object is an error. With `NotConfigured` Step 1 fails at once with "No OpenAI API key".
 - **The OpenAI, DataForSEO and Google adapters have never been run against the live services.** They were written from the documentation and are tested only against `Req.Test` stubs; their assumptions are listed in `docs/MEMORY.md`.
+- **Reading a web page.** `WebPage.HTTP` sends one GET with a generic User-Agent (`Mozilla/5.0 (compatible; PageReader/1.0)`, nothing identifying the app or the owner), 5 s connect and 10 s receive timeouts, no compression, and follows at most three redirects by hand so every address passes `PublicUrl.check/1` (host names are not resolved, so a public name pointing at a private address is not caught). Only `text/html`, `application/xhtml+xml` and `text/plain` answers are read, at most 2 MB of body (the rest is not downloaded); the text is cut to 15 000 characters. `LLM.Demo` answers `:competitor_prices` with no offers, so Demo Data never shows a price.
 - Demo adapters return deterministic, obviously synthetic data (text marked `(demo)`, never a Placeholder; `*.example` domains) at cost 0.
 - A `NotConfigured` LLM or DataForSEO fails the Step immediately, without retries; a `NotConfigured` Search Console skips Step 6.
 - The mocks are defined in `test/test_helper.exs`. Real adapters set `retry: false` and take `req_options` from config, which is where test config plugs `Req.Test`.
 - Email: `Dirmoon.Mailer` (Swoosh). `Swoosh.Adapters.Local` in dev (mailbox at `/dev/mailbox`), `Swoosh.Adapters.Test` in test. No production adapter is configured.
 
-Other runtime settings in `config/config.exs`: `grouping_phrase_limit` (400), `serp_phrase_limit` (30), `serp_max_age_days` (30), `scoring_weights` (volume 0.4, CPC 0.3, weakness 0.3), `cost_estimates` (the per-request prices behind the estimate on the new research screen).
+Other runtime settings in `config/config.exs`: `grouping_phrase_limit` (400), `serp_phrase_limit` (30), `serp_max_age_days` (30), `scoring_weights` (volume 0.4, CPC 0.3, weakness 0.3), `price_check_page_limit` (5), `cost_estimates` (the per-request prices behind the estimate on the new research screen).
 
 ## Decisions
 
@@ -244,8 +265,7 @@ Other runtime settings in `config/config.exs`: `grouping_phrase_limit` (400), `s
 | Path | What goes there |
 |---|---|
 | `lib/dirmoon/` | Contexts (`Dirmoon.*`): one module per context plus a folder with its schemas and Step modules; the seam behaviours and their adapters |
-| `lib/dirmoon/workers/` | The eight Oban workers, one per Step |
-| `lib/dirmoon/pages/template.ex`, `template.css` | The Page template and its inlined stylesheet |
+| `lib/dirmoon/workers/` | The eight Oban workers, one per Step, and `CheckCompetitorPrices` |
 | `lib/dirmoon_web/` | Web layer (`DirmoonWeb.*`): router, `user_auth.ex`, display helpers |
 | `lib/dirmoon_web/live/` | LiveViews (`*_live.ex`, `user_live/`) |
 | `lib/dirmoon_web/controllers/` | Controllers and the landing page's HEEx |
@@ -266,5 +286,5 @@ Other runtime settings in `config/config.exs`: `grouping_phrase_limit` (400), `s
 - Every paid external call goes through `Research.Ledger.fetch/3`, with validation of the answer inside the ledger function.
 - A new external service gets a behaviour module with dispatch, `Demo` and `NotConfigured` adapters, a real adapter on Req that reads `req_options` from config, a Mox mock in `test/test_helper.exs`, and its switch in `config/runtime.exs`.
 - Market data that is the same for every Account goes in a shared table and must not identify an Account (ADR-0002); anything a run decided goes in a per-run table.
-- Screens are LiveViews in `live_session :app` under `/app`, inside `Layouts.app` (pass `context`, `active`, the `:status` sentence and a `note`), built from `DirmoonWeb.UI` and the app surface tokens (never a `slate` utility; `ui_test.exs` checks). Their columns fill the shell's working area; no hero, eyebrow or page-size headline. File downloads and redirects are controllers in the same scope, outside the live session.
-- Polish plurals and number formatting go through `Dirmoon.Polish`; labels shared by screens go in `RunDisplay` or `PageDisplay`.
+- Screens are LiveViews in `live_session :app` under `/app`, inside `Layouts.app` (pass `context`, `active`, the `:status` sentence and a `note`), built from `DirmoonWeb.UI` and the app surface tokens (never a `slate` utility; `ui_test.exs` checks). Their columns fill the shell's working area; no hero, eyebrow or page-size headline. The CSV download and the OAuth redirects are controllers in the same scope, outside the live session.
+- Interface copy is English. Noun forms and number formatting go through `Dirmoon.Format`; labels shared by screens go in `RunDisplay` or `PageDisplay`. A prompt names what the model writes for the owner (English) and what it writes for the market (the run's market language).

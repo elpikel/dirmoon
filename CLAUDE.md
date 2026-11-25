@@ -2,7 +2,7 @@
 
 @AGENTS.md
 
-Turns a plain-language business description into a ranked list of search niches worth going after, then writes a brief and a landing page for the chosen niche. Overview: `README.md`. Product spec and design handover: `docs/design/README.md`. Domain language: `CONTEXT.md`. Architecture: `ARCHITECTURE.md`.
+Turns a plain-language business description into a ranked list of search niches worth going after, then writes a brief for the chosen niche: the plan and the text of one page, which the owner hands to whoever builds their site. Overview: `README.md`. Product spec and design handover: `docs/design/README.md`. Domain language: `CONTEXT.md`. Architecture: `ARCHITECTURE.md`.
 
 ## Commands
 
@@ -22,7 +22,7 @@ These come from `docs/design/README.md`; read it before building a pipeline step
 - **Every run shows its API cost.**
 - **Pages contain no invented price, phone, address or factual claim.** A missing value stays a visible `[PLACEHOLDER]`.
 - **Numbers in the reference designs are invented.** Never copy them into seeds, fixtures presented as real, or copy.
-- **UI:** interface copy is Polish; colours only from `assets/css/tokens.css` (handover tokens plus the app surface tokens); every screen works at 390 px wide.
+- **UI:** interface copy is English, because the audience is global; market-facing content (Seeds, Phrases, the Brief and the Page) is in the run's market language; colours only from `assets/css/tokens.css` (handover tokens plus the app surface tokens); every screen works at 390 px wide.
 - **v1 has one user, the owner:** no accounts, billing, onboarding or multi-tenancy.
 
 ## Agent skills

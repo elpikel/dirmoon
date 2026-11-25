@@ -33,24 +33,16 @@ defmodule Dirmoon.Workers.WriteBriefTest do
              title: "Hotel dla psa – spokojny pobyt",
              h1: "Hotel dla psa",
              slug: "hotel-dla-psa",
-             breadcrumb: "Strona główna / Hotel dla psa",
              intro: "Pies zostaje pod opieką. Ty jedziesz spokojnie.",
-             cta_label: "Zapytaj o termin",
              short_answer: "Tak, przyjmujemy psy na noc.",
              primary_phrase: ^primary
            } = brief
 
     assert brief.phrases == [primary, other]
 
-    assert Enum.map(brief.fact_tiles, &{&1.label, &1.value}) == [
-             {"Cena za dobę", "[CENA]"},
-             {"Telefon", "[TELEFON]"},
-             {"Obszar", "[OBSZAR]"}
-           ]
-
     assert [%Brief.Section{question: "Czy pies może zostać na noc?"}, _second, _third, _fourth] = brief.sections
 
-    assert %RunStep{status: :done, result: "Brief gotowy: Hotel dla psa"} = step(run, 8)
+    assert %RunStep{status: :done, result: "Brief ready: Hotel dla psa"} = step(run, 8)
     assert %Run{status: :awaiting_choice} = Repo.get!(Run, run.id)
   end
 
@@ -68,10 +60,10 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     assert :ok = perform_job(WriteBrief, %{run_id: run.id})
 
-    assert [%{"h1" => "Hotel dla psa", "primary_phrase" => ^primary, "fact_tiles" => fact_tiles} = stored_brief] =
+    assert [%{"h1" => "Hotel dla psa", "primary_phrase" => ^primary, "sections" => sections} = stored_brief] =
              stored_json(%{table: "pages", column: "brief", where: "id = $1", value: page.id})
 
-    assert [%{"label" => "Cena za dobę", "value" => "[CENA]"}, _phone, _area] = fact_tiles
+    assert [%{"question" => "Czy pies może zostać na noc?"}, _second, _third, _fourth] = sections
     assert stored_brief |> json_leaves() |> Enum.all?(&(is_binary(&1) or is_nil(&1)))
 
     assert [%{"h1" => "Hotel dla psa", "phrases" => [^primary]}] =
@@ -108,8 +100,30 @@ defmodule Dirmoon.Workers.WriteBriefTest do
              city: "Kraków"
            }
 
-    assert prompt =~ "[CENA]"
+    assert prompt =~ "[PRICE]"
     refute prompt =~ "strzyżenie psa"
+  end
+
+  test "the prompt asks for the brief in the run's market language with English placeholders and no page chrome" do
+    run = run_awaiting_choice()
+    niche = insert(:niche, run: run)
+    phrase = phrase_in_niche(run, niche, "hotel dla psa")
+    {:ok, _page} = Niches.choose(scope_for(run.account), niche.id)
+    test_process = self()
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn request ->
+      send(test_process, {:request, request})
+      {:ok, brief_answer(%{"phrases" => [phrase], "primary_phrase" => phrase}), Decimal.new("0.01")}
+    end)
+
+    :ok = perform_job(WriteBrief, %{run_id: run.id})
+
+    assert_receive {:request, %{prompt: prompt, system: system, schema: schema}}
+    assert prompt =~ "Write every text of the brief in Polish"
+    refute prompt =~ ~r/breadcrumb|button|fact tile/i
+    assert schema.required == ~w(title h1 slug intro sections short_answer phrases primary_phrase)
+    assert prompt =~ "Keep the tags in square brackets exactly as they are, in English."
+    assert system =~ "in the language of the business's market"
   end
 
   test "for an existing site the prompt names the domain and the owner's review of sensitive answers" do
@@ -128,7 +142,7 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     assert_receive {:prompt, prompt}
     assert prompt =~ "kancelaria-testowa.example"
-    assert prompt =~ "właściciel firmy"
+    assert prompt =~ "business owner"
   end
 
   test "only phrases of the chosen niche are kept and the primary one is among them" do
@@ -162,11 +176,7 @@ defmodule Dirmoon.Workers.WriteBriefTest do
        brief_answer(%{
          "phrases" => [phrase],
          "primary_phrase" => phrase,
-         "fact_tiles" => [
-           %{"label" => "Cena za dobę", "value" => "80 zł"},
-           %{"label" => "Telefon", "value" => "[TELEFON]"},
-           %{"label" => "Obszar", "value" => "[OBSZAR]"}
-         ],
+         "short_answer" => "Doba kosztuje 80 zł.",
          "sections" => [
            %{"question" => "Jak zarezerwować?", "answer" => "Zadzwoń pod numer 600 100 200 i zapytaj o termin."}
          ],
@@ -178,11 +188,11 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     :ok = perform_job(WriteBrief, %{run_id: run.id})
 
-    assert %Brief{fact_tiles: [price | _other_facts], sections: [section], phone: nil, email: nil, address: nil} =
+    assert %Brief{short_answer: short_answer, sections: [section], phone: nil, email: nil, address: nil} =
              Repo.get!(Page, page.id).brief
 
-    assert price.value == "[CENA]"
-    assert section.answer == "Zadzwoń pod numer [TELEFON] i zapytaj o termin."
+    assert short_answer == "Doba kosztuje [PRICE]."
+    assert section.answer == "Zadzwoń pod numer [PHONE] i zapytaj o termin."
   end
 
   test "an invalid brief is not recorded and the retry asks the model again" do
@@ -192,18 +202,17 @@ defmodule Dirmoon.Workers.WriteBriefTest do
     {:ok, page} = Niches.choose(scope_for(run.account), niche.id)
 
     expect(Dirmoon.LLMMock, :structured, 2, fn _request ->
-      {:ok, brief_answer(%{"phrases" => [phrase], "fact_tiles" => [%{"label" => "Cena", "value" => "[CENA]"}]}),
-       Decimal.new("0.01")}
+      {:ok, brief_answer(%{"phrases" => [phrase], "sections" => []}), Decimal.new("0.01")}
     end)
 
-    assert {:error, "Model zwrócił niepoprawny brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 1)
+    assert {:error, "The model returned an invalid brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 1)
 
     assert ApiRequest
            |> from(as: :api_request)
            |> where([api_request: api_request], api_request.run_id == ^run.id)
            |> Repo.all() == []
 
-    assert {:error, "Model zwrócił niepoprawny brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 2)
+    assert {:error, "The model returned an invalid brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 2)
     assert %Page{status: :writing, brief: nil} = Repo.get!(Page, page.id)
   end
 
@@ -215,7 +224,7 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     expect(Dirmoon.LLMMock, :structured, 1, fn _request -> {:ok, ["nie obiekt"], Decimal.new("0.01")} end)
 
-    assert {:error, "Model zwrócił niepoprawny brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 1)
+    assert {:error, "The model returned an invalid brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 1)
 
     assert Repo.all_by(ApiRequest, run_id: run.id) == []
     assert %Page{status: :writing, brief: nil} = Repo.get!(Page, page.id)
@@ -234,7 +243,7 @@ defmodule Dirmoon.Workers.WriteBriefTest do
     :ok = perform_job(WriteBrief, %{run_id: run.id})
     record_invalid_brief_and_write_again(run, page)
 
-    assert {:error, "Model zwrócił niepoprawny brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 1)
+    assert {:error, "The model returned an invalid brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 1)
 
     assert %Page{status: :writing, brief: nil} = Repo.get!(Page, page.id)
   end
@@ -248,9 +257,9 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     expect(Dirmoon.LLMMock, :structured, 1, fn _request -> {:ok, %{"h1" => "Bez sekcji"}, Decimal.new("0.01")} end)
 
-    assert {:cancel, "Model zwrócił niepoprawny brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 3)
+    assert {:cancel, "The model returned an invalid brief"} = perform_job(WriteBrief, %{run_id: run.id}, attempt: 3)
 
-    assert %Page{status: :failed, error: "Model zwrócił niepoprawny brief"} = Repo.get!(Page, page.id)
+    assert %Page{status: :failed, error: "The model returned an invalid brief"} = Repo.get!(Page, page.id)
     assert %RunStep{status: :failed} = step(run, 8)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
 
@@ -269,8 +278,8 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     assert {:cancel, :llm_not_configured} = perform_job(WriteBrief, %{run_id: run.id})
 
-    assert %RunStep{status: :failed, error: "Brak klucza API OpenAI"} = step(run, 8)
-    assert %Page{status: :failed, error: "Brak klucza API OpenAI"} = Repo.get!(Page, page.id)
+    assert %RunStep{status: :failed, error: "No OpenAI API key"} = step(run, 8)
+    assert %Page{status: :failed, error: "No OpenAI API key"} = Repo.get!(Page, page.id)
   end
 
   test "a brief stopped before its job started is written once the run is resumed" do
@@ -321,7 +330,7 @@ defmodule Dirmoon.Workers.WriteBriefTest do
 
     assert :ok = perform_job(WriteBrief, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "Brak strony do napisania"} = step(run, 8)
+    assert %RunStep{status: :skipped, result: "No page to write"} = step(run, 8)
   end
 
   defp scope_for(account), do: Scope.for_user(build(:user), account)
@@ -364,17 +373,10 @@ defmodule Dirmoon.Workers.WriteBriefTest do
         "title" => "Hotel dla psa – spokojny pobyt",
         "h1" => "Hotel dla psa",
         "slug" => "hotel-dla-psa",
-        "breadcrumb" => "Strona główna / Hotel dla psa",
         "intro" => "Pies zostaje pod opieką. Ty jedziesz spokojnie.",
-        "cta_label" => "Zapytaj o termin",
-        "fact_tiles" => [
-          %{"label" => "Cena za dobę", "value" => "[CENA]"},
-          %{"label" => "Telefon", "value" => "[TELEFON]"},
-          %{"label" => "Obszar", "value" => "[OBSZAR]"}
-        ],
         "sections" => [
           %{"question" => "Czy pies może zostać na noc?", "answer" => "Tak. Pies śpi w ciepłym boksie."},
-          %{"question" => "Ile kosztuje doba?", "answer" => "Cenę poda właściciel: [CENA]."},
+          %{"question" => "Ile kosztuje doba?", "answer" => "Cenę poda właściciel: [PRICE]."},
           %{"question" => "Czy pies wychodzi na spacer?", "answer" => "Tak, trzy razy dziennie."},
           %{"question" => "Co zabrać dla psa?", "answer" => "Karmę i ulubioną zabawkę."}
         ],

@@ -53,7 +53,7 @@ defmodule Dirmoon.PagesTest do
     assert account |> scope_for() |> Pages.list_pages() |> Enum.map(& &1.id) == [newer.id, older.id]
   end
 
-  test "an edited brief field is saved, subscribers hear of it and the page renders the change" do
+  test "an edited brief field is saved and subscribers hear of it" do
     account = insert(:account)
     page = insert(:page, run: insert(:run, account: account))
     scope = scope_for(account)
@@ -65,9 +65,7 @@ defmodule Dirmoon.PagesTest do
     assert_receive {:page_updated, page_id}
     assert page_id == page.id
 
-    reloaded_page = Pages.get_page(scope, page.id)
-    assert reloaded_page.brief.h1 == "Hotel dla psa na weekend"
-    assert Pages.render(reloaded_page) =~ "Hotel dla psa na weekend"
+    assert Pages.get_page(scope, page.id).brief.h1 == "Hotel dla psa na weekend"
   end
 
   test "the User's own contact values in an edited brief are kept as typed" do
@@ -112,13 +110,6 @@ defmodule Dirmoon.PagesTest do
     assert Repo.get!(Page, page.id).brief == nil
   end
 
-  test "a page without a brief renders nothing" do
-    account = insert(:account)
-    page = insert(:page, run: insert(:run, account: account), status: :writing, brief: nil)
-
-    assert account |> scope_for() |> Pages.get_page(page.id) |> Pages.render() == nil
-  end
-
   test "a stopped run whose step 8 is still queued writes the brief once resumed and then awaits a choice" do
     run = finished_run()
     niche = insert(:niche, run: run)
@@ -138,31 +129,33 @@ defmodule Dirmoon.PagesTest do
     refute Enum.any?(Repo.preload(run, :steps, force: true).steps, &RunStep.in_progress?/1)
   end
 
-  test "the content file of a written page is its rendered html named after the slug" do
-    run = finished_run()
-    page = insert(:page, run: run, status: :ready, brief: build(:brief, slug: "hotel-dla-psa"))
-    scope = scope_for(run.account)
+  test "a Brief stored with the removed page build's fields still loads, and saving it drops them" do
+    account = insert(:account)
+    page = insert(:page, run: insert(:run, account: account))
+    scope = scope_for(account)
 
-    assert {:ok, %{filename: "hotel-dla-psa.html", html: html}} = Pages.content_file(scope, page.id)
-    assert html == scope |> Pages.get_page(page.id) |> Pages.render()
-  end
+    removed_fields = %{
+      "breadcrumb" => "Start",
+      "cta_label" => "Zadzwoń",
+      "nav_links" => ["Oferta"],
+      "fact_tiles" => [%{"label" => "Cena", "value" => "[PRICE]"}],
+      "plausible_domain" => "strona-testowa.example"
+    }
 
-  test "a content file without a usable slug is named strona.html" do
-    run = finished_run()
-    page = insert(:page, run: run, brief: build(:brief, slug: nil))
+    Repo.query!("UPDATE pages SET brief = brief || $2 WHERE id = $1", [page.id, removed_fields])
 
-    assert {:ok, %{filename: "strona.html"}} = Pages.content_file(scope_for(run.account), page.id)
-  end
+    assert %Page{brief: %Brief{h1: h1}} = Pages.get_page(scope, page.id)
+    assert h1 == page.brief.h1
 
-  test "a page still being written or failed has no content file and another Account's page is not found" do
-    run = finished_run()
-    writing_page = insert(:page, run: run, status: :writing, brief: nil)
-    failed_page = insert(:page, run: run, status: :failed, brief: nil, error: "Brak klucza API OpenAI")
-    foreign_page = insert(:page, run: finished_run())
+    assert {:ok, _page} = Pages.update_brief(scope, page.id, brief_params(page.brief, %{"h1" => "Nagłówek po zapisie"}))
 
-    assert Pages.content_file(scope_for(run.account), writing_page.id) == {:error, :not_ready}
-    assert Pages.content_file(scope_for(run.account), failed_page.id) == {:error, :not_ready}
-    assert Pages.content_file(scope_for(run.account), foreign_page.id) == {:error, :not_found}
+    %Postgrex.Result{rows: [[stored_keys]]} =
+      Repo.query!("SELECT array_agg(key ORDER BY key) FROM pages, jsonb_object_keys(brief) AS key WHERE id = $1", [
+        page.id
+      ])
+
+    assert stored_keys -- Map.keys(removed_fields) == stored_keys
+    assert "h1" in stored_keys
   end
 
   defp finished_run(attrs \\ %{}) do
@@ -176,14 +169,7 @@ defmodule Dirmoon.PagesTest do
       "title" => "Tytuł strony testowej",
       "h1" => "Nagłówek testowy",
       "slug" => "strona-testowa",
-      "breadcrumb" => "Strona główna / Strona testowa",
       "intro" => "Wstęp testowy. Drugie zdanie wstępu.",
-      "cta_label" => "Zapytaj o termin",
-      "fact_tiles" => [
-        %{"label" => "Cena", "value" => "[CENA]"},
-        %{"label" => "Telefon", "value" => "[TELEFON]"},
-        %{"label" => "Obszar", "value" => "[OBSZAR]"}
-      ],
       "sections" => [%{"question" => "Pytanie testowe?", "answer" => "Odpowiedź testowa."}],
       "short_answer" => "Odpowiedź testowa.",
       "phrases" => [],
@@ -198,9 +184,7 @@ defmodule Dirmoon.PagesTest do
         "h1" => brief.h1,
         "slug" => brief.slug,
         "intro" => brief.intro,
-        "cta_label" => brief.cta_label,
         "short_answer" => brief.short_answer,
-        "fact_tiles" => Enum.map(brief.fact_tiles, &%{"label" => &1.label, "value" => &1.value}),
         "sections" => Enum.map(brief.sections, &%{"question" => &1.question, "answer" => &1.answer})
       },
       changes

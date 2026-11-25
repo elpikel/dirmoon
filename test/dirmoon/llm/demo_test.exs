@@ -4,7 +4,6 @@ defmodule Dirmoon.LLM.DemoTest do
   alias Dirmoon.LLM.Demo
   alias Dirmoon.Pages.Brief
   alias Dirmoon.Pages.Placeholders
-  alias Dirmoon.Pages.Template
 
   test "seeds are twelve lowercase phrases from the description with city variants, plus six questions" do
     input = %{description: "Hotel dla Psów i opieka nad kotami", city: "Gdańsk", priority_services: ["Strzyżenie psów"]}
@@ -39,7 +38,7 @@ defmodule Dirmoon.LLM.DemoTest do
 
     assert Enum.count(niches) == 4
     assert Enum.map(rejected, & &1["phrase_id"]) == [77, 154]
-    assert Enum.all?(rejected, &(&1["reason"] == "(demo) poza ofertą"))
+    assert Enum.all?(rejected, &(&1["reason"] == "(demo) outside the offer"))
 
     grouped_ids = Enum.flat_map(niches, & &1["phrase_ids"])
     assert Enum.sort(grouped_ids ++ [77, 154]) == Enum.map(phrases, & &1.id)
@@ -73,7 +72,7 @@ defmodule Dirmoon.LLM.DemoTest do
     assert Decimal.equal?(cost, 0)
   end
 
-  test "the brief is visibly synthetic, uses the given phrases and keeps Fact Tiles as placeholders" do
+  test "the brief is visibly synthetic, uses the given phrases and leaves the business name a placeholder" do
     input = %{
       niche_name: "Hotel dla psów",
       phrases: ["hotel dla psów gdańsk", "hotel dla psa", "opieka nad psem"],
@@ -87,16 +86,12 @@ defmodule Dirmoon.LLM.DemoTest do
     assert brief["primary_phrase"] == "hotel dla psów gdańsk"
     assert brief["phrases"] != []
     assert Enum.all?(brief["phrases"], &(&1 in input.phrases))
-    assert brief["business_name"] == "[NAZWA FIRMY]"
+    assert brief["business_name"] == "[BUSINESS NAME]"
     assert brief["slug"] =~ ~r/\A[a-z0-9]+(-[a-z0-9]+)*\z/
     assert String.starts_with?(brief["title"], Dirmoon.demo_marker())
     assert String.starts_with?(brief["h1"], Dirmoon.demo_marker())
     assert String.starts_with?(brief["intro"], Dirmoon.demo_marker())
     assert String.starts_with?(brief["short_answer"], Dirmoon.demo_marker())
-    assert is_binary(brief["breadcrumb"]) and is_binary(brief["cta_label"])
-
-    assert Enum.count(brief["fact_tiles"]) == 3
-    assert Enum.all?(brief["fact_tiles"], &(is_binary(&1["label"]) and &1["value"] =~ ~r/\A\[[^\]]+\]\z/))
 
     assert Enum.count(brief["sections"]) == 4
     assert hd(brief["sections"])["question"] == "Czy pies może mieszkać z innymi psami?"
@@ -140,9 +135,9 @@ defmodule Dirmoon.LLM.DemoTest do
     assert (Dirmoon.demo_marker() <> " Ile kosztuje hotel?") |> Placeholders.split() |> Enum.all?(&(not &1.placeholder))
   end
 
-  test "a page from the demo brief shows the demo marker as text and never as a placeholder pill" do
+  test "the demo brief is a valid Brief with the demo marker in its text and only the Brief's fields" do
     input = %{
-      niche_name: "#{Dirmoon.demo_marker()} Nisza: hotel dla psów",
+      niche_name: "#{Dirmoon.demo_marker()} Niche: hotel dla psów",
       phrases: ["hotel dla psów gdańsk"],
       questions: ["#{Dirmoon.demo_marker()} Ile kosztuje hotel?"],
       business_description: "Hotel dla psów",
@@ -151,18 +146,22 @@ defmodule Dirmoon.LLM.DemoTest do
 
     {:ok, brief_params, _cost} = Demo.structured(request(:brief, input))
 
-    document =
+    brief =
       %Brief{}
       |> Brief.changeset(brief_params)
       |> Ecto.Changeset.apply_action!(:insert)
-      |> Template.render(%{mode: :new_idea})
-      |> LazyHTML.from_document()
 
-    placeholder_texts = document |> LazyHTML.query("span.placeholder") |> Enum.map(&LazyHTML.text/1)
+    assert brief.h1 =~ Dirmoon.demo_marker()
+    assert brief.business_name == "[BUSINESS NAME]"
+    assert brief.primary_phrase == "hotel dla psów gdańsk"
+    refute Enum.any?(~w(breadcrumb cta_label fact_tiles nav_links), &Map.has_key?(brief_params, &1))
+  end
 
-    assert "[NAZWA FIRMY]" in placeholder_texts
-    refute Enum.any?(placeholder_texts, &String.contains?(&1, "demo"))
-    assert document |> LazyHTML.query("h1") |> LazyHTML.text() =~ Dirmoon.demo_marker()
+  test "competitor prices never invent a price: the demo finds no offers on any page" do
+    input = %{niche_name: "Hotel dla psa", phrases: ["hotel dla psa"], url: "https://hotel.example/", text: "Doba 80 zł"}
+
+    assert {:ok, %{"offers" => []}, cost} = Demo.structured(request(:competitor_prices, input))
+    assert Decimal.equal?(cost, 0)
   end
 
   defp request(task, input) do

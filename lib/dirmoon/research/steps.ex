@@ -1,6 +1,6 @@
 defmodule Dirmoon.Research.Steps do
   @moduledoc """
-  The eight Steps of a Research Run as data: number, key, Polish name, the
+  The eight Steps of a Research Run as data: number, key, name, the
   Oban worker that runs it, the Modes it applies to, and whether it follows
   the previous Step on its own (Steps 1–7) or waits for the user (8).
   """
@@ -11,7 +11,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 1,
       key: :seeds,
-      name: "Załążki",
+      name: "Seeds",
       worker: Dirmoon.Workers.GenerateSeeds,
       modes: @all_modes,
       auto_chained?: true
@@ -19,7 +19,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 2,
       key: :expansion,
-      name: "Rozwinięcie fraz",
+      name: "Expansion",
       worker: Dirmoon.Workers.ExpandPhrases,
       modes: @all_modes,
       auto_chained?: true
@@ -27,7 +27,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 3,
       key: :volumes,
-      name: "Wolumeny i CPC",
+      name: "Volumes",
       worker: Dirmoon.Workers.FetchVolumes,
       modes: @all_modes,
       auto_chained?: true
@@ -35,7 +35,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 4,
       key: :filter_and_group,
-      name: "Filtr i grupowanie",
+      name: "Filter and group",
       worker: Dirmoon.Workers.FilterAndGroup,
       modes: @all_modes,
       auto_chained?: true
@@ -43,7 +43,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 5,
       key: :competition,
-      name: "Konkurencja w Google",
+      name: "Competition",
       worker: Dirmoon.Workers.CheckCompetition,
       modes: @all_modes,
       auto_chained?: true
@@ -51,24 +51,24 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 6,
       key: :current_positions,
-      name: "Obecne pozycje",
+      name: "Current positions",
       worker: Dirmoon.Workers.FetchCurrentPositions,
       modes: [:existing_site],
-      skipped_result: "Nowy pomysł, nie ma jeszcze strony",
+      skipped_result: "New idea, no site yet",
       auto_chained?: true
     },
     %{
       number: 7,
       key: :scoring,
-      name: "Ocena nisz",
+      name: "Scoring",
       worker: Dirmoon.Workers.ScoreNiches,
       modes: @all_modes,
       auto_chained?: true
     },
     %{
       number: 8,
-      key: :brief_and_content,
-      name: "Brief i treść",
+      key: :brief,
+      name: "Brief",
       worker: Dirmoon.Workers.WriteBrief,
       modes: @all_modes,
       auto_chained?: false

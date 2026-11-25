@@ -27,20 +27,20 @@ defmodule DirmoonWeb.Layouts do
   The chrome (top bar and sidebar) is the darkest gray, the working area one
   step lighter and the status row lighter again.
   A slim top bar (the moon mark, "dirmoon / <context>" in mono, and the
-  user's email with "Ustawienia" and "Wyloguj"), a sidebar ("Nowy research",
-  "Wyniki", "Strony"), the status row (moon mark, the screen's first-person
+  user's email with "Settings" and "Log out"), a sidebar ("New research",
+  "Results", "Briefs"), the status row (moon mark, the screen's first-person
   sentence and its note) and the screen's working area. On phones (below
   860px) the sidebar becomes a row of links under the top bar and the email
   is only read out to screen readers. The light dotted page, the nav card,
   eyebrows and headlines belong to the landing and sign-in layouts only.
 
-      <Layouts.app flash={@flash} current_scope={@current_scope} active={:runs} context="wyniki">
-        <:status>Masz 3 researche.</:status>
+      <Layouts.app flash={@flash} current_scope={@current_scope} active={:runs} context="results">
+        <:status>You have 3 research runs.</:status>
         <div id="runs">...</div>
       </Layouts.app>
 
   `active` marks its sidebar link with `aria-current="page"`. `demo_services`
-  lists the services answered with Demo Data in the "DANE TESTOWE" strip above
+  lists the services answered with Demo Data in the "TEST DATA" strip above
   the top bar; it defaults to `Dirmoon.demo_services/0`, and an empty list
   hides the strip.
   """
@@ -99,7 +99,7 @@ defmodule DirmoonWeb.Layouts do
       <div class="flex grow flex-col min-[860px]:flex-row">
         <nav
           id="app-nav"
-          aria-label="Aplikacja"
+          aria-label="App"
           class="flex flex-none flex-wrap gap-1.5 border-app-line bg-app-chrome px-3 py-2 min-[860px]:w-[220px] min-[860px]:flex-col min-[860px]:border-r min-[860px]:py-4 max-[859px]:border-b"
         >
           <.app_sidebar_link
@@ -109,7 +109,7 @@ defmodule DirmoonWeb.Layouts do
             active={@active == :new_research}
             class="min-[860px]:mb-3"
           >
-            <.icon name="hero-plus-mini" class="size-4 flex-none text-accent" /> Nowy research
+            <.icon name="hero-plus-mini" class="size-4 flex-none text-accent" /> New research
           </.app_sidebar_link>
           <.app_sidebar_link
             :for={link <- @sidebar_links}
@@ -151,7 +151,7 @@ defmodule DirmoonWeb.Layouts do
   sign-in link).
 
       <Layouts.landing>
-        <:nav><.button variant="dark" href={~p"/users/log-in"}>Zaloguj się</.button></:nav>
+        <:nav><.button variant="dark" href={~p"/users/log-in"}>Sign in</.button></:nav>
         <section id="hero">...</section>
       </Layouts.landing>
   """
@@ -176,7 +176,7 @@ defmodule DirmoonWeb.Layouts do
   on the dotted page.
 
       <Layouts.auth flash={@flash}>
-        <h1>Zaloguj się</h1>
+        <h1>Sign in</h1>
       </Layouts.auth>
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
@@ -199,7 +199,8 @@ defmodule DirmoonWeb.Layouts do
   end
 
   @doc """
-  Shows the flash group with standard titles and content. On phones and
+  Shows the flash group: the info and error notices a screen set. A lost
+  connection is not announced; LiveView reconnects on its own. On phones and
   tablets it sits at the bottom of the screen (full width between the side
   gutters on phones). On desktop the `page` placement (landing and sign-in)
   sits top right, below the nav card; the `app` placement stays bottom
@@ -228,38 +229,6 @@ defmodule DirmoonWeb.Layouts do
     >
       <.flash kind={:info} flash={@flash} surface={@surface} />
       <.flash kind={:error} flash={@flash} surface={@surface} />
-
-      <.flash
-        id="client-error"
-        kind={:error}
-        surface={@surface}
-        title={gettext("We can't find the internet")}
-        phx-disconnected={
-          show(".phx-client-error #client-error")
-          |> JS.remove_attribute("hidden", to: ".phx-client-error #client-error")
-        }
-        phx-connected={hide("#client-error") |> JS.set_attribute({"hidden", ""})}
-        hidden
-      >
-        {gettext("Attempting to reconnect")}
-        <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
-      </.flash>
-
-      <.flash
-        id="server-error"
-        kind={:error}
-        surface={@surface}
-        title={gettext("Something went wrong!")}
-        phx-disconnected={
-          show(".phx-server-error #server-error")
-          |> JS.remove_attribute("hidden", to: ".phx-server-error #server-error")
-        }
-        phx-connected={hide("#server-error") |> JS.set_attribute({"hidden", ""})}
-        hidden
-      >
-        {gettext("Attempting to reconnect")}
-        <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
-      </.flash>
     </div>
     """
   end
@@ -273,8 +242,8 @@ defmodule DirmoonWeb.Layouts do
       role="status"
       class="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 border-b border-app-line bg-app-chrome px-4 py-1.5 text-center text-xs text-on-app-2"
     >
-      <span class="font-mono text-[11px] font-medium tracking-[0.1em] text-accent">DANE TESTOWE</span>
-      <span id="demo-data-services">Dane demonstracyjne zamiast prawdziwych: {Enum.join(
+      <span class="font-mono text-[11px] font-medium tracking-[0.1em] text-accent">TEST DATA</span>
+      <span id="demo-data-services">Demo data instead of real data: {Enum.join(
         @services,
         ", "
       )}.</span>
@@ -294,7 +263,7 @@ defmodule DirmoonWeb.Layouts do
         phx-no-format
       >{@user.email}</span>
       <.link id="settings-link" href={~p"/users/settings"} class={top_bar_link_class()}>
-        Ustawienia
+        Settings
       </.link>
       <.link
         id="log-out-link"
@@ -302,7 +271,7 @@ defmodule DirmoonWeb.Layouts do
         method="delete"
         class={top_bar_link_class()}
       >
-        Wyloguj
+        Log out
       </.link>
     </div>
     """
@@ -310,8 +279,8 @@ defmodule DirmoonWeb.Layouts do
 
   defp app_sidebar_links do
     [
-      %{page: :runs, label: "Wyniki", path: ~p"/app/runs"},
-      %{page: :pages, label: "Strony", path: ~p"/app/pages"}
+      %{page: :runs, label: "Results", path: ~p"/app/runs"},
+      %{page: :pages, label: "Briefs", path: ~p"/app/pages"}
     ]
   end
 

@@ -42,11 +42,11 @@ defmodule DirmoonWeb.RunsLiveTest do
 
     assert has_element?(view, "#runs-#{run.id}", "Wypożyczalnia rowerów cargo")
     refute has_element?(view, "#runs-#{run.id}", "Dowozimy rowery pod dom")
-    assert has_element?(view, "#runs-#{run.id}", "Nowy pomysł")
-    assert has_element?(view, "#runs-#{run.id}", "Polska · Toruń")
-    assert has_element?(view, "#runs-#{run.id}-status", "W toku")
-    assert has_element?(view, "#runs-#{run.id}", "03.11.2026")
-    assert has_element?(view, "#runs-#{run.id}-cost", "$0,08")
+    assert has_element?(view, "#runs-#{run.id}", "New idea")
+    assert has_element?(view, "#runs-#{run.id}", "Poland · Toruń")
+    assert has_element?(view, "#runs-#{run.id}-status", "In progress")
+    assert has_element?(view, "#runs-#{run.id}", "3 Nov 2026")
+    assert has_element?(view, "#runs-#{run.id}-cost", "$0.08")
   end
 
   test "an Existing Site run shows its domain next to the mode", %{conn: conn} do
@@ -55,7 +55,7 @@ defmodule DirmoonWeb.RunsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
 
-    assert has_element?(view, "#runs-#{run.id}", "Istniejąca strona")
+    assert has_element?(view, "#runs-#{run.id}", "Existing site")
     assert has_element?(view, "#runs-#{run.id}", "rowery-cargo.example")
   end
 
@@ -65,17 +65,17 @@ defmodule DirmoonWeb.RunsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
 
-    assert has_element?(view, "#runs-#{run.id}-cost", "$0,00")
+    assert has_element?(view, "#runs-#{run.id}-cost", "$0.00")
   end
 
-  test "each status shows its Polish label", %{conn: conn} do
+  test "each status shows its label", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
 
     labels = %{
-      running: "W toku",
-      stopped: "Zatrzymany",
-      failed: "Błąd",
-      awaiting_choice: "Czeka na wybór"
+      running: "In progress",
+      stopped: "Stopped",
+      failed: "Failed",
+      awaiting_choice: "Awaiting choice"
     }
 
     runs = Map.new(labels, fn {status, _label} -> {status, insert(:run, account: scope.account, status: status)} end)
@@ -123,9 +123,9 @@ defmodule DirmoonWeb.RunsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
 
-    assert has_element?(view, "#runs-status-line", "Masz 2 researche: 1 czeka na wybór niszy.")
-    assert has_element?(view, "#app-note", "2 researche")
-    assert has_element?(view, "#app-context", "/ wyniki")
+    assert has_element?(view, "#runs-status-line", "You have 2 research runs: 1 waiting for a niche choice.")
+    assert has_element?(view, "#app-note", "2 research runs")
+    assert has_element?(view, "#app-context", "/ results")
     assert has_element?(view, "#app-main #runs-screen #runs")
     refute has_element?(view, "#runs-headline")
   end
@@ -149,7 +149,7 @@ defmodule DirmoonWeb.RunsLiveTest do
 
     assert has_element?(view, "#runs #runs-empty")
     assert has_element?(view, ~s|#runs-empty a#start-first-research[href="/app/research/new"]|)
-    assert has_element?(view, "#runs-status-line", "Nie mam jeszcze żadnego researchu.")
+    assert has_element?(view, "#runs-status-line", "No research yet.")
   end
 
   test "the Wyniki nav link is marked as the current page", %{conn: conn} do
@@ -157,7 +157,7 @@ defmodule DirmoonWeb.RunsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
 
-    assert has_element?(view, ~s|nav a[href="/app/runs"][aria-current="page"]|, "Wyniki")
+    assert has_element?(view, ~s|nav a[href="/app/runs"][aria-current="page"]|, "Results")
   end
 
   test "a signed-out visitor is sent to sign in", %{conn: conn} do

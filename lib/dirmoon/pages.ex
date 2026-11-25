@@ -1,7 +1,8 @@
 defmodule Dirmoon.Pages do
   @moduledoc """
-  Pages: one per chosen Niche, with the Brief Step 8 writes and the
-  User edits.
+  Pages: the record that holds a Chosen Niche's Brief, one per chosen
+  Niche, with the Brief Step 8 writes and the User edits. dirmoon builds no
+  page from it: the owner hands the Brief to whoever builds their site.
 
   Every function that reads or changes a page by id takes the `Scope` and
   only sees the Scope's Account's pages (ADR-0001); a foreign id is not
@@ -10,8 +11,6 @@ defmodule Dirmoon.Pages do
 
   Subscribers to a page (`subscribe/1`) receive `{:page_updated, page_id}`
   when its status or Brief changes.
-
-  `content_file/2` hands out the rendered page HTML as a download.
   """
 
   import Ecto.Query
@@ -20,14 +19,11 @@ defmodule Dirmoon.Pages do
   alias Dirmoon.Niches.Niche
   alias Dirmoon.Pages.Brief
   alias Dirmoon.Pages.Page
-  alias Dirmoon.Pages.Template
   alias Dirmoon.Repo
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
 
   @list_limit 50
-  @content_filename_format ~r/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/
-  @fallback_content_filename "strona"
 
   @doc """
   Creates the `:writing` page for a Niche of the run, in the run's Account.
@@ -155,27 +151,6 @@ defmodule Dirmoon.Pages do
   end
 
   @doc """
-  The page as one self-contained HTML file to download, named after the
-  Brief's slug (`strona.html` without a usable slug). Any `:ready` page
-  has one.
-
-  Returns `{:ok, %{filename:, html:}}` or `{:error, :not_found | :not_ready}`.
-  """
-  def content_file(%Scope{} = scope, page_id) do
-    with {:ok, page} <- fetch_page(scope, page_id),
-         :ok <- ensure_content_file(page) do
-      {:ok, %{filename: content_filename(page.brief), html: render(page)}}
-    end
-  end
-
-  @doc """
-  The Page HTML for a page with a Brief and its run preloaded
-  (`get_page/2`), or nil while the Brief isn't written.
-  """
-  def render(%Page{brief: %Brief{} = brief, run: %Run{mode: mode}}), do: Template.render(brief, %{mode: mode})
-  def render(%Page{brief: nil}), do: nil
-
-  @doc """
   Subscribes the caller to a page's updates. Takes a page already resolved
   through the Scope (`get_page/2`).
   """
@@ -206,15 +181,6 @@ defmodule Dirmoon.Pages do
 
   defp ensure_editable(%Page{status: :ready}), do: :ok
   defp ensure_editable(%Page{}), do: {:error, :not_editable}
-
-  defp ensure_content_file(%Page{status: :ready, brief: %Brief{}}), do: :ok
-  defp ensure_content_file(%Page{}), do: {:error, :not_ready}
-
-  defp content_filename(%Brief{slug: slug}) do
-    if is_binary(slug) and Regex.match?(@content_filename_format, slug),
-      do: slug <> ".html",
-      else: @fallback_content_filename <> ".html"
-  end
 
   defp broadcast_updated({:ok, page}), do: broadcast_page_updated(page)
   defp broadcast_updated({:error, _changeset}), do: :ok

@@ -8,7 +8,7 @@ defmodule Dirmoon.Research.StepsTest do
   test "a Step's number is found by its key" do
     assert Steps.number!(:seeds) == 1
     assert Steps.number!(:competition) == 5
-    assert Steps.number!(:brief_and_content) == 8
+    assert Steps.number!(:brief) == 8
   end
 
   test "an unknown Step key raises" do

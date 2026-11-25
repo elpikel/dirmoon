@@ -11,7 +11,7 @@ defmodule DirmoonWeb.Controllers.SearchConsole.DeleteTest do
     conn = delete(conn, ~p"/app/search-console")
 
     assert redirected_to(conn) == ~p"/app"
-    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Odłączono Search Console"
+    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Search Console disconnected"
     refute Dirmoon.Repo.get(Connection, connection.id)
     assert Dirmoon.Repo.get(Connection, other.id)
   end

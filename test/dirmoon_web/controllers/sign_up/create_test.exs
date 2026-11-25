@@ -52,7 +52,7 @@ defmodule DirmoonWeb.Controllers.SignUp.CreateTest do
     document = conn |> recycle() |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
     assert document |> LazyHTML.query("#landing-hero #sign-up-confirmation-hero") |> squish() ==
-             "Wysłaliśmy link logowania na #{email}. Sprawdź skrzynkę."
+             "We sent a sign-in link to #{email}. Check your inbox."
 
     assert document |> LazyHTML.query("form#sign-up-form-hero") |> Enum.count() == 0
   end
@@ -68,7 +68,7 @@ defmodule DirmoonWeb.Controllers.SignUp.CreateTest do
     document = conn |> recycle() |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
     assert document |> LazyHTML.query("#closing #sign-up-confirmation-closing") |> squish() ==
-             "Wysłaliśmy link logowania na #{email}. Sprawdź skrzynkę."
+             "We sent a sign-in link to #{email}. Check your inbox."
   end
 
   test "signing up with an email that already has a User gets the same confirmation and a sign-in link, without a new account",
@@ -89,7 +89,7 @@ defmodule DirmoonWeb.Controllers.SignUp.CreateTest do
     document = conn |> recycle() |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
     assert document |> LazyHTML.query("#sign-up-confirmation-hero") |> squish() ==
-             "Wysłaliśmy link logowania na #{user.email}. Sprawdź skrzynkę."
+             "We sent a sign-in link to #{user.email}. Check your inbox."
   end
 
   test "signing up with an invalid email shows the error on the submitted form and creates nothing",
@@ -105,8 +105,8 @@ defmodule DirmoonWeb.Controllers.SignUp.CreateTest do
     hero_form = LazyHTML.query(document, "form#sign-up-form-hero")
 
     assert closing_form |> LazyHTML.query("input[type=email]") |> LazyHTML.attribute("value") == ["not an email"]
-    assert squish(closing_form) =~ "musi zawierać @"
-    refute squish(hero_form) =~ "musi zawierać @"
+    assert squish(closing_form) =~ "Enter a valid email address."
+    refute squish(hero_form) =~ "Enter a valid email address."
 
     assert Repo.aggregate(User, :count) == user_count
     assert Repo.aggregate(Account, :count) == account_count

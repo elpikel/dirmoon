@@ -1,6 +1,6 @@
 defmodule Dirmoon.Research.StatusLine do
   @moduledoc """
-  The status sentence of a Research Run: one first-person Polish line saying
+  The status sentence of a Research Run: one first-person line saying
   what dirmoon is doing or found, built only from the run's state (its status,
   its Steps and the latest progress), never by the LLM. See
   `docs/design/README.md` section 8.2.
@@ -18,22 +18,22 @@ defmodule Dirmoon.Research.StatusLine do
   @competition_step Steps.number!(:competition)
 
   @sentences %{
-    {:running, :seeds} => "Zamieniam opis na frazy startowe i pytania klientów.",
-    {:running, :expansion} => "Rozwijam frazy startowe w to, co ludzie naprawdę wpisują.",
-    {:running, :volumes} => "Sprawdzam wolumeny i CPC dla każdej frazy.",
-    {:running, :filter_and_group} => "Odsiewam frazy spoza oferty i grupuję resztę w nisze.",
-    {:running, :competition} => "Sprawdzam, kto odpowiada na najlepsze frazy. Po kroku 7 wybierasz niszę.",
-    {:running, :current_positions} => "Sprawdzam, na które frazy strona już jest widoczna.",
-    {:running, :scoring} => "Oceniam nisze po wolumenie, CPC i słabości konkurencji.",
-    {:running, :brief_and_content} => "Piszę brief i treść dla wybranej niszy.",
+    {:running, :seeds} => "I'm turning the description into seed phrases and customer questions.",
+    {:running, :expansion} => "I'm expanding the seed phrases into what people really type.",
+    {:running, :volumes} => "I'm checking the volume and CPC of every phrase.",
+    {:running, :filter_and_group} => "I'm dropping phrases outside the business and grouping the rest into niches.",
+    {:running, :competition} => "I'm checking who ranks for the best phrases. After step 7 you choose a niche.",
+    {:running, :current_positions} => "I'm checking which phrases the site already shows up for.",
+    {:running, :scoring} => "I'm scoring the niches by volume, CPC and how weak the competition is.",
+    {:running, :brief} => "I'm writing the brief for the chosen niche.",
     :competition_progress =>
-      "Sprawdzam, kto odpowiada na najlepsze frazy (%{checked} z %{total}). Po kroku 7 wybierasz niszę.",
-    :running => "Pracuję nad researchem.",
-    :awaiting_choice => "Nisze ocenione. Wybierz jedną, a napiszę dla niej stronę.",
-    :stopped => "Zatrzymałem research na kroku %{step}. Możesz go wznowić.",
-    :stopped_after_last_step => "Zatrzymałem research. Możesz go wznowić.",
-    :failed => "Krok %{step} się nie udał: %{reason}.",
-    :failed_without_step => "Research się nie udał."
+      "I'm checking who ranks for the best phrases (%{checked} of %{total}). After step 7 you choose a niche.",
+    :running => "I'm working on the research.",
+    :awaiting_choice => "The niches are scored. Choose one and I'll write a brief for it.",
+    :stopped => "I stopped the research at step %{step}. You can resume it.",
+    :stopped_after_last_step => "I stopped the research. You can resume it.",
+    :failed => "Step %{step} failed: %{reason}.",
+    :failed_without_step => "The research failed."
   }
 
   @doc """
@@ -91,7 +91,7 @@ defmodule Dirmoon.Research.StatusLine do
     end)
   end
 
-  defp readable_reason(nil), do: "nieznany błąd"
+  defp readable_reason(nil), do: "unknown error"
 
   defp readable_reason(error) do
     error

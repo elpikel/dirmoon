@@ -21,9 +21,9 @@ defmodule Dirmoon.Niches do
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.Steps
 
-  @omitted_reason "pominięta przez model"
+  @omitted_reason "left out by the model"
   @empty_market_totals %{volume: 0, cpc: nil, keyword_ids: []}
-  @brief_step Steps.number!(:brief_and_content)
+  @brief_step Steps.number!(:brief)
 
   @doc """
   Stores Step 4's answer for the run in one transaction, replacing whatever
@@ -207,7 +207,7 @@ defmodule Dirmoon.Niches do
   end
 
   @doc """
-  The User picks a Niche to write a page for. In one transaction, with the
+  The User picks a Niche to write a Brief for. In one transaction, with the
   run locked: the Niche is marked chosen, its page is created `:writing` (or
   a `:failed` one is set `:writing` again) and Step 8 is enqueued
   (`Dirmoon.Research.Pipeline.start_step/2`); subscribers to the page

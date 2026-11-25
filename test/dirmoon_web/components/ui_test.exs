@@ -50,7 +50,7 @@ defmodule DirmoonWeb.UITest do
     document =
       parse(~H"""
       <UI.nav_card id="nav">
-        <UI.button variant="dark" href="/somewhere">Zaloguj się</UI.button>
+        <UI.button variant="dark" href="/somewhere">Sign in</UI.button>
       </UI.nav_card>
       """)
 
@@ -63,7 +63,7 @@ defmodule DirmoonWeb.UITest do
     assert has_class?(document, "#nav [data-part=brand]", "font-extrabold")
     assert has_class?(document, "#nav [data-part=brand]", "text-[21px]")
     assert ["/"] = document |> LazyHTML.query("#nav [data-part=brand]") |> LazyHTML.attribute("href")
-    assert ["Główna"] = document |> LazyHTML.query("#nav nav") |> LazyHTML.attribute("aria-label")
+    assert ["Main"] = document |> LazyHTML.query("#nav nav") |> LazyHTML.attribute("aria-label")
     assert document |> LazyHTML.query("#nav nav a[href='/somewhere']") |> Enum.count() == 1
   end
 
@@ -148,13 +148,23 @@ defmodule DirmoonWeb.UITest do
     assert has_class?(document, "h2", "leading-none")
   end
 
+  test "the rocket is a decorative drawing with an ink body and a lime flame, sized by the caller" do
+    assigns = %{}
+
+    document = parse(~H|<UI.rocket class="size-10" />|)
+
+    assert has_class?(document, "svg[data-rocket][aria-hidden=true]", "size-10")
+    assert document |> LazyHTML.query("svg[data-rocket] path.fill-ink") |> Enum.count() == 1
+    assert document |> LazyHTML.query("svg[data-rocket] path.fill-accent") |> Enum.count() == 1
+  end
+
   test "the dark panel shows a mono top bar with context and note, then its content" do
     assigns = %{}
 
     document =
       parse(~H"""
-      <UI.dark_panel id="panel" context="jak to działa" note="8 kroków">
-        <p id="panel-body">Treść</p>
+      <UI.dark_panel id="panel" context="how it works" note="8 steps">
+        <p id="panel-body">Content</p>
       </UI.dark_panel>
       """)
 
@@ -164,8 +174,8 @@ defmodule DirmoonWeb.UITest do
 
     assert has_class?(document, "#panel [data-part=top-bar]", "font-mono")
     assert document |> LazyHTML.query("#panel [data-part=top-bar] svg[data-moon-mark]") |> Enum.count() == 1
-    assert document |> LazyHTML.query("#panel [data-part=context]") |> LazyHTML.text() == "dirmoon / jak to działa"
-    assert document |> LazyHTML.query("#panel [data-part=note]") |> LazyHTML.text() == "8 kroków"
+    assert document |> LazyHTML.query("#panel [data-part=context]") |> LazyHTML.text() == "dirmoon / how it works"
+    assert document |> LazyHTML.query("#panel [data-part=note]") |> LazyHTML.text() == "8 steps"
     assert document |> LazyHTML.query("#panel #panel-body") |> Enum.count() == 1
   end
 
@@ -186,8 +196,8 @@ defmodule DirmoonWeb.UITest do
 
     document =
       parse(~H"""
-      <UI.button id="go" variant="lime" navigate="/app/runs">Pokaż</UI.button>
-      <UI.button id="out" variant="ghost" href="/elsewhere">Odrzuć</UI.button>
+      <UI.button id="go" variant="lime" navigate="/app/runs">Show</UI.button>
+      <UI.button id="out" variant="ghost" href="/elsewhere">Reject</UI.button>
       """)
 
     assert ["/app/runs"] = document |> LazyHTML.query("a#go") |> LazyHTML.attribute("href")
@@ -223,7 +233,7 @@ defmodule DirmoonWeb.UITest do
   test "the outline chip is outlined on the app's grays" do
     assigns = %{}
 
-    document = parse(~H|<UI.chip id="example" variant="outline">Przykład</UI.chip>|)
+    document = parse(~H|<UI.chip id="example" variant="outline">Example</UI.chip>|)
 
     assert has_class?(document, "#example", "min-h-9")
     assert has_class?(document, "#example", "border-app-line-strong")
@@ -257,9 +267,9 @@ defmodule DirmoonWeb.UITest do
 
     document =
       parse(~H"""
-      <UI.run_status id="failed" status={:failed} label="Błąd" />
-      <UI.run_status id="stopped" status={:stopped} label="Zatrzymany" />
-      <UI.run_status id="running" status={:running} label="W toku" />
+      <UI.run_status id="failed" status={:failed} label="Failed" />
+      <UI.run_status id="stopped" status={:stopped} label="Stopped" />
+      <UI.run_status id="running" status={:running} label="In progress" />
       """)
 
     assert has_class?(document, "#failed", "text-warn")
@@ -272,10 +282,10 @@ defmodule DirmoonWeb.UITest do
   test "a stat tile shows its label above the value and can highlight the value" do
     assigns = %{}
 
-    document = parse(~H|<UI.stat_tile id="tile" label="Średni CPC" value="[CPC]" highlight />|)
+    document = parse(~H|<UI.stat_tile id="tile" label="Average CPC" value="[CPC]" highlight />|)
 
     assert has_class?(document, "#tile", "bg-app-raised")
-    assert document |> LazyHTML.query("#tile [data-part=label]") |> LazyHTML.text() == "Średni CPC"
+    assert document |> LazyHTML.query("#tile [data-part=label]") |> LazyHTML.text() == "Average CPC"
     assert document |> LazyHTML.query("#tile [data-part=value]") |> LazyHTML.text() == "[CPC]"
     assert has_class?(document, "#tile [data-part=value]", "text-accent")
   end
@@ -283,7 +293,7 @@ defmodule DirmoonWeb.UITest do
   test "a stat tile without highlight draws the value in the app's primary text" do
     assigns = %{}
 
-    document = parse(~H|<UI.stat_tile id="tile" label="Średni CPC" value="[CPC]" />|)
+    document = parse(~H|<UI.stat_tile id="tile" label="Average CPC" value="[CPC]" />|)
 
     assert has_class?(document, "#tile [data-part=value]", "text-on-app")
     refute has_class?(document, "#tile [data-part=value]", "text-accent")
@@ -292,7 +302,7 @@ defmodule DirmoonWeb.UITest do
   test "the prompt box on the landing page is white with an ink border and the lime edge" do
     assigns = %{}
 
-    document = parse(~H|<UI.prompt_box id="box">Treść</UI.prompt_box>|)
+    document = parse(~H|<UI.prompt_box id="box">Content</UI.prompt_box>|)
 
     for class <- ~w(rounded-prompt bg-white border-ink shadow-prompt) do
       assert has_class?(document, "#box", class)
@@ -302,7 +312,7 @@ defmodule DirmoonWeb.UITest do
   test "the prompt box in the app is a raised gray card with no lime edge" do
     assigns = %{}
 
-    document = parse(~H|<UI.prompt_box id="box" surface="app">Treść</UI.prompt_box>|)
+    document = parse(~H|<UI.prompt_box id="box" surface="app">Content</UI.prompt_box>|)
 
     for class <- ~w(rounded-prompt bg-app-raised border border-app-line-strong) do
       assert has_class?(document, "#box", class)
@@ -391,8 +401,8 @@ defmodule DirmoonWeb.UITest do
   test "the landing page keeps the slate dark panel", %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
-    assert has_class?(document, "#how-it-works[data-surface=dark]", "bg-slate")
-    assert has_class?(document, "#how-it-works [data-part=top-bar]", "border-slate-line")
+    assert has_class?(document, "#journey-steps-report-panel[data-surface=dark]", "bg-slate")
+    assert has_class?(document, "#journey-steps-report-panel [data-part=top-bar]", "border-slate-line")
     assert "lib/dirmoon_web/components/ui.ex" |> File.read!() |> String.match?(@slate_utility)
   end
 

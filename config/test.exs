@@ -3,6 +3,7 @@ import Config
 alias Dirmoon.DataForSEO.HTTP
 alias Dirmoon.LLM.OpenAI
 alias Dirmoon.SearchConsole.Client.Google
+alias Dirmoon.WebPage
 
 # In test we don't send emails
 config :dirmoon, Dirmoon.Mailer, adapter: Swoosh.Adapters.Test
@@ -43,10 +44,13 @@ config :dirmoon, OpenAI,
   api_key: "test-openai-key",
   req_options: [plug: {Req.Test, OpenAI}]
 
+config :dirmoon, WebPage.HTTP, req_options: [plug: {Req.Test, WebPage.HTTP}]
+
 config :dirmoon,
   llm_adapter: Dirmoon.LLMMock,
   data_for_seo_adapter: Dirmoon.DataForSEOMock,
-  search_console_adapter: Dirmoon.SearchConsoleMock
+  search_console_adapter: Dirmoon.SearchConsoleMock,
+  web_page_adapter: Dirmoon.WebPageMock
 
 # Print only warnings and errors during test
 config :logger, level: :warning

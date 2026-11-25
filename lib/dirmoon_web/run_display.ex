@@ -14,30 +14,30 @@ defmodule DirmoonWeb.RunDisplay do
   @short_description_length 48
 
   @status_labels %{
-    running: "W toku",
-    stopped: "Zatrzymany",
-    failed: "Błąd",
-    awaiting_choice: "Czeka na wybór"
+    running: "In progress",
+    stopped: "Stopped",
+    failed: "Failed",
+    awaiting_choice: "Awaiting choice"
   }
 
   @mode_labels %{
-    new_idea: "Nowy pomysł",
-    existing_site: "Istniejąca strona"
+    new_idea: "New idea",
+    existing_site: "Existing site"
   }
 
   @step_status_labels %{
-    done: "Gotowe",
-    running: "W toku",
-    waiting: "Czeka",
-    queued: "Czeka",
-    skipped: "Pominięty",
-    failed: "Błąd"
+    done: "Done",
+    running: "In progress",
+    waiting: "Waiting",
+    queued: "Waiting",
+    skipped: "Skipped",
+    failed: "Failed"
   }
 
   @verdict_labels %{
-    weak: "Słaba",
-    medium: "Średnia",
-    strong: "Mocna"
+    weak: "Weak",
+    medium: "Medium",
+    strong: "Strong"
   }
 
   @doc """
@@ -62,7 +62,7 @@ defmodule DirmoonWeb.RunDisplay do
   end
 
   @doc """
-  The run's country name, and its city when it has one ("Polska · Toruń").
+  The run's country name, and its city when it has one ("Poland · Toruń").
   """
   def location(%Run{city: city} = run) do
     [country_name(run), city]
@@ -71,7 +71,7 @@ defmodule DirmoonWeb.RunDisplay do
   end
 
   @doc """
-  The Polish name of the run's country ("Polska"), from `Run.locations/0`.
+  The name of the run's country ("Poland"), from `Run.locations/0`.
   """
   def country_name(%Run{country_code: country_code}) do
     country_code
@@ -80,7 +80,7 @@ defmodule DirmoonWeb.RunDisplay do
   end
 
   @doc """
-  The run's country and language ("Polska · polski").
+  The run's country and language ("Poland · Polish").
   """
   def country_and_language(%Run{country_code: country_code}) do
     %{country_name: country_name, language_name: language_name} = run_location(country_code)
@@ -89,7 +89,7 @@ defmodule DirmoonWeb.RunDisplay do
 
   @doc """
   The eyebrow line of a run's screens: its short description, country and
-  city ("Wynajem łodzi · Polska · Toruń").
+  city ("Boat rental · Poland · Toruń").
   """
   def context_line(%Run{description: description} = run) do
     [short_description(description), location(run)]
@@ -98,24 +98,24 @@ defmodule DirmoonWeb.RunDisplay do
   end
 
   @doc """
-  The Polish label of a run's status ("W toku", "Czeka na wybór"…), one for
+  The label of a run's status ("In progress", "Awaiting choice"…), one for
   each of `Run.statuses/0`.
   """
   def status_label(status), do: Map.fetch!(@status_labels, status)
 
   @doc """
-  The Polish name of a run's Mode ("Nowy pomysł", "Istniejąca strona").
+  The name of a run's Mode ("New idea", "Existing site").
   """
   def mode_label(mode), do: Map.fetch!(@mode_labels, mode)
 
   @doc """
-  The Polish label of a Step's status ("Gotowe", "W toku", "Czeka"…), one
+  The label of a Step's status ("Done", "In progress", "Waiting"…), one
   for each of `RunStep.statuses/0`; a queued Step reads as waiting.
   """
   def step_status_label(status), do: Map.fetch!(@step_status_labels, status)
 
   @doc """
-  The Polish word for a competition verdict ("Słaba", "Średnia", "Mocna"),
+  The word for a competition verdict ("Weak", "Medium", "Strong"),
   one for each of `SerpAssessment.verdicts/0`.
   """
   def verdict_label(verdict), do: Map.fetch!(@verdict_labels, verdict)
@@ -131,9 +131,9 @@ defmodule DirmoonWeb.RunDisplay do
   def verdict_class(nil), do: "text-on-app-muted"
 
   @doc """
-  The day the run started, as Polish readers write it ("03.11.2026").
+  The day the run started ("3 Nov 2026").
   """
-  def date(%Run{inserted_at: inserted_at}), do: Calendar.strftime(inserted_at, "%d.%m.%Y")
+  def date(%Run{inserted_at: inserted_at}), do: Calendar.strftime(inserted_at, "%-d %b %Y")
 
   @doc """
   Where a run leads: its results once they are ready

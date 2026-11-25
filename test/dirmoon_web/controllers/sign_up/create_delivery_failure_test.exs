@@ -13,9 +13,9 @@ defmodule DirmoonWeb.Controllers.SignUp.CreateDeliveryFailureTest do
     document = conn |> html_response(503) |> LazyHTML.from_document()
 
     assert document |> LazyHTML.query("form#sign-up-form-closing") |> LazyHTML.text() =~
-             "Nie udało się wysłać e-maila z linkiem logowania. Spróbuj ponownie za chwilę."
+             "We couldn't send the sign-in email. Try again in a moment."
 
-    refute document |> LazyHTML.query("form#sign-up-form-hero") |> LazyHTML.text() =~ "Nie udało się"
+    refute document |> LazyHTML.query("form#sign-up-form-hero") |> LazyHTML.text() =~ "We couldn't send"
     assert document |> LazyHTML.query("#flash-group") |> Enum.count() == 0
 
     assert document

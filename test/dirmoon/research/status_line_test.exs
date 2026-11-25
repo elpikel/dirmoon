@@ -8,118 +8,118 @@ defmodule Dirmoon.Research.StatusLineTest do
   test "a run working on Step 1 says it turns the description into seed phrases and questions" do
     run = build(:run, status: :running, steps: build_run_steps(%{1 => :running}))
 
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Zamieniam opis na frazy startowe i pytania klientów."
+    assert StatusLine.sentence(%{run: run, progress: nil}) ==
+             "I'm turning the description into seed phrases and customer questions."
   end
 
   test "a run working on Step 2 says it expands the seeds into what people type" do
     run = build(:run, status: :running, steps: build_run_steps(%{1 => :done, 2 => :running}))
 
     assert StatusLine.sentence(%{run: run, progress: nil}) ==
-             "Rozwijam frazy startowe w to, co ludzie naprawdę wpisują."
+             "I'm expanding the seed phrases into what people really type."
   end
 
   test "a run working on Step 3 says it checks volumes and CPC" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(2, %{3 => :running})))
 
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Sprawdzam wolumeny i CPC dla każdej frazy."
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "I'm checking the volume and CPC of every phrase."
   end
 
   test "a run working on Step 4 says it filters and groups the phrases" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(3, %{4 => :running})))
 
     assert StatusLine.sentence(%{run: run, progress: nil}) ==
-             "Odsiewam frazy spoza oferty i grupuję resztę w nisze."
+             "I'm dropping phrases outside the business and grouping the rest into niches."
   end
 
   test "a run working on Step 5 says it checks who answers the best phrases and when the choice comes" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(4, %{5 => :running})))
 
     assert StatusLine.sentence(%{run: run, progress: nil}) ==
-             "Sprawdzam, kto odpowiada na najlepsze frazy. Po kroku 7 wybierasz niszę."
+             "I'm checking who ranks for the best phrases. After step 7 you choose a niche."
   end
 
   test "a run working on Step 5 with progress says how many phrases it has checked" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(4, %{5 => :running})))
-    progress = %{step: 5, checked: 7, total: 30, phrase: "fraza", holders: "poradniki i blogi", verdict: :weak}
+    progress = %{step: 5, checked: 7, total: 30, phrase: "fraza", holders: "guides and blogs", verdict: :weak}
 
     assert StatusLine.sentence(%{run: run, progress: progress}) ==
-             "Sprawdzam, kto odpowiada na najlepsze frazy (7 z 30). Po kroku 7 wybierasz niszę."
+             "I'm checking who ranks for the best phrases (7 of 30). After step 7 you choose a niche."
   end
 
   test "progress of another Step doesn't change the sentence" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(5, %{6 => :running})))
-    progress = %{step: 5, checked: 30, total: 30, phrase: "fraza", holders: "poradniki i blogi", verdict: :weak}
+    progress = %{step: 5, checked: 30, total: 30, phrase: "fraza", holders: "guides and blogs", verdict: :weak}
 
     assert StatusLine.sentence(%{run: run, progress: progress}) ==
-             "Sprawdzam, na które frazy strona już jest widoczna."
+             "I'm checking which phrases the site already shows up for."
   end
 
   test "a run working on Step 6 says it checks where the site is already visible" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(5, %{6 => :running})))
 
     assert StatusLine.sentence(%{run: run, progress: nil}) ==
-             "Sprawdzam, na które frazy strona już jest widoczna."
+             "I'm checking which phrases the site already shows up for."
   end
 
   test "a run working on Step 7 says it scores the niches" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(6, %{7 => :running})))
 
     assert StatusLine.sentence(%{run: run, progress: nil}) ==
-             "Oceniam nisze po wolumenie, CPC i słabości konkurencji."
+             "I'm scoring the niches by volume, CPC and how weak the competition is."
   end
 
-  test "a run working on Step 8 says it writes the brief and content" do
+  test "a run working on Step 8 says it writes the brief" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(7, %{8 => :running})))
 
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Piszę brief i treść dla wybranej niszy."
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "I'm writing the brief for the chosen niche."
   end
 
   test "a run with Step 8 queued already talks about writing the brief" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(7, %{8 => :queued})))
 
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Piszę brief i treść dla wybranej niszy."
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "I'm writing the brief for the chosen niche."
   end
 
   test "a running run between Steps talks about the next Step to run" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(2)))
 
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Sprawdzam wolumeny i CPC dla każdej frazy."
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "I'm checking the volume and CPC of every phrase."
   end
 
   test "a run awaiting a choice asks for a niche" do
     run = build(:run, status: :awaiting_choice, steps: build_run_steps(done_through(7)))
 
     assert StatusLine.sentence(%{run: run, progress: nil}) ==
-             "Nisze ocenione. Wybierz jedną, a napiszę dla niej stronę."
+             "The niches are scored. Choose one and I'll write a brief for it."
   end
 
   test "a stopped run says on which Step it stopped and that it can be resumed" do
     run = build(:run, status: :stopped, steps: build_run_steps(done_through(3)))
 
     assert StatusLine.sentence(%{run: run, progress: nil}) ==
-             "Zatrzymałem research na kroku 4. Możesz go wznowić."
+             "I stopped the research at step 4. You can resume it."
   end
 
   test "a failed run names the failed Step and its reason" do
     run =
       build(:run,
         status: :failed,
-        steps:
-          Enum.map(build_run_steps(%{1 => :done, 2 => :failed}), &put_error(&1, 2, "Brak danych logowania DataForSEO"))
+        steps: Enum.map(build_run_steps(%{1 => :done, 2 => :failed}), &put_error(&1, 2, "No DataForSEO credentials"))
       )
 
     assert StatusLine.sentence(%{run: run, progress: nil}) ==
-             "Krok 2 się nie udał: Brak danych logowania DataForSEO."
+             "Step 2 failed: No DataForSEO credentials."
   end
 
   test "a failure reason ending with a full stop doesn't get a second one" do
     run =
       build(:run,
         status: :failed,
-        steps: Enum.map(build_run_steps(%{1 => :failed}), &put_error(&1, 1, "Model nie odpowiedział."))
+        steps: Enum.map(build_run_steps(%{1 => :failed}), &put_error(&1, 1, "The model did not answer."))
       )
 
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Krok 1 się nie udał: Model nie odpowiedział."
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "Step 1 failed: The model did not answer."
   end
 
   test "the current Step of a running run is the one at work" do
@@ -137,25 +137,25 @@ defmodule Dirmoon.Research.StatusLineTest do
   test "a running run with no Step at work or left to chain says it works on the research" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(7)))
 
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Pracuję nad researchem."
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "I'm working on the research."
   end
 
   test "a run stopped with no Step left to chain says it stopped and can be resumed" do
     run = build(:run, status: :stopped, steps: build_run_steps(done_through(7)))
 
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Zatrzymałem research. Możesz go wznowić."
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "I stopped the research. You can resume it."
   end
 
   test "a failed run without a failed Step says the research failed" do
     run = build(:run, status: :failed, steps: build_run_steps(done_through(7)))
 
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Research się nie udał."
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "The research failed."
   end
 
   test "a failed Step without a stored reason reads as an unknown error" do
     run = build(:run, status: :failed, steps: build_run_steps(%{1 => :failed}))
 
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Krok 1 się nie udał: nieznany błąd."
+    assert StatusLine.sentence(%{run: run, progress: nil}) == "Step 1 failed: unknown error."
   end
 
   defp done_through(last_number, overrides \\ %{}) do

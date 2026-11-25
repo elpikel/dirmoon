@@ -46,7 +46,7 @@ defmodule Dirmoon.LLM.OpenAI do
   defp prices_for(config, model) do
     case config |> Keyword.get(:prices, %{}) |> Map.get(model) do
       %{input: _input, cached_input: _cached_input, output: _output} = prices -> {:ok, prices}
-      nil -> failure("brak cennika dla modelu #{model}")
+      nil -> failure("no prices for model #{model}")
     end
   end
 
@@ -86,27 +86,27 @@ defmodule Dirmoon.LLM.OpenAI do
   end
 
   defp answer(%{"status" => "incomplete"} = body) do
-    failure("odpowiedź przerwana (#{get_in(body, ["incomplete_details", "reason"]) || "nieznany powód"})")
+    failure("answer cut short (#{get_in(body, ["incomplete_details", "reason"]) || "unknown reason"})")
   end
 
   defp answer(%{"error" => %{"message" => message}}) when is_binary(message), do: failure(message)
-  defp answer(_body), do: failure("odpowiedź bez treści")
+  defp answer(_body), do: failure("answer has no content")
 
   defp content_answer(parts) do
     refusal = Enum.find(parts, &(&1["type"] == @refusal_type))
     text = Enum.find(parts, &(&1["type"] == @output_text_type))
 
     cond do
-      refusal -> failure("model odmówił odpowiedzi")
+      refusal -> failure("the model refused to answer")
       text -> decoded_answer(text["text"])
-      true -> failure("odpowiedź bez treści")
+      true -> failure("answer has no content")
     end
   end
 
   defp decoded_answer(text) do
     case Jason.decode(to_string(text)) do
       {:ok, answer} when is_map(answer) -> {:ok, answer}
-      _invalid -> failure("odpowiedź nie jest obiektem JSON")
+      _invalid -> failure("the answer is not a JSON object")
     end
   end
 
