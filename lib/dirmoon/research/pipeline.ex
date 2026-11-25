@@ -2,11 +2,11 @@ defmodule Dirmoon.Research.Pipeline do
   @moduledoc """
   Moves a Research Run along its Steps. Steps 1–7 follow each other on their
   own; Step 6 is skipped when it doesn't apply to the run's Mode. After Step 7
-  the run awaits a Niche choice; Steps 8 and 9 start only through
-  `enqueue_step/2` or `start_step/2`, which mark them `:queued` until their
+  the run awaits a Niche choice; Step 8 starts only through
+  `enqueue_step/2` or `start_step/2`, which mark it `:queued` until its
   job starts; a run with a queued or running Step never settles. Each Step
   runs as an Oban job on the `pipeline` queue, one Step at a time per run:
-  a queued Step 8 or 9 left behind another one gets its job when that one
+  a queued Step 8 left behind another Step gets its job when that one
   finishes.
   """
 
@@ -24,10 +24,9 @@ defmodule Dirmoon.Research.Pipeline do
   @doc """
   Enqueues the next waiting Step of a running run, skipping Steps that don't
   apply to its Mode. When Steps 1–7 are all finished and no Step is running,
-  the first queued Step 8 or 9 is enqueued (its job is unique, so one
-  already enqueued isn't doubled); with none queued, the run awaits a
-  choice, or is done once Step 9 is. Does nothing for a run that isn't
-  running.
+  a queued Step 8 is enqueued (its job is unique, so one already enqueued
+  isn't doubled); with none queued, the run awaits a choice. Does nothing
+  for a run that isn't running.
   """
   def advance(%Run{id: run_id}) do
     run_id
@@ -36,7 +35,7 @@ defmodule Dirmoon.Research.Pipeline do
   end
 
   @doc """
-  Starts a user-triggered Step (8 or 9) and tells the run's subscribers:
+  Starts a user-triggered Step (8) and tells the run's subscribers:
   `start_step/2` in its own transaction, then a run broadcast. Same
   precondition as `start_step/2`.
   """
@@ -48,7 +47,7 @@ defmodule Dirmoon.Research.Pipeline do
   end
 
   @doc """
-  Starts a user-triggered Step (8 or 9) without telling subscribers: clears
+  Starts a user-triggered Step (8) without telling subscribers: clears
   its earlier result, marks it `:queued`, sets the run running and enqueues
   the Step's worker. For a caller that runs it inside its own transaction and
   broadcasts after the commit. Returns `{:ok, run}`.
@@ -66,11 +65,10 @@ defmodule Dirmoon.Research.Pipeline do
   @doc """
   Resumes a stopped or failed run, which then is running. Failed and
   interrupted Steps 1–7 wait again and the first one that isn't done or
-  skipped is enqueued. A Step 8 or 9 that was queued or interrupted is queued
-  and enqueued again, the first one now and any other after it finishes. A
-  Step 8 or 9 that failed is not retried: its page was already put back, so
-  it waits again and the run settles as `advance/1` does; the User retries
-  by choosing the Niche or publishing again.
+  skipped is enqueued. A Step 8 that was queued or interrupted is queued and
+  enqueued again. A Step 8 that failed is not retried: its page was already
+  marked failed, so it waits again and the run settles as `advance/1` does;
+  the User retries by choosing the Niche again.
   """
   def resume(%Run{} = run) do
     reset_interrupted_steps(run)
@@ -114,18 +112,12 @@ defmodule Dirmoon.Research.Pipeline do
     end
   end
 
-  defp settle(%Run{steps: steps} = run) do
+  defp settle(run) do
     run
-    |> Ecto.Changeset.change(status: settled_status(steps))
+    |> Ecto.Changeset.change(status: :awaiting_choice)
     |> Repo.update!()
 
     Research.broadcast_run_updated(run)
-  end
-
-  defp settled_status(steps) do
-    last_step = Enum.find(steps, &(&1.number == Steps.last_number()))
-
-    if last_step && RunStep.finished?(last_step), do: :done, else: :awaiting_choice
   end
 
   defp reset_interrupted_steps(run) do

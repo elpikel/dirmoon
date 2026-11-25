@@ -11,8 +11,7 @@ defmodule Dirmoon.Pages do
   Subscribers to a page (`subscribe/1`) receive `{:page_updated, page_id}`
   when its status or Brief changes.
 
-  Step 9 publishes a page (`publish/2`, then `Dirmoon.Pages.Publisher`);
-  `content_file/2` hands out the same HTML as a download.
+  `content_file/2` hands out the rendered page HTML as a download.
   """
 
   import Ecto.Query
@@ -23,14 +22,10 @@ defmodule Dirmoon.Pages do
   alias Dirmoon.Pages.Page
   alias Dirmoon.Pages.Template
   alias Dirmoon.Repo
-  alias Dirmoon.Research
-  alias Dirmoon.Research.Pipeline
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
-  alias Dirmoon.Research.Steps
 
   @list_limit 50
-  @publish_step Steps.number!(:publish)
   @content_filename_format ~r/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/
   @fallback_content_filename "strona"
 
@@ -160,81 +155,9 @@ defmodule Dirmoon.Pages do
   end
 
   @doc """
-  The User publishes a page (Step 9). In one transaction, with the run
-  locked: the page is marked `:publishing` and Step 9 is enqueued
-  (`Dirmoon.Research.Pipeline.start_step/2`); subscribers to the page and
-  to the run are told once it commits. Both Modes can publish.
-
-  The run must be idle (`Dirmoon.Research.idle?/1`): not running and with
-  no Step 8 or 9 queued or running. A stopped run whose Step 8 or 9 is still
-  queued is resumed first; a Step 9 started underneath another Step would
-  leave one of them without a job. As no Step 9 job will finish a
-  `:publishing` page of an idle run (its worker stopped between failing
-  Step 9 and putting the page back), such a page is put back to `:ready` or
-  `:published` first. The page must be `:ready` or `:published` with a
-  valid Brief.
-
-  Returns `{:ok, page}` or `{:error, :not_found | :run_busy | :not_publishable}`.
-  """
-  def publish(%Scope{} = scope, page_id) do
-    with {:ok, page} <- fetch_page(scope, page_id),
-         {:ok, %{page: publishing_page, run: run, released_page_ids: released_page_ids}} <-
-           Repo.transact(fn -> publish_in_locked_run(page) end) do
-      Enum.each(released_page_ids, &broadcast_page_updated/1)
-      broadcast_page_updated(publishing_page)
-      Research.broadcast_run_updated(run)
-      {:ok, publishing_page}
-    end
-  end
-
-  @doc """
-  The run's page Step 9 is publishing, with its run, or nil.
-  """
-  def publishing_page_for_run(%Run{id: run_id}) do
-    Page
-    |> from(as: :page)
-    |> where([page: page], page.run_id == ^run_id and page.status == ^:publishing)
-    |> order_by([page: page], asc: page.id)
-    |> limit(1)
-    |> preload(:run)
-    |> Repo.one()
-  end
-
-  @doc """
-  Stores the hosting site Step 9 created for the page, before it deploys,
-  so a retry deploys to that site instead of creating another one.
-  """
-  def store_hosting_site(%Page{} = page, site_id) when is_binary(site_id) do
-    page
-    |> Ecto.Changeset.change(hosting_site_id: site_id)
-    |> Repo.update()
-  end
-
-  @doc """
-  Stores where Step 9 deployed the page and marks it `:published`.
-  """
-  def store_published(%Page{} = page, %{url: url}) when is_binary(url) do
-    page
-    |> Ecto.Changeset.change(status: :published, published_url: url, error: nil)
-    |> Repo.update()
-    |> tap(&broadcast_updated/1)
-  end
-
-  @doc """
-  Puts the run's `:publishing` page back once Step 9 gave up: `:published`
-  when it was published before (its URL kept), else `:ready`, with `reason`
-  as its error. Called by the Step 9 worker with the job's run id.
-  """
-  def fail_publishing_pages(run_id, reason) when is_integer(run_id) and is_binary(reason) do
-    run_id
-    |> restore_publishing_pages(reason)
-    |> Enum.each(&broadcast_page_updated/1)
-  end
-
-  @doc """
   The page as one self-contained HTML file to download, named after the
-  Brief's slug (`strona.html` without a usable slug). Any page with a
-  written Brief has one, whether or not it is published.
+  Brief's slug (`strona.html` without a usable slug). Any `:ready` page
+  has one.
 
   Returns `{:ok, %{filename:, html:}}` or `{:error, :not_found | :not_ready}`.
   """
@@ -281,62 +204,11 @@ defmodule Dirmoon.Pages do
     end
   end
 
-  defp ensure_editable(%Page{status: status}) do
-    if status in Page.editable_statuses(), do: :ok, else: {:error, :not_editable}
-  end
+  defp ensure_editable(%Page{status: :ready}), do: :ok
+  defp ensure_editable(%Page{}), do: {:error, :not_editable}
 
-  defp publish_in_locked_run(%Page{id: page_id, run_id: run_id}) do
-    run = Research.lock_run!(run_id)
-
-    with :ok <- ensure_run_idle(run),
-         released_page_ids = restore_publishing_pages(run_id, nil),
-         page = Repo.get!(Page, page_id),
-         :ok <- ensure_publishable(page),
-         {:ok, publishing_page} <- page |> Ecto.Changeset.change(status: :publishing, error: nil) |> Repo.update(),
-         {:ok, started_run} <- Pipeline.start_step(run, @publish_step) do
-      {:ok, %{page: publishing_page, run: started_run, released_page_ids: released_page_ids}}
-    end
-  end
-
-  defp ensure_run_idle(run) do
-    if Research.idle?(run), do: :ok, else: {:error, :run_busy}
-  end
-
-  defp restore_publishing_pages(run_id, error) do
-    restore_publishing_pages_by_history(run_id, %{published_before?: true, error: error}) ++
-      restore_publishing_pages_by_history(run_id, %{published_before?: false, error: error})
-  end
-
-  defp restore_publishing_pages_by_history(run_id, %{published_before?: published_before?, error: error}) do
-    {_count, page_ids} =
-      Page
-      |> from(as: :page)
-      |> where([page: page], page.run_id == ^run_id and page.status == ^:publishing)
-      |> where([page: page], is_nil(page.published_url) != ^published_before?)
-      |> select([page: page], page.id)
-      |> Repo.update_all(
-        set: [status: restored_status(published_before?), error: error, updated_at: DateTime.utc_now(:second)]
-      )
-
-    page_ids
-  end
-
-  defp restored_status(true), do: :published
-  defp restored_status(false), do: :ready
-
-  defp ensure_publishable(%Page{status: status, brief: %Brief{} = brief}) do
-    if status in Page.publishable_statuses() and Brief.changeset(brief, %{}).valid?,
-      do: :ok,
-      else: {:error, :not_publishable}
-  end
-
-  defp ensure_publishable(%Page{brief: nil}), do: {:error, :not_publishable}
-
-  defp ensure_content_file(%Page{status: status, brief: %Brief{}}) do
-    if status in Page.content_file_statuses(), do: :ok, else: {:error, :not_ready}
-  end
-
-  defp ensure_content_file(%Page{brief: nil}), do: {:error, :not_ready}
+  defp ensure_content_file(%Page{status: :ready, brief: %Brief{}}), do: :ok
+  defp ensure_content_file(%Page{}), do: {:error, :not_ready}
 
   defp content_filename(%Brief{slug: slug}) do
     if is_binary(slug) and Regex.match?(@content_filename_format, slug),

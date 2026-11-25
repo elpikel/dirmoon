@@ -1,7 +1,6 @@
 import Config
 
 alias Dirmoon.DataForSEO.HTTP
-alias Dirmoon.Hosting.Netlify
 alias Dirmoon.LLM.OpenAI
 alias Dirmoon.SearchConsole.Client.Google
 
@@ -29,7 +28,6 @@ data_for_seo_login = System.get_env("DATAFORSEO_LOGIN")
 data_for_seo_password = System.get_env("DATAFORSEO_PASSWORD")
 google_client_id = System.get_env("GOOGLE_CLIENT_ID")
 google_client_secret = System.get_env("GOOGLE_CLIENT_SECRET")
-netlify_token = System.get_env("NETLIFY_TOKEN")
 openai_api_key = System.get_env("OPENAI_API_KEY")
 openai_model = System.get_env("OPENAI_MODEL")
 
@@ -43,11 +41,6 @@ end
 if config_env() != :test and is_binary(google_client_id) and is_binary(google_client_secret) do
   config :dirmoon, Google, client_id: google_client_id, client_secret: google_client_secret
   config :dirmoon, search_console_adapter: Google
-end
-
-if config_env() != :test and is_binary(netlify_token) and netlify_token != "" do
-  config :dirmoon, Netlify, token: netlify_token
-  config :dirmoon, hosting_adapter: Netlify
 end
 
 if config_env() != :test and is_binary(openai_api_key) and openai_api_key != "" do

@@ -1,7 +1,6 @@
 import Config
 
 alias Dirmoon.DataForSEO.HTTP
-alias Dirmoon.Hosting.Netlify
 alias Dirmoon.LLM.OpenAI
 alias Dirmoon.SearchConsole.Client.Google
 
@@ -38,12 +37,6 @@ config :dirmoon, HTTP,
   password: "test-dataforseo-password",
   req_options: [plug: {Req.Test, HTTP}]
 
-config :dirmoon, Netlify,
-  token: "test-netlify-token",
-  req_options: [plug: {Req.Test, Netlify}],
-  poll_interval_ms: 0,
-  poll_attempts: 3
-
 config :dirmoon, Oban, testing: :manual
 
 config :dirmoon, OpenAI,
@@ -53,8 +46,7 @@ config :dirmoon, OpenAI,
 config :dirmoon,
   llm_adapter: Dirmoon.LLMMock,
   data_for_seo_adapter: Dirmoon.DataForSEOMock,
-  search_console_adapter: Dirmoon.SearchConsoleMock,
-  hosting_adapter: Dirmoon.HostingMock
+  search_console_adapter: Dirmoon.SearchConsoleMock
 
 # Print only warnings and errors during test
 config :logger, level: :warning

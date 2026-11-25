@@ -12,6 +12,19 @@ defmodule Dirmoon.Polish do
     jedenaście dwanaście trzynaście czternaście piętnaście szesnaście siedemnaście osiemnaście
     dziewiętnaście dwadzieścia)
 
+  @plain_letters %{
+    "ą" => "a",
+    "ć" => "c",
+    "ę" => "e",
+    "ł" => "l",
+    "ń" => "n",
+    "ó" => "o",
+    "ś" => "s",
+    "ź" => "z",
+    "ż" => "z"
+  }
+  @diacritic_letters Map.keys(@plain_letters)
+
   @doc """
   Picks the form of a noun that agrees with `count`: `one` for 1, `few` for
   counts ending in 2–4 (except 12–14), `many` for everything else.
@@ -92,4 +105,28 @@ defmodule Dirmoon.Polish do
   """
   def money(%Decimal{} = amount, "USD"), do: usd(amount)
   def money(%Decimal{} = amount, currency) when is_binary(currency), do: decimal(amount, 2) <> " " <> currency
+
+  @doc """
+  The text in lower case with Polish letters replaced by their plain Latin
+  ones, so spellings of one phrase compare equal.
+
+      iex> Dirmoon.Polish.without_diacritics("Wypożyczalnia ŁYŻEW")
+      "wypozyczalnia lyzew"
+  """
+  def without_diacritics(text) when is_binary(text) do
+    text
+    |> String.downcase()
+    |> String.replace(@diacritic_letters, &Map.fetch!(@plain_letters, &1))
+  end
+
+  @doc """
+  How many Polish letters (ą, ć, ę, ł, ń, ó, ś, ź, ż) the text has.
+
+      iex> Dirmoon.Polish.diacritic_count("Wypożyczalnia ŁYŻEW")
+      3
+  """
+  def diacritic_count(text) when is_binary(text) do
+    lower_case = String.downcase(text)
+    String.length(lower_case) - String.length(String.replace(lower_case, @diacritic_letters, ""))
+  end
 end

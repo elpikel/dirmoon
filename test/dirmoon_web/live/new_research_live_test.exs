@@ -120,7 +120,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     running = insert(:run, account: scope.account, status: :running, steps: build_run_steps(%{1 => :running}))
     scored = insert(:run, account: scope.account, status: :awaiting_choice, steps: build_run_steps(scored_steps))
     failed = insert(:run, account: scope.account, status: :failed, steps: build_run_steps(%{1 => :failed}))
-    done = insert(:run, account: scope.account, status: :done, steps: build_run_steps(scored_steps))
+    stopped = insert(:run, account: scope.account, status: :stopped, steps: build_run_steps(scored_steps))
 
     {:ok, view, _html} = live(conn, ~p"/app/research/new")
 
@@ -130,8 +130,8 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     assert has_element?(view, "#recent-run-#{scored.id}-status", "Czeka na wybór")
     assert has_element?(view, "#recent-run-#{failed.id} a[href='/app/runs/#{failed.id}']")
     assert has_element?(view, "#recent-run-#{failed.id}-status", "Błąd")
-    assert has_element?(view, "#recent-run-#{done.id} a[href='/app/runs/#{done.id}/results']")
-    assert has_element?(view, "#recent-run-#{done.id}-status", "Gotowy")
+    assert has_element?(view, "#recent-run-#{stopped.id} a[href='/app/runs/#{stopped.id}/results']")
+    assert has_element?(view, "#recent-run-#{stopped.id}-status", "Zatrzymany")
   end
 
   test "with no runs yet the recent runs invite a first description", %{conn: conn} do

@@ -26,7 +26,6 @@ defmodule Dirmoon.Research.StatusLine do
     {:running, :current_positions} => "Sprawdzam, na które frazy strona już jest widoczna.",
     {:running, :scoring} => "Oceniam nisze po wolumenie, CPC i słabości konkurencji.",
     {:running, :brief_and_content} => "Piszę brief i treść dla wybranej niszy.",
-    {:running, :publish} => "Publikuję stronę.",
     :competition_progress =>
       "Sprawdzam, kto odpowiada na najlepsze frazy (%{checked} z %{total}). Po kroku 7 wybierasz niszę.",
     :running => "Pracuję nad researchem.",
@@ -34,8 +33,7 @@ defmodule Dirmoon.Research.StatusLine do
     :stopped => "Zatrzymałem research na kroku %{step}. Możesz go wznowić.",
     :stopped_after_last_step => "Zatrzymałem research. Możesz go wznowić.",
     :failed => "Krok %{step} się nie udał: %{reason}.",
-    :failed_without_step => "Research się nie udał.",
-    :done => "Strona opublikowana."
+    :failed_without_step => "Research się nie udał."
   }
 
   @doc """

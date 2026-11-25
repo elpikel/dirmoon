@@ -243,24 +243,12 @@ defmodule Dirmoon.NichesTest do
     assert_enqueued(worker: WriteBrief, args: %{run_id: run.id})
   end
 
-  test "picking a niche whose page is being published returns it and leaves the run alone" do
-    run = insert(:run, status: :done, steps: build_run_steps(Map.new(1..9, &{&1, :done})))
-    niche = insert(:niche, run: run, status: :chosen)
-    page = insert(:page, run: run, niche: niche, status: :publishing)
-
-    assert {:ok, %Page{id: page_id, status: :publishing}} = Niches.choose(scope_for(run.account), niche.id)
-    assert page_id == page.id
-    assert Repo.get!(Page, page.id).status == :publishing
-    assert Repo.get!(Run, run.id).status == :done
-    assert all_enqueued(worker: WriteBrief) == []
-  end
-
-  test "another niche can't be picked while a page of the run is being published" do
+  test "another niche can't be picked while step 8 is still running after storing its brief" do
     run =
-      insert(:run, status: :running, steps: 1..8 |> Map.new(&{&1, :done}) |> Map.put(9, :running) |> build_run_steps())
+      insert(:run, status: :running, steps: 1..7 |> Map.new(&{&1, :done}) |> Map.put(8, :running) |> build_run_steps())
 
-    published_niche = insert(:niche, run: run, status: :chosen)
-    insert(:page, run: run, niche: published_niche, status: :publishing)
+    written_niche = insert(:niche, run: run, status: :chosen)
+    insert(:page, run: run, niche: written_niche, status: :ready)
     niche = insert(:niche, run: run)
 
     assert {:error, :run_busy} = Niches.choose(scope_for(run.account), niche.id)
@@ -271,9 +259,9 @@ defmodule Dirmoon.NichesTest do
 
   test "a niche can't be picked while a step of a failed run is still queued" do
     run =
-      insert(:run, status: :failed, steps: 1..8 |> Map.new(&{&1, :done}) |> Map.put(9, :queued) |> build_run_steps())
+      insert(:run, status: :failed, steps: 1..7 |> Map.new(&{&1, :done}) |> Map.put(8, :queued) |> build_run_steps())
 
-    insert(:page, run: run, status: :publishing)
+    insert(:page, run: run, status: :ready)
     niche = insert(:niche, run: run)
 
     assert {:error, :run_busy} = Niches.choose(scope_for(run.account), niche.id)
@@ -283,7 +271,7 @@ defmodule Dirmoon.NichesTest do
   end
 
   test "a niche can't be picked on a stopped run" do
-    run = insert(:run, status: :stopped, steps: build_run_steps(Map.new(1..9, &{&1, :done})))
+    run = insert(:run, status: :stopped, steps: build_run_steps(Map.new(1..8, &{&1, :done})))
     insert(:page, run: run, status: :ready)
     niche = insert(:niche, run: run)
 

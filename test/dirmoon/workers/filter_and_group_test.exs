@@ -150,6 +150,56 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
              Repo.get!(RunPhrase, left_out.id)
   end
 
+  test "spellings of one phrase that differ only in Polish letters are sent once, as the spelling with the most of them" do
+    run = insert(:run, steps: build_run_steps())
+    plain = spelling_in_run(run, "wypozyczalnia lyzew spellingtest", 260)
+    half = spelling_in_run(run, "wypozyczalnia łyżew spellingtest", 260)
+    full = spelling_in_run(run, "Wypożyczalnia łyżew spellingtest", 260)
+    other = spelling_in_run(run, "wypożyczenie łyżew spellingtest", 260)
+    test_process = self()
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn request ->
+      send(test_process, {:sent, Enum.map(request.input.phrases, & &1.id)})
+      answer(%{"niches" => [niche_answer("Wypożyczanie łyżew", [full.id, other.id, plain.id])], "rejected" => []})
+    end)
+
+    :ok = perform_job(FilterAndGroup, %{run_id: run.id})
+
+    assert_received {:sent, sent_ids}
+    assert Enum.sort(sent_ids) == Enum.sort([full.id, other.id])
+    assert %RunPhrase{status: :kept} = Repo.get!(RunPhrase, full.id)
+    assert %RunPhrase{status: :kept} = Repo.get!(RunPhrase, other.id)
+
+    for variant <- [plain, half] do
+      assert %RunPhrase{
+               status: :rejected,
+               rejection_reason: "inna pisownia frazy „wypożyczalnia łyżew spellingtest”",
+               cluster_id: nil
+             } = Repo.get!(RunPhrase, variant.id)
+    end
+
+    assert %RunStep{status: :done, result: "1 nisza, 2 frazy odrzucone"} = step(run, 4)
+  end
+
+  test "of two spellings with as many Polish letters one stays and the other is rejected as its variant" do
+    run = insert(:run, steps: build_run_steps())
+    first = spelling_in_run(run, "łyzwy gdansk spellingtest", 90)
+    second = spelling_in_run(run, "lyzwy gdańsk spellingtest", 90)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn request ->
+      answer(%{"niches" => [niche_answer("Łyżwy", Enum.map(request.input.phrases, & &1.id))], "rejected" => []})
+    end)
+
+    :ok = perform_job(FilterAndGroup, %{run_id: run.id})
+
+    assert [%RunPhrase{status: :kept} = kept, %RunPhrase{status: :rejected} = rejected] =
+             [first.id, second.id]
+             |> Enum.map(&(RunPhrase |> Repo.get!(&1) |> Repo.preload(:phrase)))
+             |> Enum.sort_by(& &1.status)
+
+    assert rejected.rejection_reason == "inna pisownia frazy „#{kept.phrase.phrase}”"
+  end
+
   test "a phrase named in several niches stays in the first, and a niche left empty is dropped" do
     run = insert(:run, steps: build_run_steps())
     shared = phrase_in_run(run, "hotel dla psów", 300)
@@ -411,6 +461,12 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
 
   defp phrase_in_run(run, text, search_volume) do
     phrase = insert(:phrase, phrase: unique_phrase_text(text))
+    insert(:metrics, phrase: phrase, location_code: run.location_code, search_volume: search_volume)
+    insert(:run_phrase, run: run, phrase: phrase)
+  end
+
+  defp spelling_in_run(run, text, search_volume) do
+    phrase = insert(:phrase, phrase: String.downcase(text))
     insert(:metrics, phrase: phrase, location_code: run.location_code, search_volume: search_volume)
     insert(:run_phrase, run: run, phrase: phrase)
   end

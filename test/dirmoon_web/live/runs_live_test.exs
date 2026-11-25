@@ -75,8 +75,7 @@ defmodule DirmoonWeb.RunsLiveTest do
       running: "W toku",
       stopped: "Zatrzymany",
       failed: "Błąd",
-      awaiting_choice: "Czeka na wybór",
-      done: "Gotowy"
+      awaiting_choice: "Czeka na wybór"
     }
 
     runs = Map.new(labels, fn {status, _label} -> {status, insert(:run, account: scope.account, status: status)} end)
@@ -106,7 +105,7 @@ defmodule DirmoonWeb.RunsLiveTest do
 
     runs = [
       insert(:run, account: scope.account, status: :awaiting_choice, steps: scored),
-      insert(:run, account: scope.account, status: :done, steps: build_run_steps(Map.new(1..9, &{&1, :done}))),
+      insert(:run, account: scope.account, status: :awaiting_choice, steps: build_run_steps(Map.new(1..8, &{&1, :done}))),
       insert(:run, account: scope.account, status: :running, steps: writing_brief)
     ]
 
@@ -119,7 +118,7 @@ defmodule DirmoonWeb.RunsLiveTest do
 
   test "the status row sums up the list in one sentence and counts the runs", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    insert(:run, account: scope.account, status: :done)
+    insert(:run, account: scope.account, status: :stopped)
     insert(:run, account: scope.account, status: :awaiting_choice)
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")

@@ -34,7 +34,7 @@ defmodule Dirmoon.Research do
   end
 
   @doc """
-  Starts a run in the Scope's Account: the run, running, with its nine Steps
+  Starts a run in the Scope's Account: the run, running, with its eight Steps
   waiting, and Step 1 enqueued, all in one transaction.
   """
   def start_run(%Scope{} = scope, attrs) do
@@ -96,9 +96,9 @@ defmodule Dirmoon.Research do
   @doc """
   Resumes a stopped or failed run: failed and interrupted Steps wait again,
   the run is running, and the first Step that isn't done or skipped is
-  enqueued. Steps already done or skipped are not run again. A Step 8 or 9
-  the User asked for that was queued or interrupted is enqueued again; one
-  that failed is not (its page was put back), and the run settles. Takes the
+  enqueued. Steps already done or skipped are not run again. A Step 8 the
+  User asked for that was queued or interrupted is enqueued again; one that
+  failed is not (its page was marked failed), and the run settles. Takes the
   run lock (`lock_run!/1`) first and checks the status on the locked row.
 
   Returns `{:error, :not_found}` for an id outside the Scope's Account and
@@ -182,7 +182,7 @@ defmodule Dirmoon.Research do
   database: the run isn't running and none of its Steps is `:queued` or
   `:running` (`RunStep.in_progress?/1`). The precondition for starting a
   user-triggered Step (`Pipeline.start_step/2`): a stopped run whose Step 8
-  or 9 is still queued must be resumed first, so one Step never runs
+  is still queued must be resumed first, so one Step never runs
   underneath another.
   """
   def idle?(%Run{id: run_id}) do

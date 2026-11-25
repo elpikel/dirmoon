@@ -16,6 +16,7 @@ defmodule Dirmoon.Factory do
   alias Dirmoon.Research.ApiRequest
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
+  alias Dirmoon.Research.Steps
   alias Dirmoon.SearchConsole.Connection
 
   def unique_user_email, do: sequence(:email, &"user#{&1}@example.com")
@@ -173,7 +174,7 @@ defmodule Dirmoon.Factory do
   end
 
   def build_run_steps(statuses_by_number \\ %{}, outputs_by_number \\ %{}) do
-    Enum.map(1..9, fn number ->
+    Enum.map(Steps.numbers(), fn number ->
       %RunStep{
         number: number,
         status: Map.get(statuses_by_number, number, :waiting),

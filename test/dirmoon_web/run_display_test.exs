@@ -24,6 +24,10 @@ defmodule DirmoonWeb.RunDisplayTest do
     end
   end
 
+  test "a Phrase whose competition was not checked reads muted" do
+    assert RunDisplay.verdict_class(nil) == "text-on-app-muted"
+  end
+
   test "every competition verdict has a label and a colour" do
     for verdict <- SerpAssessment.verdicts() do
       assert is_binary(RunDisplay.verdict_label(verdict))

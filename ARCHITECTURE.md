@@ -4,7 +4,7 @@ How dirmoon is built today. Planned work lives in `docs/design/README.md` (the p
 
 ## Overview
 
-A signed-in User describes a business; a Research Run takes it through nine Steps, each an Oban job that calls one context and stores its output. Steps 1–7 run on their own and end with scored Niches. The User then picks a Niche (Step 8 writes a Brief and a Page) and publishes or downloads the page (Step 9). LiveView screens follow a run over PubSub. Four external services sit behind behaviours: an LLM, DataForSEO, Google Search Console and Netlify.
+A signed-in User describes a business; a Research Run takes it through eight Steps, each an Oban job that calls one context and stores its output. Steps 1–7 run on their own and end with scored Niches. The User then picks a Niche (Step 8 writes a Brief and a Page), edits the Brief and downloads the page as a Content File; dirmoon does not host or publish pages. LiveView screens follow a run over PubSub. Three external services sit behind behaviours: an LLM, DataForSEO and Google Search Console.
 
 ```mermaid
 flowchart LR
@@ -16,7 +16,7 @@ flowchart LR
 
   subgraph Jobs["Oban queue: pipeline"]
     Auto["Steps 1-7, auto-chained: GenerateSeeds, ExpandPhrases, FetchVolumes, FilterAndGroup, CheckCompetition, FetchCurrentPositions, ScoreNiches"]
-    Asked["Steps 8-9, user-triggered: WriteBrief, PublishPage"]
+    Asked["Step 8, user-triggered: WriteBrief"]
   end
 
   subgraph Contexts["Contexts (Dirmoon)"]
@@ -33,7 +33,6 @@ flowchart LR
     LLM["LLM"]
     DFS["DataForSEO"]
     GSC["SearchConsole.Client"]
-    Hosting["Hosting"]
   end
 
   subgraph Tables["PostgreSQL"]
@@ -72,7 +71,6 @@ flowchart LR
   Phrases --> DFS
   Competition --> DFS
   SearchConsole --> GSC
-  Pages --> Hosting
 
   Accounts --> TAcc
   Research --> TRun
@@ -87,7 +85,6 @@ flowchart LR
   LLM -.-> XLLM["OpenAI Responses API"]
   DFS -.-> XDFS["DataForSEO API"]
   GSC -.-> XGoogle["Google OAuth and Search Console API"]
-  Hosting -.-> XNetlify["Netlify API"]
 ```
 
 ## Stack
@@ -114,16 +111,16 @@ All under `lib/dirmoon/`. Functions that take an id from params take the `Scope`
 | `Niches` | `Niche` (`clusters`); `Grouping` (Step 4), `Scoring` (pure), `ScoreStep` (Step 7) | `store_grouping/2`, `list_for_run/1`, `list_summaries/1`, `niche_detail/2`, `niche_aggregates/1`, `store_scores/2`, `get_niche/2`, `choose/2`, `reject/2`; `Scoring.worth?/1`, `Niche.choosable?/1` | `Research` (Ledger, `lock_run!/1`, `idle?/1`, `Pipeline.start_step/2`), `Phrases`, `Competition`, `Pages`, `LLM` |
 | `Competition` | `SerpSnapshot` (`serp_snapshots`), `SerpAssessment` (`serp_assessments`); `Check` (Step 5) | `fresh_snapshot/2`, `store_snapshot/1`, `store_assessment/2`, `assessments_for_run/1`, `assessment_summaries_for_run/1`, `verdict/1`, `holders/1`, `weak_share/1`, `direct_competitor_count/1`, `checked_line/2` | `Research` (Ledger, `running?/1`, `broadcast_progress/2`), `Phrases`, `DataForSEO`, `LLM` |
 | `SearchConsole` | `Connection` (`search_console_connections`); `Client` (seam), `Positions` (Step 6) | `authorize_url/2`, `connect/2`, `get_connection/1`, `connected?/1`, `disconnect/1`, `connection_for_run/1`, `refresh_token/1` | `SearchConsole.Client`, `Phrases` (`store_current_positions/2`) |
-| `Pages` | `Page` (`pages`) with the embedded `Brief`; `BriefWriter` (Step 8), `Publisher` (Step 9), `Template` + `template.css`, `Placeholders`, `StatusLine` | `get_page/2`, `list_pages/1`, `change_brief/2`, `update_brief/3`, `publish/2`, `content_file/2`, `render/1`, `subscribe/1`; pipeline-internal: `create_for_niche/2`, `restart_writing/1`, `store_brief/2`, `store_hosting_site/2`, `store_published/2`, `fail_writing_pages/2`, `fail_publishing_pages/2` | `Research` (Ledger, `lock_run!/1`, `idle?/1`, `Pipeline.start_step/2`), `Phrases`, `LLM`, `Hosting` |
+| `Pages` | `Page` (`pages`) with the embedded `Brief`; `BriefWriter` (Step 8), `Template` + `template.css`, `Placeholders`, `StatusLine` | `get_page/2`, `list_pages/1`, `change_brief/2`, `update_brief/3`, `content_file/2`, `render/1`, `subscribe/1`; pipeline-internal: `create_for_niche/2`, `restart_writing/1`, `writing_page_for_run/1`, `store_brief/2`, `fail_writing_pages/2` | `Research` (Ledger), `Phrases`, `LLM` |
 
 Seam modules and helpers at the same level:
 
 | Module | What it is |
 |---|---|
-| `Dirmoon.LLM`, `Dirmoon.DataForSEO`, `Dirmoon.Hosting`, `Dirmoon.SearchConsole.Client` | Behaviour plus dispatch to the adapter in app config (see External services) |
+| `Dirmoon.LLM`, `Dirmoon.DataForSEO`, `Dirmoon.SearchConsole.Client` | Behaviour plus dispatch to the adapter in app config (see External services) |
 | `Dirmoon.Polish` | Polish plurals and number, decimal and money formatting (`plural/2`, `usd/1`, `money/2`, `integer/1`, `feminine_number/1`) |
 | `Dirmoon.demo_services/0`, `Dirmoon.demo_data?/0` | The services answered by a `Demo` adapter right now (read from the adapter config keys), and whether there is any; the "DANE TESTOWE" strip lists them |
-| `Dirmoon.Workers.*` | The nine Oban workers (see Background work) |
+| `Dirmoon.Workers.*` | The eight Oban workers (see Background work) |
 
 Schemas reference each other across contexts (`RunPhrase` belongs to a `Niche`, `Page` belongs to a `Niche` and a `Run`, the SERP schemas belong to a `Phrase`); queries on another context's table go through that context's functions.
 
@@ -151,7 +148,7 @@ Screens (all `Layouts.app`). The signed-in app is one full-screen dark shell in 
 | `/app/runs/:id` | `RunLive` | Live Step list, Step 5 progress, stop and resume, API Cost; navigates to the results when Step 7 finishes |
 | `/app/runs/:id/results` | `ResultsLive` | Views `niches`, `phrases`, `rejected` (`?view=`, `?niche=`); Niche detail; choose and reject a Niche. Phrase views show at most 500 rows |
 | `/app/pages` | `PagesLive` | The newest 50 pages |
-| `/app/pages/:id` | `PageLive` | Brief form with a live preview (`iframe srcdoc`), save, publish, download link, retry a failed Brief |
+| `/app/pages/:id` | `PageLive` | Brief form with a live preview (`iframe srcdoc`), save, download link (the primary action in both Modes), retry a failed Brief |
 
 Controllers in the `/app` scope, outside the live session:
 
@@ -179,18 +176,17 @@ One Oban queue, `pipeline`. Each worker is `use Oban.Worker, queue: :pipeline, m
 | 6 Current Positions | `FetchCurrentPositions` | Step 5 done; Existing Site only (the pipeline marks it skipped for New Idea) | `SearchConsole.Positions.fetch/1` (last 90 days, up to 5000 queries) | `run_keywords.current_position`; skipped with a reason when there is no usable Connection |
 | 7 Scoring | `ScoreNiches` | Step 6 done or skipped | `Niches.ScoreStep.score/1` (no external call) | `clusters.score`, `score_components`; the run becomes `awaiting_choice` |
 | 8 Brief and Content | `WriteBrief` | The User: `Niches.choose/2` | `Pages.BriefWriter.write/1` (LLM) | The run's `writing` page: `pages.brief`, status `ready`; on final failure `failed` |
-| 9 Publish | `PublishPage` | The User: `Pages.publish/2` | `Pages.Publisher.publish/1` (Hosting) | `pages.hosting_site_id`, `published_url`, status `published`; on final failure back to `ready` or `published` with the error |
 
 Pipeline rules:
 
 - **`StepRunner.run/3`** runs a Step only while the run is `running`, and never a finished Step twice. The Step function returns `{:ok, %{result:, output:}}`, `{:skip, line}`, `{:error, reason}` or `:stopped`. It marks the Step, broadcasts `{:run_updated, id}` and calls `Pipeline.advance/1`. An error is retried by Oban; on the last attempt, or at once for a `*_not_configured` reason, the Step and the run become `failed` with a readable reason (`StepRunner.readable_reason/1`) and the job is cancelled.
-- **`Pipeline.advance/1`** enqueues the next waiting Step of 1–7, skipping one that does not apply to the Mode. With Steps 1–7 finished it enqueues a `queued` Step 8 or 9, or settles the run: `done` when Step 9 is finished, else `awaiting_choice`. One Step job per run at a time; jobs are unique per worker and args.
-- **Step statuses:** `waiting`, `queued`, `running`, `done`, `skipped`, `failed`. `queued` is only for Steps 8–9: from the User's request until the job starts, and again when interrupted, so a resume knows to run it.
-- **Run statuses:** `running`, `stopped`, `failed`, `awaiting_choice`, `done`. "Results are ready" is not a status: it is Step 7 being `done` (`Run.results_ready?/1`).
+- **`Pipeline.advance/1`** enqueues the next waiting Step of 1–7, skipping one that does not apply to the Mode. With Steps 1–7 finished it enqueues a `queued` Step 8, or, with no Step queued or running, settles the run as `awaiting_choice` (also after Step 8 has written a Brief). One Step job per run at a time; jobs are unique per worker and args.
+- **Step statuses:** `waiting`, `queued`, `running`, `done`, `skipped`, `failed`. `queued` is only for Step 8: from the User's request until the job starts, and again when interrupted, so a resume knows to run it.
+- **Run statuses:** `running`, `stopped`, `failed`, `awaiting_choice`. There is no finished status: a run whose Steps 1–7 are done waits for another Niche choice. "Results are ready" is not a status: it is Step 7 being `done` (`Run.results_ready?/1`).
 - **Stop** (`Research.stop_run/2`) sets the run `stopped` and cancels its jobs that have not started. A Step at work finishes its current call; Step 5 checks `Research.running?/1` between Phrases and returns `:stopped`, which puts the Step back without an error.
-- **Resume** (`Research.resume_run/2` → `Pipeline.resume/1`) works for a `stopped` or `failed` run: failed and interrupted Steps 1–7 wait again and the first unfinished one is enqueued; an interrupted or queued Step 8–9 is enqueued again; a Step 8–9 that failed is not retried (the User chooses the Niche or publishes again). Done and skipped Steps are never rerun.
-- **Run lock:** `stop_run/2`, `resume_run/2`, `Niches.choose/2` and `Pages.publish/2` each lock the run row first (`Research.lock_run!/1`) inside their transaction. Starting Step 8 or 9 requires `Research.idle?/1`: the run is not `running` and no Step is `queued` or `running`.
-- **API ledger:** every paid call goes through `Research.Ledger.fetch/3`, which stores request, response and cost in `api_requests`, unique per run by a hash of service, operation and request. A request the run already stored is replayed from the table, so retries and resumes never pay twice. LLM answers are validated inside the ledger function, so a rejected answer is not stored. A run's API Cost is the sum of its rows. Search Console queries and Netlify deploys do not go through the ledger.
+- **Resume** (`Research.resume_run/2` → `Pipeline.resume/1`) works for a `stopped` or `failed` run: failed and interrupted Steps 1–7 wait again and the first unfinished one is enqueued; an interrupted or queued Step 8 is enqueued again; a Step 8 that failed is not retried (the User chooses the Niche again). Done and skipped Steps are never rerun.
+- **Run lock:** `stop_run/2`, `resume_run/2` and `Niches.choose/2` each lock the run row first (`Research.lock_run!/1`) inside their transaction. Starting Step 8 requires `Research.idle?/1`: the run is not `running` and no Step is `queued` or `running`.
+- **API ledger:** every paid call goes through `Research.Ledger.fetch/3`, which stores request, response and cost in `api_requests`, unique per run by a hash of service, operation and request. A request the run already stored is replayed from the table, so retries and resumes never pay twice. LLM answers are validated inside the ledger function, so a rejected answer is not stored. A run's API Cost is the sum of its rows. Search Console queries do not go through the ledger.
 - **Live updates:** topic `run:<id>` carries `{:run_updated, id}` and `{:run_progress, id, map}`; topic `page:<id>` carries `{:page_updated, id}`.
 
 ## Data
@@ -204,7 +200,7 @@ Migrations in `priv/repo/migrations/`. Table names keep the handover's words (`k
 | `accounts` | `Accounts.Account` | the tenant | timestamps only |
 | `account_memberships` | `Accounts.Membership` | User ↔ Account | no primary key; unique (`account_id`, `user_id`) |
 | `research_runs` | `Research.Run` | per Account | index (`account_id`, `inserted_at`); checks: at most five `priority_services`, `domain` required for `existing_site` |
-| `run_steps` | `Research.RunStep` | per run | unique (`run_id`, `number`); check `number` 1–9; `output` jsonb is how a later Step reads an earlier one (`Research.step_output/2`) |
+| `run_steps` | `Research.RunStep` | per run | unique (`run_id`, `number`); check `number` 1–8; `output` jsonb is how a later Step reads an earlier one (`Research.step_output/2`) |
 | `api_requests` | `Research.ApiRequest` | per run | unique (`run_id`, `request_hash`); `cost` decimal(12,6), check `cost >= 0`; insert-only |
 | `keywords` | `Phrases.Phrase` | **shared** | unique (`phrase`, `language_code`); `phrase` normalised (trimmed, lower case, single spaces) |
 | `keyword_metrics` | `Phrases.Metrics` | **shared** | unique (`keyword_id`, `location_code`); volume, CPC, currency, `monthly_searches` jsonb (the `trend` field), `fetched_at`; an upsert replaces a row only with a newer `fetched_at` |
@@ -212,7 +208,7 @@ Migrations in `priv/repo/migrations/`. Table names keep the handover's words (`k
 | `run_keywords` | `Phrases.RunPhrase` | per run | unique (`run_id`, `keyword_id`); `status` (`kept`/`rejected`), `rejection_reason`, `cluster_id` (nilified with the Niche), `current_position`; `keyword_id` on delete restrict |
 | `clusters` | `Niches.Niche` | per run | unique (`run_id`, `position`); `score` decimal(4,2), `score_components`, `status` (`proposed`/`rejected`/`chosen`) |
 | `serp_assessments` | `Competition.SerpAssessment` | per run | unique (`run_id`, `keyword_id`); `labels` jsonb (position, Page Type), `verdict`, `reused_snapshot` |
-| `pages` | `Pages.Page` | per Account | unique `cluster_id` (one page per Niche, deleted with it); `brief` jsonb (embedded `Brief`); partial unique index on `run_id` where `status = 'writing'` (one Brief written per run at a time) |
+| `pages` | `Pages.Page` | per Account | unique `cluster_id` (one page per Niche, deleted with it); `brief` jsonb (embedded `Brief`); `status` `writing`/`ready`/`failed`; partial unique index on `run_id` where `status = 'writing'` (one Brief written per run at a time) |
 | `search_console_connections` | `SearchConsole.Connection` | per Account | unique `account_id`; `encrypted_refresh_token` (`Plug.Crypto`, keyed by the endpoint's `secret_key_base`) |
 | `oban_jobs` | Oban | — | Oban's own migration |
 
@@ -227,12 +223,11 @@ Each service is a behaviour with a dispatching module; the adapter is one app-co
 | `Dirmoon.LLM` (`structured/1`) | `:llm_adapter` | `LLM.OpenAI` | `OPENAI_API_KEY` (model: `OPENAI_MODEL`, default `gpt-6.2-sol`) | `LLM.Demo` / `LLM.NotConfigured` (`:llm_not_configured`) | `Dirmoon.LLMMock`; `OpenAI` itself against `Req.Test` |
 | `Dirmoon.DataForSEO` (`phrase_ideas/1`, `search_volumes/1`, `serp_top10/1`, `find_location/1`) | `:data_for_seo_adapter` | `DataForSEO.HTTP` | `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` | `DataForSEO.Demo` / `DataForSEO.NotConfigured` (`:data_for_seo_not_configured`) | `Dirmoon.DataForSEOMock`; `HTTP` itself against `Req.Test` |
 | `Dirmoon.SearchConsole.Client` (`authorize_url/1`, `exchange_code/1`, `refresh_access_token/1`, `query/1`) | `:search_console_adapter` | `SearchConsole.Client.Google` | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` | `Client.Demo` / `Client.NotConfigured` (`:search_console_not_configured`) | `Dirmoon.SearchConsoleMock`; `Google` itself against `Req.Test` |
-| `Dirmoon.Hosting` (`create_site/1`, `deploy/1`) | `:hosting_adapter` | `Hosting.Netlify` | `NETLIFY_TOKEN` | `Hosting.Demo` / `Hosting.NotConfigured` (`:hosting_not_configured`) | `Dirmoon.HostingMock`; `Netlify` itself against `Req.Test` |
 
 - **The LLM is OpenAI.** `LLM.OpenAI` sends one Responses API request per structured request, with the Step's schema as a strict JSON schema (every object closed with `additionalProperties: false`) and `store: false`. The cost is the reported token usage times the prices in `config :dirmoon, Dirmoon.LLM.OpenAI` (`prices`, USD per million tokens, cached input priced apart); a model without prices is refused before any request. A refusal, a cut-short answer or text that is not a JSON object is an error. With `NotConfigured` Step 1 fails at once with "Brak klucza API OpenAI".
-- **The OpenAI, DataForSEO, Google and Netlify adapters have never been run against the live services.** They were written from the documentation and are tested only against `Req.Test` stubs; their assumptions are listed in `docs/MEMORY.md`.
+- **The OpenAI, DataForSEO and Google adapters have never been run against the live services.** They were written from the documentation and are tested only against `Req.Test` stubs; their assumptions are listed in `docs/MEMORY.md`.
 - Demo adapters return deterministic, obviously synthetic data (text marked `(demo)`, never a Placeholder; `*.example` domains) at cost 0.
-- A `NotConfigured` LLM, DataForSEO or Hosting fails the Step immediately, without retries; a `NotConfigured` Search Console skips Step 6.
+- A `NotConfigured` LLM or DataForSEO fails the Step immediately, without retries; a `NotConfigured` Search Console skips Step 6.
 - The mocks are defined in `test/test_helper.exs`. Real adapters set `retry: false` and take `req_options` from config, which is where test config plugs `Req.Test`.
 - Email: `Dirmoon.Mailer` (Swoosh). `Swoosh.Adapters.Local` in dev (mailbox at `/dev/mailbox`), `Swoosh.Adapters.Test` in test. No production adapter is configured.
 
@@ -249,7 +244,7 @@ Other runtime settings in `config/config.exs`: `grouping_phrase_limit` (400), `s
 | Path | What goes there |
 |---|---|
 | `lib/dirmoon/` | Contexts (`Dirmoon.*`): one module per context plus a folder with its schemas and Step modules; the seam behaviours and their adapters |
-| `lib/dirmoon/workers/` | The nine Oban workers, one per Step |
+| `lib/dirmoon/workers/` | The eight Oban workers, one per Step |
 | `lib/dirmoon/pages/template.ex`, `template.css` | The Page template and its inlined stylesheet |
 | `lib/dirmoon_web/` | Web layer (`DirmoonWeb.*`): router, `user_auth.ex`, display helpers |
 | `lib/dirmoon_web/live/` | LiveViews (`*_live.ex`, `user_live/`) |

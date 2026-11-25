@@ -547,10 +547,10 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
   test "a choice the run is too busy for says the research is still working", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    steps = 1..8 |> Map.new(&{&1, :done}) |> Map.put(9, :running) |> build_run_steps()
+    steps = 1..7 |> Map.new(&{&1, :done}) |> Map.put(8, :running) |> build_run_steps()
     run = insert(:run, account: scope.account, status: :running, steps: steps)
-    published = insert(:niche, run: run, score: Decimal.new("5.0"), status: :chosen)
-    insert(:page, run: run, niche: published, status: :publishing)
+    written = insert(:niche, run: run, score: Decimal.new("5.0"), status: :chosen)
+    insert(:page, run: run, niche: written, status: :ready)
     niche = insert(:niche, run: run, score: Decimal.new("6.0"))
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?niche=#{niche.id}")

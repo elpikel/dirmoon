@@ -1,8 +1,8 @@
 defmodule Dirmoon.Research.Steps do
   @moduledoc """
-  The nine Steps of a Research Run as data: number, key, Polish name, the
+  The eight Steps of a Research Run as data: number, key, Polish name, the
   Oban worker that runs it, the Modes it applies to, and whether it follows
-  the previous Step on its own (Steps 1–7) or waits for the user (8 and 9).
+  the previous Step on its own (Steps 1–7) or waits for the user (8).
   """
 
   @all_modes [:new_idea, :existing_site]
@@ -72,26 +72,15 @@ defmodule Dirmoon.Research.Steps do
       worker: Dirmoon.Workers.WriteBrief,
       modes: @all_modes,
       auto_chained?: false
-    },
-    %{
-      number: 9,
-      key: :publish,
-      name: "Publikacja",
-      worker: Dirmoon.Workers.PublishPage,
-      modes: @all_modes,
-      auto_chained?: false
     }
   ]
 
   @numbers Enum.map(@steps, & &1.number)
-  @last_number List.last(@numbers)
   @numbers_by_key Map.new(@steps, &{&1.key, &1.number})
 
   def all, do: @steps
 
   def numbers, do: @numbers
-
-  def last_number, do: @last_number
 
   def get!(number) when number in @numbers do
     Enum.find(@steps, &(&1.number == number))

@@ -121,8 +121,8 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
              },
              %{
                position: 2,
-               url: "https://dirmoon-test.netlify.app/buty",
-               domain: "dirmoon-test.netlify.app",
+               url: "https://dirmoon-test.example/buty",
+               domain: "dirmoon-test.example",
                title: "Ranking butów"
              }
            ]
@@ -527,9 +527,9 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
         "rank_absolute" => 3,
         "page" => 1,
         "position" => "left",
-        "domain" => "dirmoon-test.netlify.app",
+        "domain" => "dirmoon-test.example",
         "title" => "Ranking butów",
-        "url" => "https://dirmoon-test.netlify.app/buty",
+        "url" => "https://dirmoon-test.example/buty",
         "description" => "..."
       }
     ])

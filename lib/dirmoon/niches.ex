@@ -214,13 +214,13 @@ defmodule Dirmoon.Niches do
   and, when Step 8 started, to the run are told once it commits.
 
   A Niche that already has a page that hasn't failed (being written,
-  written, being published or published) returns that page and enqueues
+  or written) returns that page and enqueues
   nothing. Otherwise a Niche of the run must be choosable now
   (`Dirmoon.Research.Run.choosable?/1`: Step 7 is done and the run isn't
   stopped, else `:run_not_ready`); the Niche must be proposed or chosen
   (`Niche.choosable?/1`, else `:not_choosable`); no other page of the run
   may be `:writing` (else `:brief_in_progress`); and the run must be idle
-  (`Dirmoon.Research.idle?/1`: not running, no Step 8 or 9 queued or
+  (`Dirmoon.Research.idle?/1`: not running, no Step 8 queued or
   running, else `:run_busy`).
 
   Returns `{:ok, page}` or

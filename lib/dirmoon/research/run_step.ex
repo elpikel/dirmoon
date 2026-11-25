@@ -1,9 +1,9 @@
 defmodule Dirmoon.Research.RunStep do
   @moduledoc """
-  One of the nine Steps of a Research Run, with its status, its one-line
+  One of the eight Steps of a Research Run, with its status, its one-line
   result, its stored output and, when it failed, a readable error.
 
-  A user-triggered Step (8 or 9) is `:queued` from the moment the User asks
+  A user-triggered Step (8) is `:queued` from the moment the User asks
   for it until its job starts, and again when it is interrupted, so a resume
   knows to run it; Steps 1–7 wait as `:waiting` instead.
   """

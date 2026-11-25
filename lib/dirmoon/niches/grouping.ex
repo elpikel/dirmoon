@@ -9,7 +9,11 @@ defmodule Dirmoon.Niches.Grouping do
 
   Only the `grouping_phrase_limit` Phrases with the highest Volume
   (`config :dirmoon, grouping_phrase_limit:`) are sent; the rest are
-  rejected as "poza limitem analizy". A Niche name longer than
+  rejected as "poza limitem analizy". Phrases that differ only in Polish
+  letters ("wypozyczalnia lyzew", "wypożyczalnia łyżew") are one search to
+  Google, which reports the same combined Volume for each: only the spelling
+  with the most Polish letters is sent, and the others are rejected as its
+  spelling variants, so a Niche's Volume counts the search once. A Niche name longer than
   `Niche.max_name_length/0` is cut to that length.
   """
 
@@ -24,6 +28,7 @@ defmodule Dirmoon.Niches.Grouping do
   @no_phrases_error "Brak fraz do pogrupowania"
   @no_niche_error "Model nie zwrócił żadnej niszy"
   @beyond_limit_reason "poza limitem analizy"
+  @spelling_variant_reason "inna pisownia frazy"
   @default_rejection_reason "odrzucona przez model"
   @niche_forms %{one: "nisza", few: "nisze", many: "nisz"}
   @rejected_forms %{one: "fraza odrzucona", few: "frazy odrzucone", many: "fraz odrzuconych"}
@@ -75,7 +80,8 @@ defmodule Dirmoon.Niches.Grouping do
   or the LLM's `{:error, reason}`.
   """
   def group(%Run{} = run) do
-    {sent_phrases, phrases_beyond_limit} = run |> Phrases.list_for_run() |> Enum.split(phrase_limit())
+    {unique_phrases, spelling_variants} = run |> Phrases.list_for_run() |> split_spelling_variants()
+    {sent_phrases, phrases_beyond_limit} = Enum.split(unique_phrases, phrase_limit())
 
     with {:ok, phrases} <- phrases_to_send(sent_phrases),
          request = request(run, phrases),
@@ -83,9 +89,36 @@ defmodule Dirmoon.Niches.Grouping do
            Ledger.fetch(run, %{service: "llm", operation: "filter_and_group", request: request}, fn ->
              cleaned_grouping(request)
            end),
-         {:ok, counts} <- Niches.store_grouping(run, grouping(answer, phrases_beyond_limit)) do
+         {:ok, counts} <-
+           Niches.store_grouping(run, grouping(answer, rejected_unsent(phrases_beyond_limit, spelling_variants))) do
       {:ok, %{result: result_line(counts), output: output(counts)}}
     end
+  end
+
+  # Keeps the list's order. Of the spellings of one phrase, the one with the
+  # most Polish letters stays (the first of them on a tie).
+  defp split_spelling_variants(run_phrases) do
+    kept_by_spelling =
+      run_phrases
+      |> Enum.group_by(&Polish.without_diacritics(&1.phrase.phrase))
+      |> Map.new(fn {spelling, variants} ->
+        {spelling, Enum.max_by(variants, &Polish.diacritic_count(&1.phrase.phrase))}
+      end)
+
+    {kept, variants} =
+      Enum.split_with(run_phrases, fn run_phrase ->
+        Map.fetch!(kept_by_spelling, Polish.without_diacritics(run_phrase.phrase.phrase)).id == run_phrase.id
+      end)
+
+    {kept,
+     Enum.map(variants, fn variant ->
+       kept_phrase = Map.fetch!(kept_by_spelling, Polish.without_diacritics(variant.phrase.phrase)).phrase.phrase
+       %{phrase_id: variant.id, reason: "#{@spelling_variant_reason} „#{kept_phrase}”"}
+     end)}
+  end
+
+  defp rejected_unsent(phrases_beyond_limit, spelling_variants) do
+    Enum.map(phrases_beyond_limit, &%{phrase_id: &1.id, reason: @beyond_limit_reason}) ++ spelling_variants
   end
 
   defp phrases_to_send([]), do: {:error, @no_phrases_error}
@@ -228,15 +261,13 @@ defmodule Dirmoon.Niches.Grouping do
 
   defp trimmed(_not_text), do: nil
 
-  defp grouping(%{"niches" => niches, "rejected" => rejected}, phrases_beyond_limit) do
+  defp grouping(%{"niches" => niches, "rejected" => rejected}, rejected_unsent) do
     %{
       niches:
         Enum.map(niches, fn niche ->
           %{name: niche["name"], intent: niche["intent"], reading: niche["reading"], phrase_ids: niche["phrase_ids"]}
         end),
-      rejected:
-        Enum.map(rejected, &%{phrase_id: &1["phrase_id"], reason: &1["reason"]}) ++
-          Enum.map(phrases_beyond_limit, &%{phrase_id: &1.id, reason: @beyond_limit_reason})
+      rejected: Enum.map(rejected, &%{phrase_id: &1["phrase_id"], reason: &1["reason"]}) ++ rejected_unsent
     }
   end
 

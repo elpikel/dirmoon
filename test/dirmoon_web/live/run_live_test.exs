@@ -10,7 +10,7 @@ defmodule DirmoonWeb.RunLiveTest do
   alias Dirmoon.Research.RunStep
   alias Dirmoon.Workers.ExpandPhrases
 
-  test "the nine Steps show with their number, name, result and status", %{conn: conn} do
+  test "the eight Steps show with their number, name, result and status", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
 
     steps =
@@ -29,9 +29,11 @@ defmodule DirmoonWeb.RunLiveTest do
     assert has_element?(view, "#step-5-status", "W toku")
     assert has_element?(view, "#step-6-status", "Pominięty")
     assert has_element?(view, "#step-7-status", "Czeka")
-    assert has_element?(view, "#step-9", "09")
-    assert has_element?(view, "#step-9", "Publikacja")
-    assert has_element?(view, "#step-9", "Landing na Netlify")
+    assert has_element?(view, "#step-8", "08")
+    assert has_element?(view, "#step-8", "Brief i treść")
+    assert has_element?(view, "#step-8", "Po wyborze niszy")
+    assert has_element?(view, "#run-steps > li:last-child#step-8")
+    refute has_element?(view, "#step-9")
   end
 
   test "a queued Step shows as waiting", %{conn: conn} do
@@ -355,33 +357,16 @@ defmodule DirmoonWeb.RunLiveTest do
     assert has_element?(view, "#run-detail", "Pracuję nad researchem")
   end
 
-  test "a published run offers to open the published page", %{conn: conn} do
+  test "a run whose Brief is written awaits a choice and offers the results", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-
-    steps =
-      1..9
-      |> Map.new(&{&1, :done})
-      |> build_run_steps()
-      |> Enum.map(&put_output(&1, 9, %{"url" => "https://strona-testowa.netlify.app"}))
-
-    run = insert(:run, account: scope.account, status: :done, steps: steps)
+    steps = build_run_steps(Map.new(1..8, &{&1, :done}))
+    run = insert(:run, account: scope.account, status: :awaiting_choice, steps: steps)
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#run-status-line", "Strona opublikowana.")
-    assert has_element?(view, "#run-detail", "Strona opublikowana.")
-    assert has_element?(view, "#open-published-page[href='https://strona-testowa.netlify.app']", "Otwórz stronę")
+    assert has_element?(view, "#step-8-status", "Gotowe")
+    assert has_element?(view, "#run-detail", "Nisze ocenione.")
     assert has_element?(view, "#run-detail #see-results[href='/app/runs/#{run.id}/results']")
-  end
-
-  test "a done run whose Step 9 stored no url offers only the results", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    run = insert(:run, account: scope.account, status: :done, steps: build_run_steps(Map.new(1..9, &{&1, :done})))
-
-    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
-
-    assert has_element?(view, "#run-detail #see-results")
-    refute has_element?(view, "#open-published-page")
   end
 
   test "a run stopped after its last chained Step offers to finish the research", %{conn: conn} do
@@ -477,9 +462,6 @@ defmodule DirmoonWeb.RunLiveTest do
 
   defp put_error(%RunStep{number: number} = step, number, error), do: %{step | error: error}
   defp put_error(step, _number, _error), do: step
-
-  defp put_output(%RunStep{number: number} = step, number, output), do: %{step | output: output}
-  defp put_output(step, _number, _output), do: step
 
   defp set_status_quietly(run, status) do
     run |> Ecto.Changeset.change(status: status) |> Repo.update!()

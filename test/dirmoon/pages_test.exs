@@ -12,7 +12,6 @@ defmodule Dirmoon.PagesTest do
   alias Dirmoon.Research
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
-  alias Dirmoon.Workers.PublishPage
   alias Dirmoon.Workers.WriteBrief
 
   test "a page of the Scope's Account is found with its niche and run" do
@@ -33,7 +32,7 @@ defmodule Dirmoon.PagesTest do
 
     %Page{run: page_run} = Pages.get_page(scope_for(account), page.id)
 
-    assert Enum.map(page_run.steps, & &1.number) == Enum.to_list(1..9)
+    assert Enum.map(page_run.steps, & &1.number) == Enum.to_list(1..8)
   end
 
   test "another Account's page or a malformed id is not found" do
@@ -120,145 +119,23 @@ defmodule Dirmoon.PagesTest do
     assert account |> scope_for() |> Pages.get_page(page.id) |> Pages.render() == nil
   end
 
-  test "publishing a ready page marks it publishing, runs the run again and enqueues step 9" do
-    run = finished_run()
-    page = insert(:page, run: run, status: :ready)
-
-    assert {:ok, %Page{status: :publishing}} = Pages.publish(scope_for(run.account), page.id)
-
-    assert Repo.get!(Page, page.id).status == :publishing
-    assert Repo.get!(Run, run.id).status == :running
-    assert Repo.get_by!(RunStep, run_id: run.id, number: 9).status == :queued
-    assert_enqueued(worker: PublishPage, args: %{run_id: run.id})
-  end
-
-  test "publishing tells the page's subscribers and the run's subscribers once" do
-    run = finished_run()
-    page = insert(:page, run: run, status: :ready)
-    scope = scope_for(run.account)
-    Pages.subscribe(Pages.get_page(scope, page.id))
-    Research.subscribe(run)
-    page_id = page.id
-    run_id = run.id
-
-    {:ok, _page} = Pages.publish(scope, page.id)
-
-    assert_receive {:page_updated, ^page_id}
-    assert_receive {:run_updated, ^run_id}
-    refute_receive {:run_updated, _run_id}
-  end
-
-  test "a published page of an existing site can be published again" do
-    run = finished_run(%{mode: :existing_site, domain: "firma-testowa.example"})
-
-    page =
-      insert(:page, run: run, status: :published, published_url: "https://strona.example", hosting_site_id: "site")
-
-    assert {:ok, %Page{status: :publishing, published_url: "https://strona.example"}} =
-             Pages.publish(scope_for(run.account), page.id)
-
-    assert_enqueued(worker: PublishPage, args: %{run_id: run.id})
-  end
-
-  test "publishing while a page of the run is being published enqueues no second step 9 job" do
-    run = finished_run()
-    page = insert(:page, run: run, status: :ready)
-    other_page = insert(:page, run: run, status: :ready)
-    scope = scope_for(run.account)
-
-    {:ok, _page} = Pages.publish(scope, page.id)
-
-    assert Pages.publish(scope, page.id) == {:error, :run_busy}
-    assert Pages.publish(scope, other_page.id) == {:error, :run_busy}
-    assert [_one_job] = all_enqueued(worker: PublishPage)
-    assert Repo.get!(Page, other_page.id).status == :ready
-  end
-
-  test "a page can't be published while step 8 is writing another niche's brief" do
-    run =
-      insert(:run, status: :running, steps: 1..7 |> Map.new(&{&1, :done}) |> Map.put(8, :running) |> build_run_steps())
-
-    page = insert(:page, run: run, status: :ready)
-
-    assert Pages.publish(scope_for(run.account), page.id) == {:error, :run_busy}
-
-    assert Repo.get!(Page, page.id).status == :ready
-    assert Repo.get!(Run, run.id).status == :running
-    refute_enqueued(worker: PublishPage)
-  end
-
-  test "a page can't be published on a stopped run whose step 8 is still queued until the run is resumed" do
+  test "a stopped run whose step 8 is still queued writes the brief once resumed and then awaits a choice" do
     run = finished_run()
     niche = insert(:niche, run: run)
-    ready_page = insert(:page, run: run, status: :ready)
     scope = scope_for(run.account)
     {:ok, writing_page} = Niches.choose(scope, niche.id)
     {:ok, _run} = Research.stop_run(scope, run.id)
 
-    assert Pages.publish(scope, ready_page.id) == {:error, :run_busy}
-
-    assert Repo.get!(Page, ready_page.id).status == :ready
-    assert %RunStep{status: :done} = Repo.get_by!(RunStep, run_id: run.id, number: 9)
-    refute_enqueued(worker: PublishPage)
-
     {:ok, _run} = Research.resume_run(scope, run.id)
-    assert_enqueued(worker: WriteBrief, args: %{run_id: run.id})
+
+    assert [%Oban.Job{worker: "Dirmoon.Workers.WriteBrief"}] = all_enqueued(queue: :pipeline)
     stub(Dirmoon.LLMMock, :structured, fn %{task: :brief} -> {:ok, brief_answer(), Decimal.new("0.01")} end)
 
     assert :ok = perform_job(WriteBrief, %{run_id: run.id})
 
     assert Repo.get!(Page, writing_page.id).status == :ready
-    assert Repo.get!(Run, run.id).status == :done
+    assert Repo.get!(Run, run.id).status == :awaiting_choice
     refute Enum.any?(Repo.preload(run, :steps, force: true).steps, &RunStep.in_progress?/1)
-    assert {:ok, %Page{status: :publishing}} = Pages.publish(scope, ready_page.id)
-    assert_enqueued(worker: PublishPage, args: %{run_id: run.id})
-  end
-
-  test "resuming a run stopped while writing a brief enqueues only the brief writer when publishing was refused meanwhile" do
-    run = finished_run()
-    niche = insert(:niche, run: run)
-    ready_page = insert(:page, run: run, status: :ready)
-    scope = scope_for(run.account)
-    {:ok, _writing_page} = Niches.choose(scope, niche.id)
-    {:ok, _run} = Research.stop_run(scope, run.id)
-    {:error, :run_busy} = Pages.publish(scope, ready_page.id)
-
-    {:ok, _run} = Research.resume_run(scope, run.id)
-
-    assert [%Oban.Job{worker: "Dirmoon.Workers.WriteBrief"}] = all_enqueued(queue: :pipeline)
-    assert Repo.get!(Page, ready_page.id).status == :ready
-    assert Repo.get_by!(RunStep, run_id: run.id, number: 9).status == :done
-  end
-
-  test "another Account's page can't be published" do
-    run = finished_run()
-    page = insert(:page, run: run, status: :ready)
-
-    assert Pages.publish(scope_for(insert(:account)), page.id) == {:error, :not_found}
-
-    assert Repo.get!(Page, page.id).status == :ready
-    assert Repo.get!(Run, run.id).status == :done
-    refute_enqueued(worker: PublishPage)
-  end
-
-  test "a page without a written or valid brief can't be published" do
-    run = finished_run()
-    writing_page = insert(:page, run: run, status: :writing, brief: nil)
-    invalid_page = insert(:page, run: run, status: :ready, brief: build(:brief, sections: []))
-    scope = scope_for(run.account)
-
-    assert Pages.publish(scope, writing_page.id) == {:error, :not_publishable}
-    assert Pages.publish(scope, invalid_page.id) == {:error, :not_publishable}
-    assert Repo.get!(Run, run.id).status == :done
-    refute_enqueued(worker: PublishPage)
-  end
-
-  test "a page left publishing in a run that is no longer running is put back so it can be published again" do
-    run = finished_run(%{status: :stopped})
-    page = insert(:page, run: run, status: :publishing, published_url: "https://strona.example")
-
-    assert {:ok, %Page{status: :publishing}} = Pages.publish(scope_for(run.account), page.id)
-    assert_enqueued(worker: PublishPage, args: %{run_id: run.id})
   end
 
   test "the content file of a written page is its rendered html named after the slug" do
@@ -270,16 +147,6 @@ defmodule Dirmoon.PagesTest do
     assert html == scope |> Pages.get_page(page.id) |> Pages.render()
   end
 
-  test "a page being published or published has a content file too" do
-    run = finished_run()
-    publishing_page = insert(:page, run: run, status: :publishing)
-    published_page = insert(:page, run: run, status: :published)
-    scope = scope_for(run.account)
-
-    assert {:ok, %{html: "<!DOCTYPE html>" <> _rest}} = Pages.content_file(scope, publishing_page.id)
-    assert {:ok, %{html: "<!DOCTYPE html>" <> _rest}} = Pages.content_file(scope, published_page.id)
-  end
-
   test "a content file without a usable slug is named strona.html" do
     run = finished_run()
     page = insert(:page, run: run, brief: build(:brief, slug: nil))
@@ -287,17 +154,19 @@ defmodule Dirmoon.PagesTest do
     assert {:ok, %{filename: "strona.html"}} = Pages.content_file(scope_for(run.account), page.id)
   end
 
-  test "a page still being written has no content file and another Account's page is not found" do
+  test "a page still being written or failed has no content file and another Account's page is not found" do
     run = finished_run()
     writing_page = insert(:page, run: run, status: :writing, brief: nil)
+    failed_page = insert(:page, run: run, status: :failed, brief: nil, error: "Brak klucza API OpenAI")
     foreign_page = insert(:page, run: finished_run())
 
     assert Pages.content_file(scope_for(run.account), writing_page.id) == {:error, :not_ready}
+    assert Pages.content_file(scope_for(run.account), failed_page.id) == {:error, :not_ready}
     assert Pages.content_file(scope_for(run.account), foreign_page.id) == {:error, :not_found}
   end
 
   defp finished_run(attrs \\ %{}) do
-    insert(:run, Map.merge(%{status: :done, steps: build_run_steps(Map.new(1..9, &{&1, :done}))}, attrs))
+    insert(:run, Map.merge(%{status: :awaiting_choice, steps: build_run_steps(Map.new(1..8, &{&1, :done}))}, attrs))
   end
 
   defp scope_for(account), do: Scope.for_user(build(:user), account)

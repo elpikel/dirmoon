@@ -19,13 +19,10 @@ defmodule Dirmoon.Pages.StatusLine do
 
   @sentences %{
     writing: "Piszę brief i treść strony. Pokażę je tutaj, gdy skończę.",
-    publishing: "Publikuję stronę na Netlify. Adres pojawi się tutaj, gdy skończę.",
     writing_on_stopped_run: "Research jest zatrzymany, więc brief czeka. Wznów go na ekranie researchu.",
-    publishing_on_stopped_run: "Research jest zatrzymany, więc publikacja czeka. Wznów go na ekranie researchu.",
     failed: "Brief się nie udał: %{reason}.",
     failed_without_reason: "Brief się nie udał.",
     ready: "Ułożyłem stronę z %{count} %{questions} klientów. Ceny i dane kontaktowe uzupełniasz Ty.",
-    published: "Opublikowałem stronę z %{count} %{questions} klientów. Ceny i dane kontaktowe uzupełniasz Ty.",
     approval: "Odpowiedzi prawne, medyczne i finansowe musi zatwierdzić właściciel firmy przed publikacją.",
     no_pages: "Nie mam jeszcze żadnej strony. Wybierz niszę w wynikach, a napiszę dla niej brief.",
     pages: "Mam %{count} %{pages} dla Twoich nisz."
@@ -33,13 +30,11 @@ defmodule Dirmoon.Pages.StatusLine do
 
   @doc """
   The status sentence of a page with its run preloaded (`Pages.get_page/2`).
-  A page being written or published on a stopped run says it waits for the
-  research to be resumed.
+  A page being written on a stopped run says it waits for the research to be
+  resumed.
   """
   def sentence(%Page{status: :writing, run: %Run{status: :stopped}}), do: @sentences.writing_on_stopped_run
-  def sentence(%Page{status: :publishing, run: %Run{status: :stopped}}), do: @sentences.publishing_on_stopped_run
   def sentence(%Page{status: :writing}), do: @sentences.writing
-  def sentence(%Page{status: :publishing}), do: @sentences.publishing
   def sentence(%Page{status: :failed, error: nil}), do: @sentences.failed_without_reason
 
   def sentence(%Page{status: :failed, error: error}) do
@@ -47,14 +42,12 @@ defmodule Dirmoon.Pages.StatusLine do
     String.replace(@sentences.failed, "%{reason}", reason)
   end
 
-  def sentence(%Page{status: status, brief: %Brief{sections: sections}, run: %Run{mode: mode}})
-      when status in [:ready, :published] do
+  def sentence(%Page{status: :ready, brief: %Brief{sections: sections}, run: %Run{mode: mode}}) do
     count = length(sections)
     count_text = Integer.to_string(count)
     questions = Polish.plural(count, @question_forms)
-    template = Map.fetch!(@sentences, status)
 
-    template
+    @sentences.ready
     |> String.replace("%{count}", count_text)
     |> String.replace("%{questions}", questions)
     |> with_approval(mode)

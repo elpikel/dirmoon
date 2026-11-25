@@ -134,7 +134,6 @@ defmodule Dirmoon.Research.StepRunnerTest do
   test "a client that is not configured reads as a message naming the missing setting" do
     assert StepRunner.readable_reason(:llm_not_configured) == "Brak klucza API OpenAI"
     assert StepRunner.readable_reason(:data_for_seo_not_configured) == "Brak danych logowania DataForSEO"
-    assert StepRunner.readable_reason(:hosting_not_configured) == "Brak tokenu Netlify"
   end
 
   test "a text reason reads as itself" do

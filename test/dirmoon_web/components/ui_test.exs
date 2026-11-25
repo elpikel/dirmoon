@@ -138,7 +138,7 @@ defmodule DirmoonWeb.UITest do
 
     document =
       parse(~H"""
-      <UI.dark_panel id="panel" context="jak to działa" note="9 kroków">
+      <UI.dark_panel id="panel" context="jak to działa" note="8 kroków">
         <p id="panel-body">Treść</p>
       </UI.dark_panel>
       """)
@@ -150,7 +150,7 @@ defmodule DirmoonWeb.UITest do
     assert has_class?(document, "#panel [data-part=top-bar]", "font-mono")
     assert document |> LazyHTML.query("#panel [data-part=top-bar] svg[data-moon-mark]") |> Enum.count() == 1
     assert document |> LazyHTML.query("#panel [data-part=context]") |> LazyHTML.text() == "dirmoon / jak to działa"
-    assert document |> LazyHTML.query("#panel [data-part=note]") |> LazyHTML.text() == "9 kroków"
+    assert document |> LazyHTML.query("#panel [data-part=note]") |> LazyHTML.text() == "8 kroków"
     assert document |> LazyHTML.query("#panel #panel-body") |> Enum.count() == 1
   end
 
@@ -237,19 +237,16 @@ defmodule DirmoonWeb.UITest do
     assert has_class?(document, "#runs", "text-on-app-2")
   end
 
-  test "a run status shows done in lime, failed in amber, stopped muted and the rest as a pill" do
+  test "a run status shows failed in amber, stopped muted and the rest as a pill" do
     assigns = %{}
 
     document =
       parse(~H"""
-      <UI.run_status id="done" status={:done} label="Gotowy" />
       <UI.run_status id="failed" status={:failed} label="Błąd" />
       <UI.run_status id="stopped" status={:stopped} label="Zatrzymany" />
       <UI.run_status id="running" status={:running} label="W toku" />
       """)
 
-    assert has_class?(document, "#done", "text-accent")
-    assert document |> LazyHTML.query("#done .hero-check-mini") |> Enum.count() == 1
     assert has_class?(document, "#failed", "text-warn")
     assert document |> LazyHTML.query("#failed .hero-exclamation-triangle") |> Enum.count() == 1
     assert has_class?(document, "#stopped", "text-on-app-muted")

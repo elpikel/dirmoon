@@ -12,7 +12,7 @@ defmodule Dirmoon.Research.Run do
   alias Dirmoon.Research.Steps
 
   @modes [:new_idea, :existing_site]
-  @statuses [:running, :stopped, :failed, :awaiting_choice, :done]
+  @statuses [:running, :stopped, :failed, :awaiting_choice]
   @max_priority_services 5
   @scoring_step Steps.number!(:scoring)
 
@@ -61,7 +61,7 @@ defmodule Dirmoon.Research.Run do
   Whether the run's results are ready: Step 7 (Scoring) is done, so its
   Niches are scored and one can be chosen. Read from the run's Steps, which
   must be loaded; it holds whatever the run's status, so a run writing a
-  Brief (`:running`), or one that failed or stopped in Step 8 or 9, still has
+  Brief (`:running`), or one that failed or stopped in Step 8, still has
   its results, while a run resumed from an earlier Step has none until Step 7
   finishes again.
   """

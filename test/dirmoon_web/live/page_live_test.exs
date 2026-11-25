@@ -9,7 +9,6 @@ defmodule DirmoonWeb.PageLiveTest do
   alias Dirmoon.Pages.Page
   alias Dirmoon.Repo
   alias Dirmoon.Research
-  alias Dirmoon.Workers.PublishPage
   alias Dirmoon.Workers.WriteBrief
 
   test "the Brief form shows on the left and the rendered page in a browser frame on the right", %{conn: conn} do
@@ -210,25 +209,20 @@ defmodule DirmoonWeb.PageLiveTest do
     assert saved.nav_links == ["Oferta"]
   end
 
-  test "a New Idea page's primary action publishes to Netlify and the secondary downloads the Content File",
-       %{conn: conn} do
+  test "the primary action downloads the Content File in both Modes, and nothing offers to publish", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    page = insert(:page, run: brief_run(scope))
+    new_idea_page = insert(:page, run: brief_run(scope))
 
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
+    existing_site_page =
+      insert(:page, run: brief_run(scope, %{mode: :existing_site, domain: "kancelaria-testowa.example"}))
 
-    assert has_element?(view, "#page-actions > :first-child#publish-page[data-variant=lime]", "Opublikuj na Netlify")
-    assert has_element?(view, "#download-page[data-variant=outline]", "Pobierz plik treści")
-  end
+    for page <- [new_idea_page, existing_site_page] do
+      {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
 
-  test "an Existing Site page's primary action downloads the Content File", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    page = insert(:page, run: brief_run(scope, %{mode: :existing_site, domain: "kancelaria-testowa.example"}))
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-
-    assert has_element?(view, "#page-actions > :first-child#download-page[data-variant=lime]", "Pobierz plik treści")
-    assert has_element?(view, "#publish-page[data-variant=outline]", "Opublikuj na Netlify")
+      assert has_element?(view, "#page-actions > :first-child#download-page[data-variant=lime]", "Pobierz plik treści")
+      assert has_element?(view, "#save-brief", "Zapisz brief")
+      refute has_element?(view, "#page-actions", "Opublikuj")
+    end
   end
 
   test "the download link points at the page's Content File", %{conn: conn} do
@@ -238,94 +232,6 @@ defmodule DirmoonWeb.PageLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
 
     assert has_element?(view, "a#download-page[href='/app/pages/#{page.id}/file']")
-  end
-
-  test "publishing enqueues Step 9 and the button says it is publishing", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    run = brief_run(scope)
-    page = insert(:page, run: run)
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    view |> element("#publish-page") |> render_click()
-
-    assert_enqueued(worker: PublishPage, args: %{run_id: run.id})
-    assert Repo.get!(Page, page.id).status == :publishing
-    assert has_element?(view, "#publish-page[disabled]", "Publikuję…")
-    assert has_element?(view, "#page-status-line", "Publikuję stronę na Netlify.")
-  end
-
-  test "publishing saves pending edits first", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    run = brief_run(scope)
-    page = insert(:page, run: run)
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    view |> form("#brief-form", brief: %{h1: "Nagłówek przed publikacją"}) |> render_change()
-    view |> element("#publish-page") |> render_click()
-
-    published = Repo.get!(Page, page.id)
-    assert published.brief.h1 == "Nagłówek przed publikacją"
-    assert published.status == :publishing
-    assert_enqueued(worker: PublishPage, args: %{run_id: run.id})
-  end
-
-  test "publishing with invalid pending edits publishes nothing", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    page = insert(:page, run: brief_run(scope))
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    view |> form("#brief-form", brief: %{h1: ""}) |> render_change()
-    view |> element("#publish-page") |> render_click()
-
-    assert has_element?(view, "label[for=brief-h1] + p", "nie może być puste")
-    assert Repo.get!(Page, page.id).status == :ready
-    refute_enqueued(worker: PublishPage)
-  end
-
-  test "publishing while the research is busy says so", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    steps = 1..7 |> Map.new(&{&1, :done}) |> Map.put(8, :running) |> build_run_steps()
-    run = insert(:run, account: scope.account, status: :running, steps: steps)
-    page = insert(:page, run: run)
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    view |> element("#publish-page") |> render_click()
-
-    assert has_element?(view, "#flash-error", "Research jeszcze pracuje")
-    assert Repo.get!(Page, page.id).status == :ready
-    refute_enqueued(worker: PublishPage)
-  end
-
-  test "publishing a page whose stored Brief is incomplete says it can't be published", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    page = insert(:page, run: brief_run(scope), brief: build(:brief, h1: nil))
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    view |> element("#publish-page") |> render_click()
-
-    assert has_element?(view, "#flash-error", "Tej strony nie można teraz opublikować")
-    refute_enqueued(worker: PublishPage)
-  end
-
-  test "a published page shows its URL as a link", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    brief = build(:brief)
-    url = "https://#{brief.slug}.example"
-    page = insert(:page, run: brief_run(scope), brief: brief, status: :published, published_url: url)
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-
-    assert has_element?(view, "a#published-url[href='#{url}'][target=_blank][rel=noopener]", url)
-    assert has_element?(view, "#preview-address", url)
-  end
-
-  test "a failed publish shows its error", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    page = insert(:page, run: brief_run(scope), error: "Netlify: nieprawidłowy token")
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-
-    assert has_element?(view, "#publish-error", "Netlify: nieprawidłowy token")
   end
 
   test "while Step 8 writes the Brief the screen says so and turns into the editor when it's done", %{conn: conn} do
@@ -424,19 +330,6 @@ defmodule DirmoonWeb.PageLiveTest do
     refute has_element?(view, "#page-run-stopped")
   end
 
-  test "a page publishing on a stopped run offers to resume the research", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    steps = 1..8 |> Map.new(&{&1, :done}) |> Map.put(9, :queued) |> build_run_steps()
-    run = insert(:run, account: scope.account, status: :stopped, steps: steps)
-    page = insert(:page, run: run, status: :publishing)
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-
-    assert has_element?(view, "#page-run-stopped")
-    assert has_element?(view, "#page-resume-link[href='/app/runs/#{run.id}']")
-    assert has_element?(view, "#page-status-line", "Research jest zatrzymany, więc publikacja czeka.")
-  end
-
   test "a crafted retry of a ready page starts nothing", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: brief_run(scope))
@@ -449,7 +342,7 @@ defmodule DirmoonWeb.PageLiveTest do
     refute_enqueued(worker: WriteBrief)
   end
 
-  test "a crafted save can't change the page's account, status, URL or hosting site", %{conn: conn} do
+  test "a crafted save can't change the page's account or status", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: brief_run(scope))
     stored = Repo.get!(Page, page.id)
@@ -457,9 +350,7 @@ defmodule DirmoonWeb.PageLiveTest do
 
     forged = %{
       "account_id" => other_account.id,
-      "status" => "published",
-      "published_url" => "https://podrobiona.example",
-      "hosting_site_id" => "podrobiona-witryna"
+      "status" => "failed"
     }
 
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
@@ -472,21 +363,6 @@ defmodule DirmoonWeb.PageLiveTest do
     assert saved.brief.h1 == "Nagłówek po próbie"
     assert saved.account_id == stored.account_id
     assert saved.status == stored.status
-    assert saved.published_url == stored.published_url
-    assert saved.hosting_site_id == stored.hosting_site_id
-  end
-
-  test "a crafted publish while the page is publishing enqueues no second job", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    run = brief_run(scope)
-    page = insert(:page, run: run)
-    {:ok, _publishing_page} = Pages.publish(scope, page.id)
-
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    render_hook(view, "publish", %{})
-
-    assert [_only_job] = all_enqueued(worker: PublishPage, args: %{run_id: run.id})
-    assert Repo.get!(Page, page.id).status == :publishing
   end
 
   test "a crafted save of a Brief still being written changes nothing", %{conn: conn} do
@@ -500,6 +376,7 @@ defmodule DirmoonWeb.PageLiveTest do
     render_hook(view, "save", %{"brief" => %{"h1" => "Wpisany w trakcie", "sections" => [%{"question" => "Pytanie?"}]}})
 
     assert Repo.get!(Page, page.id) == stored
+    assert has_element?(view, "#flash-error", "Tej strony nie można teraz edytować.")
   end
 
   test "hostile text in a Brief field stays text inside the preview", %{conn: conn} do
@@ -550,21 +427,6 @@ defmodule DirmoonWeb.PageLiveTest do
     assert preview_text(view, "h1") == "Nagłówek w trakcie edycji"
   end
 
-  test "saving a Brief whose page started publishing meanwhile says it can't be edited now", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    page = insert(:page, run: brief_run(scope))
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    page |> Ecto.Changeset.change(status: :publishing) |> Repo.update!()
-
-    view
-    |> form("#brief-form", brief: %{h1: "Nagłówek po czasie"})
-    |> put_submitter("#save-brief")
-    |> render_submit()
-
-    assert has_element?(view, "#flash-error", "Tej strony nie można teraz edytować.")
-    assert Repo.get!(Page, page.id).brief.h1 == page.brief.h1
-  end
-
   test "saving a Brief whose page was deleted meanwhile goes back to the pages list", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     page = insert(:page, run: brief_run(scope))
@@ -577,18 +439,6 @@ defmodule DirmoonWeb.PageLiveTest do
     |> render_submit()
 
     assert {"/app/pages", %{"error" => "Nie znaleziono strony"}} = assert_redirect(view)
-  end
-
-  test "publishing a page deleted meanwhile goes back to the pages list", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    page = insert(:page, run: brief_run(scope))
-    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
-    Repo.delete!(page)
-
-    view |> element("#publish-page") |> render_click()
-
-    assert {"/app/pages", %{"error" => "Nie znaleziono strony"}} = assert_redirect(view)
-    refute_enqueued(worker: PublishPage)
   end
 
   test "an update for a page deleted meanwhile goes back to the pages list", %{conn: conn} do

@@ -17,8 +17,7 @@ defmodule DirmoonWeb.RunDisplay do
     running: "W toku",
     stopped: "Zatrzymany",
     failed: "Błąd",
-    awaiting_choice: "Czeka na wybór",
-    done: "Gotowy"
+    awaiting_choice: "Czeka na wybór"
   }
 
   @mode_labels %{

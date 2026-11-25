@@ -224,7 +224,7 @@ defmodule DirmoonWeb.UI do
   `dirmoon / <context>` on the left and a note on the right, then the inner
   block.
 
-      <.dark_panel id="how-it-works" context="jak to działa" note="9 kroków">
+      <.dark_panel id="how-it-works" context="jak to działa" note="8 kroków">
         ...
       </.dark_panel>
   """
@@ -362,8 +362,8 @@ defmodule DirmoonWeb.UI do
   end
 
   @doc """
-  Renders the dark "jak to działa" panel: the nine Steps summed up in four
-  Step Groups (01–02 Frazy, 03–04 Popyt, 05–07 Konkurencja, 08–09 Strona), with
+  Renders the dark "jak to działa" panel: the eight Steps summed up in four
+  Step Groups (01–02 Frazy, 03–04 Popyt, 05–07 Konkurencja, 08 Strona), with
   its caption below. Landing page only: the signed-in app has no pitch.
 
       <.how_it_works id="how-it-works" class="mt-20" />
@@ -379,7 +379,7 @@ defmodule DirmoonWeb.UI do
       <.dark_panel
         id={@id}
         context="jak to działa"
-        note="9 kroków, jedna decyzja po Twojej stronie"
+        note="8 kroków, jedna decyzja po Twojej stronie"
       >
         <ol class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] p-0">
           <li
@@ -403,23 +403,14 @@ defmodule DirmoonWeb.UI do
 
   @doc """
   Renders a Research Run's status label in the app, as in the runs list:
-  done with a lime check, failed with a warning icon, stopped muted, and
-  running or awaiting a choice as an outlined pill. The caller passes the
-  Polish label.
+  failed with a warning icon, stopped muted, and running or awaiting a
+  choice as an outlined pill. The caller passes the Polish label.
 
-      <.run_status id="run-1-status" status={:done} label="Gotowy" />
+      <.run_status id="run-1-status" status={:failed} label="Błąd" />
   """
   attr :id, :string, required: true
   attr :status, :atom, required: true
   attr :label, :string, required: true
-
-  def run_status(%{status: :done} = assigns) do
-    ~H"""
-    <span id={@id} class="flex items-center gap-1.5 text-accent">
-      <.icon name="hero-check-mini" class="size-[13px]" />{@label}
-    </span>
-    """
-  end
 
   def run_status(%{status: :failed} = assigns) do
     ~H"""
@@ -524,7 +515,7 @@ defmodule DirmoonWeb.UI do
         summary: "Kto dziś odpowiada na najlepsze frazy i jak słaba jest pierwsza strona wyników."
       },
       %{
-        steps: "08–09",
+        steps: "08",
         name: "Strona",
         summary: "Wybierasz niszę. Dostajesz brief i treść gotową do publikacji."
       }

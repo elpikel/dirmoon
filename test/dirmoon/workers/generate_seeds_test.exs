@@ -145,7 +145,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
 
     :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
-    assert Enum.map(2..9, &step(run, &1).output) == List.duplicate(nil, 8)
+    assert Enum.map(2..8, &step(run, &1).output) == List.duplicate(nil, 7)
     assert Repo.aggregate(ApiRequest, :count) == 1
   end
 
@@ -157,7 +157,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
 
     assert %RunStep{status: :failed, error: "Brak klucza API OpenAI"} = step(run, 1)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
-    assert Enum.map(2..9, &step(run, &1).status) == List.duplicate(:waiting, 8)
+    assert Enum.map(2..8, &step(run, &1).status) == List.duplicate(:waiting, 7)
     assert all_enqueued() == []
   end
 

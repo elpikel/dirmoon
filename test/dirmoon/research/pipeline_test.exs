@@ -11,7 +11,6 @@ defmodule Dirmoon.Research.PipelineTest do
   alias Dirmoon.Research.RunStep
   alias Dirmoon.Workers.FetchCurrentPositions
   alias Dirmoon.Workers.FetchVolumes
-  alias Dirmoon.Workers.PublishPage
   alias Dirmoon.Workers.ScoreNiches
   alias Dirmoon.Workers.WriteBrief
 
@@ -138,15 +137,6 @@ defmodule Dirmoon.Research.PipelineTest do
     assert %RunStep{status: :queued, result: nil, output: nil} = step(run, 8)
   end
 
-  test "starting Step 9 queues it until its job starts" do
-    run = insert(:run, status: :done, steps: build_run_steps(done_through(9)))
-
-    {:ok, _run} = Pipeline.start_step(run, 9)
-
-    assert %RunStep{status: :queued, result: nil} = step(run, 9)
-    assert_enqueued(worker: PublishPage, args: %{run_id: run.id})
-  end
-
   test "a run with a queued Step 8 keeps running when it advances and its brief writer is enqueued" do
     run = insert(:run, status: :running, steps: build_run_steps(Map.put(done_through(7), 8, :queued)))
 
@@ -156,37 +146,28 @@ defmodule Dirmoon.Research.PipelineTest do
     assert [%Oban.Job{worker: "Dirmoon.Workers.WriteBrief"}] = all_enqueued(queue: :pipeline)
   end
 
-  test "a resumed run with Steps 8 and 9 both queued runs them one after the other and then settles" do
-    run =
-      insert(:run,
-        status: :stopped,
-        steps: 7 |> done_through() |> Map.put(8, :queued) |> Map.put(9, :queued) |> build_run_steps()
-      )
-
+  test "a resumed run with a queued Step 8 writes the brief and then awaits a choice" do
+    run = insert(:run, status: :stopped, steps: 7 |> done_through() |> Map.put(8, :queued) |> build_run_steps())
     writing_page = insert(:page, run: run, status: :writing, brief: nil)
-    publishing_page = insert(:page, run: run, status: :publishing)
     stub(Dirmoon.LLMMock, :structured, fn %{task: :brief} -> {:ok, brief_answer(), Decimal.new("0.01")} end)
-    stub(Dirmoon.HostingMock, :create_site, fn _site -> {:ok, %{site_id: "netlify-site-1"}} end)
-    stub(Dirmoon.HostingMock, :deploy, fn _deploy -> {:ok, %{url: "https://strona.example"}} end)
 
     :ok = Pipeline.resume(run)
 
     assert [%Oban.Job{worker: "Dirmoon.Workers.WriteBrief"}] = all_enqueued(queue: :pipeline)
-    assert %{success: 2, failure: 0} = Oban.drain_queue(queue: :pipeline, with_recursion: true)
+    assert %{success: 1, failure: 0} = Oban.drain_queue(queue: :pipeline, with_recursion: true)
     assert %RunStep{status: :done} = step(run, 8)
-    assert %RunStep{status: :done} = step(run, 9)
-    assert Repo.reload!(run).status == :done
+    assert Repo.reload!(run).status == :awaiting_choice
     assert Repo.get!(Page, writing_page.id).status == :ready
-    assert Repo.get!(Page, publishing_page.id).status == :published
     assert all_enqueued(queue: :pipeline) == []
   end
 
-  test "a run with a queued Step 9 keeps running when it advances" do
-    run = insert(:run, status: :running, steps: build_run_steps(Map.put(done_through(8), 9, :queued)))
+  test "a run whose Step 8 is running keeps running when it advances and enqueues nothing" do
+    run = insert(:run, status: :running, steps: build_run_steps(Map.put(done_through(7), 8, :running)))
 
     :ok = Pipeline.advance(run)
 
     assert Repo.reload!(run).status == :running
+    assert all_enqueued(queue: :pipeline) == []
   end
 
   test "after Step 8 the run awaits a choice again" do
@@ -195,15 +176,7 @@ defmodule Dirmoon.Research.PipelineTest do
     :ok = Pipeline.advance(run)
 
     assert Repo.reload!(run).status == :awaiting_choice
-    refute_enqueued(worker: PublishPage)
-  end
-
-  test "after Step 9 the run is done" do
-    run = insert(:run, steps: build_run_steps(done_through(9)))
-
-    :ok = Pipeline.advance(run)
-
-    assert Repo.reload!(run).status == :done
+    assert all_enqueued(queue: :pipeline) == []
   end
 
   defp done_through(last_number) do

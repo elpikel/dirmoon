@@ -1,7 +1,7 @@
 defmodule DirmoonWeb.RunLive do
   @moduledoc """
   Screen 2, Research in progress (`/app/runs/:id`), in the app shell: the
-  run's nine Steps on the left, the running Step's detail on the right with
+  run's eight Steps on the left, the running Step's detail on the right with
   the actions at its bottom, the status sentence in the status row, stop
   and resume, and the API Cost so far. Updates live from the run's PubSub
   topic and goes to the results once Step 7 finishes. See
@@ -19,7 +19,6 @@ defmodule DirmoonWeb.RunLive do
   alias DirmoonWeb.RunDisplay
 
   @competition_step Steps.number!(:competition)
-  @publish_step Steps.number!(:publish)
   @checked_phrases_limit 8
   @not_found_message "Nie znaleziono researchu"
 
@@ -31,8 +30,7 @@ defmodule DirmoonWeb.RunLive do
     competition: "Kto trzyma top 10 dla najlepszych fraz",
     current_positions: "Pozycje strony z Search Console",
     scoring: "Wolumen, CPC, słabość konkurencji",
-    brief_and_content: "Po wyborze niszy",
-    publish: "Landing na Netlify"
+    brief_and_content: "Po wyborze niszy"
   }
 
   @impl true
@@ -103,7 +101,6 @@ defmodule DirmoonWeb.RunLive do
             run={@run}
             step={@current_step}
             results_path={@results_path}
-            published_url={@published_url}
           />
 
           <div class="mt-auto flex flex-wrap items-center gap-2.5">
@@ -323,7 +320,6 @@ defmodule DirmoonWeb.RunLive do
   attr :run, Run, required: true
   attr :step, :map, default: nil
   attr :results_path, :string, required: true
-  attr :published_url, :string, default: nil
 
   defp state_detail(%{run: %Run{status: :awaiting_choice}} = assigns) do
     ~H"""
@@ -335,30 +331,6 @@ defmodule DirmoonWeb.RunLive do
       <.button id="see-results" variant="lime" size="large" navigate={@results_path}>
         Zobacz wyniki <.icon name="hero-arrow-right" class="size-[18px]" />
       </.button>
-    </div>
-    """
-  end
-
-  defp state_detail(%{run: %Run{status: :done}} = assigns) do
-    ~H"""
-    <div class="flex flex-col items-start gap-3">
-      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">Strona opublikowana.</span>
-      <div class="flex flex-wrap gap-2.5">
-        <.button id="see-results" variant="lime" size="large" navigate={@results_path}>
-          Zobacz wyniki
-        </.button>
-        <.button
-          :if={@published_url}
-          id="open-published-page"
-          variant="outline"
-          size="large"
-          href={@published_url}
-          target="_blank"
-          rel="noopener"
-        >
-          Otwórz stronę <.icon name="hero-arrow-top-right-on-square" class="size-[18px]" />
-        </.button>
-      </div>
     </div>
     """
   end
@@ -446,8 +418,7 @@ defmodule DirmoonWeb.RunLive do
       context_line: RunDisplay.context_line(run),
       status_line: StatusLine.sentence(%{run: run, progress: progress}),
       cost: Research.run_cost(run),
-      results_path: RunDisplay.results_path(run),
-      published_url: published_url(run)
+      results_path: RunDisplay.results_path(run)
     )
   end
 
@@ -480,13 +451,6 @@ defmodule DirmoonWeb.RunLive do
   defp detail(%Run{status: :running}, %RunStep{number: @competition_step}), do: :competition
   defp detail(%Run{status: :running}, _step), do: :step
   defp detail(_not_running, _step), do: :state
-
-  defp published_url(%Run{steps: steps}) do
-    case Enum.find(steps, &(&1.number == @publish_step)) do
-      %RunStep{status: :done, output: %{"url" => url}} when is_binary(url) -> url
-      _not_published -> nil
-    end
-  end
 
   defp progress_percent(%{checked: checked, total: total}) when is_integer(total) and total > 0 do
     percent = round(checked * 100 / total)

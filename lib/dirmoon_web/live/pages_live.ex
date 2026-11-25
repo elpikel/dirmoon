@@ -1,7 +1,7 @@
 defmodule DirmoonWeb.PagesLive do
   @moduledoc """
   The pages list, "Strony" (`/app/pages`): the Account's Pages,
-  newest first, each with its title, Niche, Mode, status, published URL and
+  newest first, each with its title, Niche, Mode, status and
   date, linking to its page screen. With no pages it invites the User to pick
   a Niche in the results. Same look as the runs list (`RunsLive`): rows
   filling the app shell's working area.
@@ -60,13 +60,6 @@ defmodule DirmoonWeb.PagesLive do
                   <span id={"#{dom_id}-niche"}>{row.niche}</span>
                   · <span id={"#{dom_id}-mode"}>{row.mode}</span>
                 </span>
-                <span
-                  :if={row.published_url}
-                  id={"#{dom_id}-url"}
-                  class="font-mono text-xs break-all text-accent"
-                >
-                  {row.published_url}
-                </span>
               </span>
               <span class="flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-[11px] text-on-app-muted">
                 <.page_status id={"#{dom_id}-status"} status={row.status} label={row.status_label} />
@@ -103,14 +96,6 @@ defmodule DirmoonWeb.PagesLive do
   attr :status, :atom, required: true
   attr :label, :string, required: true
 
-  defp page_status(%{status: :published} = assigns) do
-    ~H"""
-    <span id={@id} class="flex items-center gap-1.5 text-accent">
-      <.icon name="hero-check-mini" class="size-[13px]" />{@label}
-    </span>
-    """
-  end
-
   defp page_status(%{status: :failed} = assigns) do
     ~H"""
     <span id={@id} class="flex items-center gap-1.5 text-warn">
@@ -138,7 +123,6 @@ defmodule DirmoonWeb.PagesLive do
       mode: RunDisplay.mode_label(page.run.mode),
       status: page.status,
       status_label: PageDisplay.status_label(page.status),
-      published_url: page.published_url,
       date: PageDisplay.date(page),
       path: RunDisplay.page_path(page)
     }

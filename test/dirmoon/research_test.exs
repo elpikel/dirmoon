@@ -9,17 +9,16 @@ defmodule Dirmoon.ResearchTest do
   alias Dirmoon.Workers.ExpandPhrases
   alias Dirmoon.Workers.FetchVolumes
   alias Dirmoon.Workers.GenerateSeeds
-  alias Dirmoon.Workers.PublishPage
   alias Dirmoon.Workers.WriteBrief
 
-  test "starting a run creates it in the user's Account with nine waiting Steps" do
+  test "starting a run creates it in the user's Account with eight waiting Steps" do
     scope = scope_for(insert(:account))
 
     assert {:ok, run} = Research.start_run(scope, valid_run_attrs())
 
     assert run.account_id == scope.account.id
     assert run.status == :running
-    assert run |> Repo.preload(:steps) |> Map.fetch!(:steps) |> Enum.map(& &1.status) == List.duplicate(:waiting, 9)
+    assert run |> Repo.preload(:steps) |> Map.fetch!(:steps) |> Enum.map(& &1.status) == List.duplicate(:waiting, 8)
   end
 
   test "starting a run enqueues Step 1" do
@@ -115,10 +114,10 @@ defmodule Dirmoon.ResearchTest do
     run = insert(:run, account: account, status: :running, steps: build_run_steps(%{1 => :done, 2 => :running}))
 
     assert {:ok, %Run{status: :stopped, steps: stopped_steps}} = Research.stop_run(scope_for(account), run.id)
-    assert Enum.map(stopped_steps, & &1.number) == Enum.to_list(1..9)
+    assert Enum.map(stopped_steps, & &1.number) == Enum.to_list(1..8)
 
     assert {:ok, %Run{status: :running, steps: resumed_steps}} = Research.resume_run(scope_for(account), run.id)
-    assert Enum.map(resumed_steps, & &1.number) == Enum.to_list(1..9)
+    assert Enum.map(resumed_steps, & &1.number) == Enum.to_list(1..8)
     assert_enqueued(worker: ExpandPhrases, args: %{run_id: run.id})
   end
 
@@ -140,7 +139,7 @@ defmodule Dirmoon.ResearchTest do
     assert_enqueued(worker: FetchVolumes, args: %{run_id: run.id})
     refute_enqueued(worker: GenerateSeeds)
     refute_enqueued(worker: ExpandPhrases)
-    assert step_statuses(run) == [:done, :done, :waiting, :waiting, :waiting, :waiting, :waiting, :waiting, :waiting]
+    assert step_statuses(run) == [:done, :done, :waiting, :waiting, :waiting, :waiting, :waiting, :waiting]
   end
 
   test "resuming a stopped run enqueues the Step that was running" do
@@ -163,16 +162,6 @@ defmodule Dirmoon.ResearchTest do
     assert %RunStep{status: :waiting, error: nil} = Repo.get_by!(RunStep, run_id: run.id, number: 8)
   end
 
-  test "resuming a run whose Step 9 failed doesn't retry it and awaits a choice" do
-    account = insert(:account)
-    run = insert(:run, account: account, status: :failed, steps: build_run_steps(Map.put(done_through(8), 9, :failed)))
-
-    assert {:ok, %Run{status: :awaiting_choice}} = Research.resume_run(scope_for(account), run.id)
-
-    assert all_enqueued() == []
-    assert %RunStep{status: :waiting, error: nil} = Repo.get_by!(RunStep, run_id: run.id, number: 9)
-  end
-
   test "resuming a run stopped while Step 8 was running enqueues the brief writer again" do
     account = insert(:account)
     run = insert(:run, account: account, status: :stopped, steps: build_run_steps(Map.put(done_through(7), 8, :running)))
@@ -189,30 +178,20 @@ defmodule Dirmoon.ResearchTest do
 
     assert {:ok, %Run{status: :running}} = Research.resume_run(scope_for(account), run.id)
 
-    assert_enqueued(worker: WriteBrief, args: %{run_id: run.id})
-    refute_enqueued(worker: PublishPage)
-  end
-
-  test "resuming a run stopped before its queued Step 9 started enqueues the page publisher" do
-    account = insert(:account)
-    run = insert(:run, account: account, status: :stopped, steps: build_run_steps(Map.put(done_through(8), 9, :queued)))
-
-    assert {:ok, %Run{status: :running}} = Research.resume_run(scope_for(account), run.id)
-
-    assert_enqueued(worker: PublishPage, args: %{run_id: run.id})
-    assert Repo.get_by!(RunStep, run_id: run.id, number: 9).status == :queued
+    assert [%Oban.Job{worker: "Dirmoon.Workers.WriteBrief"}] = all_enqueued(queue: :pipeline)
+    assert Repo.get_by!(RunStep, run_id: run.id, number: 8).status == :queued
   end
 
   test "stopping a run keeps its queued Step queued" do
     account = insert(:account)
-    run = insert(:run, account: account, status: :running, steps: build_run_steps(Map.put(done_through(8), 9, :queued)))
+    run = insert(:run, account: account, status: :running, steps: build_run_steps(Map.put(done_through(7), 8, :queued)))
 
     {:ok, _run} = Research.stop_run(scope_for(account), run.id)
 
-    assert Repo.get_by!(RunStep, run_id: run.id, number: 9).status == :queued
+    assert Repo.get_by!(RunStep, run_id: run.id, number: 8).status == :queued
   end
 
-  test "resuming a stopped run whose Steps 8 and 9 were never started enqueues nothing and awaits a choice" do
+  test "resuming a stopped run whose Step 8 was never started enqueues nothing and awaits a choice" do
     account = insert(:account)
     run = insert(:run, account: account, status: :stopped, steps: build_run_steps(done_through(7)))
 
@@ -275,7 +254,7 @@ defmodule Dirmoon.ResearchTest do
     run = insert(:run, account: account, steps: build_run_steps(%{1 => :done}))
 
     assert %Run{steps: steps} = Research.get_run(scope_for(account), run.id)
-    assert Enum.map(steps, & &1.number) == Enum.to_list(1..9)
+    assert Enum.map(steps, & &1.number) == Enum.to_list(1..8)
   end
 
   test "a run in another Account is not found" do
@@ -469,8 +448,8 @@ defmodule Dirmoon.ResearchTest do
     assert Research.idle?(run)
   end
 
-  test "a done run is idle" do
-    run = insert(:run, status: :done, steps: build_run_steps(done_through(9)))
+  test "a run whose Brief is written and that awaits a choice is idle" do
+    run = insert(:run, status: :awaiting_choice, steps: build_run_steps(done_through(8)))
 
     assert Research.idle?(run)
   end

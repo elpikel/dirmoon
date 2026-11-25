@@ -10,7 +10,7 @@ defmodule Dirmoon.Research.RunsStatusLineTest do
   end
 
   test "it counts the runs and says how many wait for a niche choice" do
-    runs = [build(:run, status: :done), build(:run, status: :awaiting_choice), build(:run, status: :done)]
+    runs = [build(:run, status: :stopped), build(:run, status: :awaiting_choice), build(:run, status: :stopped)]
 
     assert RunsStatusLine.sentence(runs) == "Masz 3 researche: 1 czeka na wybór niszy."
   end
@@ -28,14 +28,14 @@ defmodule Dirmoon.Research.RunsStatusLineTest do
 
   test "runs that need nothing from the User are only counted" do
     runs =
-      [build(:run, status: :done), build(:run, status: :stopped)] ++
-        Enum.map(1..3, fn _index -> build(:run, status: :done) end)
+      [build(:run, status: :stopped), build(:run, status: :stopped)] ++
+        Enum.map(1..3, fn _index -> build(:run, status: :stopped) end)
 
     assert RunsStatusLine.sentence(runs) == "Masz 5 researchy."
   end
 
   test "a single run is counted in the singular" do
-    assert RunsStatusLine.sentence([build(:run, status: :done)]) == "Masz 1 research."
+    assert RunsStatusLine.sentence([build(:run, status: :stopped)]) == "Masz 1 research."
   end
 
   test "the count of runs agrees with the Polish plural" do

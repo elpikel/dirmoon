@@ -4,16 +4,16 @@ dirmoon turns a plain-language business description into a ranked list of search
 
 ## Status
 
-v1 is built: the nine-step research pipeline, the four screens (new research, run progress, results, page) plus the landing page, the runs list and the pages list. The product spec and design are in [`docs/design/README.md`](docs/design/README.md).
+v1 is built: the eight-step research pipeline, the four screens (new research, run progress, results, page) plus the landing page, the runs list and the pages list. A page is downloaded as one HTML file; dirmoon does not host or publish it (publishing to Netlify was cut from the MVP). The product spec and design are in [`docs/design/README.md`](docs/design/README.md).
 
 Not exercised yet:
 
 - The LLM is OpenAI (`Dirmoon.LLM.OpenAI`). Without `OPENAI_API_KEY` dev uses demo data; in production the LLM steps fail with "Brak klucza API OpenAI".
-- The DataForSEO, Google Search Console and Netlify clients were built from their documentation and have never been run against the live services.
+- The DataForSEO and Google Search Console clients were built from their documentation and have never been run against the live services.
 
 ## Stack
 
-Elixir ~> 1.17, Phoenix 1.8 with LiveView 1.2, Ecto and PostgreSQL, Tailwind v4, Req for HTTP. Oban runs the nine pipeline steps on the `pipeline` queue. External services: an LLM (provider not chosen), DataForSEO, Google Search Console and Netlify. Tests use Mox and ExMachina; checks use Styler, Credo and ex_slop.
+Elixir ~> 1.17, Phoenix 1.8 with LiveView 1.2, Ecto and PostgreSQL, Tailwind v4, Req for HTTP. Oban runs the eight pipeline steps on the `pipeline` queue. External services: an LLM (provider not chosen), DataForSEO and Google Search Console. Tests use Mox and ExMachina; checks use Styler, Credo and ex_slop.
 
 ## Setup and run
 
@@ -35,7 +35,6 @@ Dev runs with no environment variables: demo adapters stand in for every externa
 | `OPENAI_API_KEY` | Real Seeds, filtering and grouping, SERP labels and Briefs from OpenAI | Dev: demo answers. Prod: the step fails with "Brak klucza API OpenAI" |
 | `OPENAI_MODEL` | Another OpenAI model than `gpt-6.2-sol`; it must have prices in `config/config.exs` | `gpt-6.2-sol` |
 | `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` (both) | Real phrase ideas, volumes and SERP top 10 from DataForSEO | Dev: demo data. Prod: the step fails with "Brak danych logowania DataForSEO" |
-| `NETLIFY_TOKEN` | Publishing pages to Netlify | Dev: demo publish. Prod: publishing fails with "Brak tokenu Netlify". Downloading the page still works |
 | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (both) | Connecting Google Search Console, for Existing Site runs | Dev: demo connection. Prod: Step 6 (current positions) is skipped |
 | `DATABASE_URL`, `SECRET_KEY_BASE` | Prod database and cookie signing (required) | Prod does not start |
 | `PHX_HOST`, `POOL_SIZE` | Prod host, database pool size | `example.com`, `10` |
@@ -59,7 +58,7 @@ Google redirect URI to add to the Google Cloud OAuth client: `https://<PHX_HOST>
 
 ## Running a real run
 
-1. Set `OPENAI_API_KEY`, `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` (and `NETLIFY_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` if you need publishing or Search Console).
+1. Set `OPENAI_API_KEY`, `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` (and `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` if you need Search Console).
 2. Restart the server.
 3. Start a research from the new research screen.
 

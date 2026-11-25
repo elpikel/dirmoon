@@ -695,7 +695,7 @@ defmodule DirmoonWeb.ResultsLive do
         id="niche-next-step"
         class="m-0 mt-auto text-sm leading-normal text-on-app-muted"
       >
-        Po wyborze napiszę brief i treść strony pod te frazy. Przeczytasz ją i poprawisz, zanim cokolwiek opublikuję.
+        Po wyborze napiszę brief i treść strony pod te frazy. Przeczytasz ją i poprawisz, zanim ją opublikujesz.
       </p>
 
       <div class={["flex flex-wrap gap-2.5", (@page || not @choosable?) && "mt-auto"]}>

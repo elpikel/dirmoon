@@ -15,3 +15,7 @@ Steps 8 (Brief) and 9 (Publish) start on a user action, not automatically after 
 ## Consequences
 
 A run can be `awaiting_choice` after a failed re-publish even if it had been `done` before; the page keeps its earlier published URL.
+
+## Update 2026-11-24
+
+Step 9 (Publish) was removed when the owner trimmed the MVP (see `docs/MEMORY.md`). The decision above now applies to Step 8 alone: it is queued from the Niche choice until its job starts, and a finally failed Step 8 is not retried by resume (the page is `failed` and the User chooses the Niche again). The run status `done` no longer exists, so the consequence about re-publishing no longer applies.

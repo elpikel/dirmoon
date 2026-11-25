@@ -27,19 +27,9 @@ defmodule Dirmoon.Pages.StatusLineTest do
              "Ułożyłem stronę z 2 pytań klientów. Ceny i dane kontaktowe uzupełniasz Ty. " <> @approval
   end
 
-  test "a published Existing Site page keeps the approval note" do
-    page = %{ready_page(%{mode: :existing_site, questions: 2}) | status: :published}
-
-    assert StatusLine.sentence(page) =~ "Opublikowałem stronę z 2 pytań klientów."
-    assert StatusLine.sentence(page) =~ @approval
-  end
-
-  test "a page being written or published says so" do
+  test "a page being written says so" do
     assert StatusLine.sentence(build(:page, status: :writing, brief: nil)) ==
              "Piszę brief i treść strony. Pokażę je tutaj, gdy skończę."
-
-    assert StatusLine.sentence(build(:page, status: :publishing)) ==
-             "Publikuję stronę na Netlify. Adres pojawi się tutaj, gdy skończę."
   end
 
   test "a page waiting on a stopped run says the research must be resumed" do
@@ -47,9 +37,6 @@ defmodule Dirmoon.Pages.StatusLineTest do
 
     assert StatusLine.sentence(build(:page, status: :writing, brief: nil, run: stopped_run)) ==
              "Research jest zatrzymany, więc brief czeka. Wznów go na ekranie researchu."
-
-    assert StatusLine.sentence(build(:page, status: :publishing, run: stopped_run)) ==
-             "Research jest zatrzymany, więc publikacja czeka. Wznów go na ekranie researchu."
   end
 
   test "a failed page gives its error" do

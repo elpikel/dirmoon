@@ -76,15 +76,13 @@ defmodule Dirmoon.GlossaryTest do
     # the `task:` key of a request): one per output contract, not a Step.
     %{word: "task", names: ~w(tasks task unknown_llm_task)},
     # The HTTP verb.
-    %{word: "post", names: ~w(post post_site post_task post_token)},
+    %{word: "post", names: ~w(post post_task post_token)},
     # Oban jobs that run the Steps.
     %{word: "job", names: ~w(job step_job insert_step_job stop_and_cancel_jobs cancellable_job_states)},
     # Phoenix's flash group component.
     %{word: "group", names: ~w(flash_group)},
     # Phoenix.PubSub topics.
-    %{word: "topic", names: ~w(topic user_session_topic)},
-    # A URL path segment (RFC 3986) in the Netlify deploy URL.
-    %{word: "segment", names: ~w(encode_segment)}
+    %{word: "topic", names: ~w(topic user_session_topic)}
   ]
 
   test "no module, function, field or attr name uses a word the glossary says to avoid" do

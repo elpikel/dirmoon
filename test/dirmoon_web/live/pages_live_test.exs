@@ -15,28 +15,18 @@ defmodule DirmoonWeb.PagesLiveTest do
     assert has_element?(view, "#pages > li:nth-child(3)#pages-#{older.id}")
   end
 
-  test "each page shows its title, Niche, Mode, status, published URL and date", %{conn: conn} do
+  test "each page shows its title, Niche, Mode, status and date", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account, mode: :existing_site, domain: "kancelaria-testowa.example")
     brief = build(:brief)
-    url = "https://#{brief.slug}.example"
-
-    page =
-      insert(:page,
-        run: run,
-        brief: brief,
-        status: :published,
-        published_url: url,
-        inserted_at: ~U[2026-11-03 09:00:00Z]
-      )
+    page = insert(:page, run: run, brief: brief, status: :ready, inserted_at: ~U[2026-11-03 09:00:00Z])
 
     {:ok, view, _html} = live(conn, ~p"/app/pages")
 
     assert has_element?(view, "#pages-#{page.id}-title", brief.title)
     assert has_element?(view, "#pages-#{page.id}-niche", page.niche.name)
     assert has_element?(view, "#pages-#{page.id}-mode", "Istniejąca strona")
-    assert has_element?(view, "#pages-#{page.id}-status", "Opublikowana")
-    assert has_element?(view, "#pages-#{page.id}-url", url)
+    assert has_element?(view, "#pages-#{page.id}-status.rounded-pill", "Gotowa")
     assert has_element?(view, "#pages-#{page.id}-date", "03.11.2026")
   end
 
@@ -48,7 +38,6 @@ defmodule DirmoonWeb.PagesLiveTest do
 
     assert has_element?(view, "#pages-#{page.id}-title", page.niche.name)
     assert has_element?(view, "#pages-#{page.id}-status", "Piszę")
-    refute has_element?(view, "#pages-#{page.id}-url")
   end
 
   test "a page whose Brief failed shows the error status", %{conn: conn} do

@@ -3,7 +3,7 @@ defmodule DirmoonWeb.Controllers.PageFile.ShowTest do
 
   test "the content file downloads as one html file named after the slug", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    run = insert(:run, account: scope.account, status: :done)
+    run = insert(:run, account: scope.account, status: :awaiting_choice)
     page = insert(:page, run: run, brief: build(:brief, slug: "hotel-dla-psa", h1: "Hotel dla psa"))
 
     conn = get(conn, ~p"/app/pages/#{page.id}/file")
@@ -24,13 +24,6 @@ defmodule DirmoonWeb.Controllers.PageFile.ShowTest do
     assert document |> LazyHTML.query("link[rel=stylesheet]") |> Enum.empty?()
     assert document |> LazyHTML.query("script[src]") |> Enum.empty?()
     assert document |> LazyHTML.query("style") |> Enum.count() >= 1
-  end
-
-  test "a published page can still be downloaded", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    page = insert(:page, run: insert(:run, account: scope.account), status: :published)
-
-    assert conn |> get(~p"/app/pages/#{page.id}/file") |> response(200) =~ "<!DOCTYPE html>"
   end
 
   test "another Account's page is not found", %{conn: conn} do

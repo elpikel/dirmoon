@@ -33,11 +33,11 @@ _Avoid_: Job, search, analysis, project
 Which kind of business a Research Run is for: **New Idea** (nothing exists yet) or **Existing Site** (a site with a domain and Search Console data).
 
 **Step**:
-One of the nine parts of a Research Run (Seeds, Expansion, Volumes, Filter and Group, Competition, Current Positions, Scoring, Brief and Content, Publish), each with its own status and stored output. Steps 1–7 follow each other on their own; Steps 8 and 9 start only when the owner asks.
+One of the eight parts of a Research Run (Seeds, Expansion, Volumes, Filter and Group, Competition, Current Positions, Scoring, Brief and Content), each with its own status and stored output. Steps 1–7 follow each other on their own; Step 8 starts only when the owner chooses a Niche.
 _Avoid_: Stage, phase, task
 
 **Step Group**:
-One of the four groups the nine Steps are shown in: Frazy (Steps 1–2), Popyt (3–4), Konkurencja (5–7), Strona (8–9).
+One of the four groups the eight Steps are shown in: Frazy (Steps 1–2), Popyt (3–4), Konkurencja (5–7), Strona (8).
 _Avoid_: Stage
 
 **Awaiting Choice**:
@@ -129,14 +129,11 @@ One of the three label–value tiles in a Page's hero (e.g. "Cena za dobę: [CEN
 The one-sentence direct answer to a Brief's first question, shown in the "W skrócie" box.
 
 **Page**:
-The page dirmoon writes from a Brief by filling the fixed template: one self-contained HTML document, one per Chosen Niche. New Idea and Existing Site can both publish it to Netlify (its Hosting Site) and download it as a Content File.
+The page dirmoon writes from a Brief by filling the fixed template: one self-contained HTML document, one per Chosen Niche. New Idea and Existing Site both download it as a Content File; dirmoon does not host or publish it.
 _Avoid_: Produced page, Landing page (for the record), article, post
 
 **Content File**:
 A Page downloaded as one `.html` file with its CSS inlined, ready to open or drop into a site.
-
-**Hosting Site**:
-The Netlify site a Page is published to; each page gets its own, and publishing again deploys to the same one.
 
 **Demo Data**:
 Obviously synthetic output from a demo adapter, used in dev while an external service has no credentials; the app shows "DANE TESTOWE" with the names of the services answered this way.

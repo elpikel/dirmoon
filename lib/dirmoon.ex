@@ -10,8 +10,7 @@ defmodule Dirmoon do
   @demo_services [
     llm_adapter: {Dirmoon.LLM.Demo, "model językowy (OpenAI)"},
     data_for_seo_adapter: {Dirmoon.DataForSEO.Demo, "frazy i konkurencja (DataForSEO)"},
-    search_console_adapter: {Dirmoon.SearchConsole.Client.Demo, "Search Console"},
-    hosting_adapter: {Dirmoon.Hosting.Demo, "publikacja (Netlify)"}
+    search_console_adapter: {Dirmoon.SearchConsole.Client.Demo, "Search Console"}
   ]
 
   @doc """

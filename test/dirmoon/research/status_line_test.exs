@@ -80,12 +80,6 @@ defmodule Dirmoon.Research.StatusLineTest do
     assert StatusLine.sentence(%{run: run, progress: nil}) == "Piszę brief i treść dla wybranej niszy."
   end
 
-  test "a run working on Step 9 says it publishes the page" do
-    run = build(:run, status: :running, steps: build_run_steps(done_through(8, %{9 => :running})))
-
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Publikuję stronę."
-  end
-
   test "a running run between Steps talks about the next Step to run" do
     run = build(:run, status: :running, steps: build_run_steps(done_through(2)))
 
@@ -126,12 +120,6 @@ defmodule Dirmoon.Research.StatusLineTest do
       )
 
     assert StatusLine.sentence(%{run: run, progress: nil}) == "Krok 1 się nie udał: Model nie odpowiedział."
-  end
-
-  test "a done run says the page is published" do
-    run = build(:run, status: :done, steps: build_run_steps(done_through(9)))
-
-    assert StatusLine.sentence(%{run: run, progress: nil}) == "Strona opublikowana."
   end
 
   test "the current Step of a running run is the one at work" do

@@ -14,6 +14,7 @@ defmodule Dirmoon.DataForSEO.HTTP do
   @behaviour Dirmoon.DataForSEO
 
   alias Dirmoon.DataForSEO
+  alias Dirmoon.Polish
 
   @default_base_url "https://api.dataforseo.com"
   @receive_timeout 130_000
@@ -202,14 +203,7 @@ defmodule Dirmoon.DataForSEO.HTTP do
     |> comparable()
   end
 
-  defp comparable(name) do
-    name
-    |> String.trim()
-    |> String.downcase()
-    |> String.replace("ł", "l")
-    |> String.normalize(:nfd)
-    |> String.replace(~r/\p{Mn}/u, "")
-  end
+  defp comparable(name), do: name |> String.trim() |> Polish.without_diacritics()
 
   defp cost(nil), do: Decimal.new(0)
   defp cost(value), do: decimal(value)

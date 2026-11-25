@@ -9,12 +9,6 @@ import Config
 
 config :dirmoon, Dirmoon.DataForSEO.HTTP, base_url: "https://api.dataforseo.com", req_options: []
 
-config :dirmoon, Dirmoon.Hosting.Netlify,
-  base_url: "https://api.netlify.com",
-  req_options: [],
-  poll_interval_ms: 3_000,
-  poll_attempts: 100
-
 # Configure the mailer
 #
 # By default it uses the "Local" adapter which stores the emails
@@ -75,7 +69,6 @@ config :dirmoon,
   llm_adapter: Dirmoon.LLM.NotConfigured,
   data_for_seo_adapter: Dirmoon.DataForSEO.NotConfigured,
   search_console_adapter: Dirmoon.SearchConsole.Client.NotConfigured,
-  hosting_adapter: Dirmoon.Hosting.NotConfigured,
   grouping_phrase_limit: 400,
   serp_phrase_limit: 30,
   # Per-request USD prices for the estimate on the new research screen (unverified, see notes-dataforseo.md).

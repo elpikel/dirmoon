@@ -38,7 +38,7 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     assert form |> LazyHTML.query("button[type=submit]") |> squish() == "Załóż konto"
   end
 
-  test "the dark how it works panel sums up the nine Steps in four Step Groups", %{conn: conn} do
+  test "the dark how it works panel sums up the eight Steps in four Step Groups", %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
     panel = LazyHTML.query(document, "#how-it-works[data-surface=dark]")
@@ -49,7 +49,7 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     step_group_steps = panel |> LazyHTML.query("[data-part=step-group-steps]") |> Enum.map(&squish/1)
 
     assert step_group_names == ["Frazy", "Popyt", "Konkurencja", "Strona"]
-    assert step_group_steps == ["01–02", "03–04", "05–07", "08–09"]
+    assert step_group_steps == ["01–02", "03–04", "05–07", "08"]
   end
 
   test "a signed-out visitor is offered sign-in in the nav", %{conn: conn} do

@@ -129,7 +129,7 @@ defmodule DirmoonWeb.LayoutsTest do
       parse(~H|<Layouts.app
   flash={%{}}
   context="wyniki"
-  demo_services={["Search Console", "publikacja (Netlify)"]}
+  demo_services={["frazy i konkurencja (DataForSEO)", "Search Console"]}
 >
   Treść
 </Layouts.app>|)
@@ -138,7 +138,7 @@ defmodule DirmoonWeb.LayoutsTest do
     assert banner_text =~ "DANE TESTOWE"
 
     assert link_text(document, "#demo-data-services") ==
-             "Dane demonstracyjne zamiast prawdziwych: Search Console, publikacja (Netlify)."
+             "Dane demonstracyjne zamiast prawdziwych: frazy i konkurencja (DataForSEO), Search Console."
   end
 
   test "the app layout has no DANE TESTOWE strip when no service is on demo data" do

@@ -1,10 +1,12 @@
 defmodule DirmoonWeb.PageLive do
   @moduledoc """
   Screen 4, Brief and page (`/app/pages/:id`): the Brief as one editable form
-  on the left with the actions (publish to Netlify, download the Content
-  File; the primary one follows the run's Mode), and the Page
-  rendered from the form's current data on the right: the Page keeps its own
-  light look inside a browser frame whose bar uses the app's gray tokens. Typing re-renders the preview without saving; "Zapisz brief" saves.
+  on the left with the actions (download the Content File, save the Brief),
+  and the Page rendered from the form's current data on the right: the Page
+  keeps its own light look inside a browser frame whose bar uses the app's
+  gray tokens. Typing re-renders the preview without saving; "Zapisz brief"
+  saves. The form shows only for a `:ready` page, the one status whose Brief
+  can be edited.
 
   While Step 8 writes the Brief it says so and turns into the editor when the
   page's PubSub topic reports it ready; a failed Brief can be started again
@@ -28,11 +30,6 @@ defmodule DirmoonWeb.PageLive do
   @not_found_message "Nie znaleziono strony"
   @not_editable_message "Tej strony nie można teraz edytować."
   @invalid_brief_message "Popraw zaznaczone pola briefu."
-
-  @publish_errors %{
-    run_busy: "Research jeszcze pracuje albo czeka na wznowienie. Opublikujesz stronę, gdy skończy.",
-    not_publishable: "Tej strony nie można teraz opublikować: brief jest niepełny albo strona już się publikuje."
-  }
 
   @mono_input_class "min-h-target-min w-full rounded-control border border-app-line bg-app-field px-3.5 font-mono text-xs text-on-app transition-colors duration-150 placeholder:text-on-app-muted hover:border-app-line-strong focus:border-on-app-2 focus:outline-none"
   @nested_input_class "min-h-target-min w-full rounded-control border border-app-line-strong bg-app-field px-3.5 text-sm text-on-app transition-colors duration-150 placeholder:text-on-app-muted hover:border-on-app-muted focus:border-on-app-2 focus:outline-none"
@@ -78,21 +75,8 @@ defmodule DirmoonWeb.PageLive do
             <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-on-app-muted">
               Brief
             </span>
-            <.run_stopped_note
-              :if={@page.status == :publishing and @run_stopped?}
-              id="page-run-stopped"
-              link_id="page-resume-link"
-              run={@page.run}
-            >
-              Research jest zatrzymany. Wznów go, żeby dokończyć publikację.
-            </.run_stopped_note>
-            <.brief_form
-              form={@form}
-              brief={@brief}
-              editable?={@editable?}
-              business_open?={@business_open?}
-            />
-            <.actions page={@page} editable?={@editable?} saved?={is_nil(@params)} />
+            <.brief_form form={@form} brief={@brief} business_open?={@business_open?} />
+            <.actions page={@page} saved?={is_nil(@params)} />
           </div>
           <.preview address={@address} html={@preview_html} />
         </div>
@@ -138,13 +122,6 @@ defmodule DirmoonWeb.PageLive do
     end
   end
 
-  def handle_event("publish", _params, socket) do
-    case save_pending_edits(socket) do
-      {:ok, saved_socket} -> {:noreply, publish(saved_socket)}
-      {:error, failed_socket} -> {:noreply, failed_socket}
-    end
-  end
-
   def handle_event("retry_brief", _params, %{assigns: %{page: %Page{status: :failed} = page, retryable?: true}} = socket) do
     case Niches.choose(socket.assigns.current_scope, page.cluster_id) do
       {:ok, _page} ->
@@ -164,7 +141,6 @@ defmodule DirmoonWeb.PageLive do
 
   attr :form, Phoenix.HTML.Form, required: true
   attr :brief, :any, required: true
-  attr :editable?, :boolean, required: true
   attr :business_open?, :boolean, required: true
 
   defp brief_form(assigns) do
@@ -192,7 +168,7 @@ defmodule DirmoonWeb.PageLive do
       phx-submit="save"
       class="flex flex-col"
     >
-      <fieldset disabled={not @editable?} class="m-0 flex min-w-0 flex-col gap-5 border-0 p-0">
+      <fieldset class="m-0 flex min-w-0 flex-col gap-5 border-0 p-0">
         <.input
           field={@form[:title]}
           id="brief-title"
@@ -482,7 +458,6 @@ defmodule DirmoonWeb.PageLive do
   end
 
   attr :page, Page, required: true
-  attr :editable?, :boolean, required: true
   attr :saved?, :boolean, required: true
 
   defp actions(assigns) do
@@ -491,13 +466,15 @@ defmodule DirmoonWeb.PageLive do
       id="page-actions"
       class="sticky bottom-0 z-10 -mx-[22px] -mb-7 mt-auto flex flex-wrap items-center gap-2.5 border-t border-app-line bg-app px-[22px] pt-4 pb-5"
     >
-      <%= if @page.run.mode == :new_idea do %>
-        <.publish_button page={@page} variant="lime" class="basis-full" />
-        <.download_button page={@page} variant="outline" class="flex-[1_1_auto]" />
-      <% else %>
-        <.download_button page={@page} variant="lime" class="basis-full" />
-        <.publish_button page={@page} variant="outline" class="flex-[1_1_auto]" />
-      <% end %>
+      <.button
+        id="download-page"
+        variant="lime"
+        size="large"
+        class="basis-full"
+        href={~p"/app/pages/#{@page}/file"}
+      >
+        Pobierz plik treści
+      </.button>
       <.button
         id="save-brief"
         name="save"
@@ -505,7 +482,6 @@ defmodule DirmoonWeb.PageLive do
         form="brief-form"
         variant="outline"
         size="large"
-        disabled={not @editable?}
         phx-disable-with="Zapisuję…"
         class="flex-[1_1_auto]"
       >
@@ -525,65 +501,7 @@ defmodule DirmoonWeb.PageLive do
         />
         {if(@saved?, do: "Zapisano", else: "Niezapisane zmiany")}
       </span>
-      <p :if={@page.published_url} class="m-0 basis-full text-sm leading-normal text-on-app-2">
-        Strona działa pod adresem
-        <a
-          id="published-url"
-          href={@page.published_url}
-          target="_blank"
-          rel="noopener"
-          class="inline-flex min-h-target-min items-center font-mono text-xs break-all text-accent underline underline-offset-4"
-        >
-          {@page.published_url}
-        </a>
-      </p>
-      <p
-        :if={@page.error && @page.status in Page.publishable_statuses()}
-        id="publish-error"
-        class="m-0 flex basis-full items-start gap-2 text-sm leading-normal text-on-app"
-      >
-        <.icon name="hero-exclamation-triangle" class="mt-0.5 size-4 shrink-0 text-warn" />
-        <span>Ostatnia publikacja się nie udała: {@page.error}</span>
-      </p>
     </div>
-    """
-  end
-
-  attr :page, Page, required: true
-  attr :variant, :string, required: true
-  attr :class, :any, default: nil
-
-  defp publish_button(assigns) do
-    ~H"""
-    <.button
-      id="publish-page"
-      variant={@variant}
-      size="large"
-      class={@class}
-      phx-click="publish"
-      disabled={@page.status == :publishing}
-      phx-disable-with="Publikuję…"
-    >
-      {if(@page.status == :publishing, do: "Publikuję…", else: "Opublikuj na Netlify")}
-    </.button>
-    """
-  end
-
-  attr :page, Page, required: true
-  attr :variant, :string, required: true
-  attr :class, :any, default: nil
-
-  defp download_button(assigns) do
-    ~H"""
-    <.button
-      id="download-page"
-      variant={@variant}
-      size="large"
-      class={@class}
-      href={~p"/app/pages/#{@page}/file"}
-    >
-      Pobierz plik treści
-    </.button>
     """
   end
 
@@ -706,7 +624,6 @@ defmodule DirmoonWeb.PageLive do
       page_title: PageDisplay.title(page),
       status_line: StatusLine.sentence(page),
       panel_context: panel_context(short_description, page),
-      editable?: page.status in Page.editable_statuses(),
       run_stopped?: run_stopped?,
       retryable?: Run.choosable?(page.run)
     )
@@ -741,7 +658,7 @@ defmodule DirmoonWeb.PageLive do
       brief: brief,
       params: params,
       preview_html: preview_html,
-      address: preview_address(page, brief)
+      address: preview_address(brief)
     )
   end
 
@@ -768,25 +685,6 @@ defmodule DirmoonWeb.PageLive do
     end
   end
 
-  defp save_pending_edits(%{assigns: %{params: nil}} = socket), do: {:ok, socket}
-  defp save_pending_edits(%{assigns: %{params: params}} = socket), do: save_brief(socket, params)
-
-  defp publish(socket) do
-    %{current_scope: scope, page: page} = socket.assigns
-
-    case Pages.publish(scope, page.id) do
-      {:ok, _publishing_page} ->
-        reload_page(socket)
-
-      {:error, :not_found} ->
-        redirect_not_found(socket)
-
-      {:error, reason} ->
-        message = Map.fetch!(@publish_errors, reason)
-        socket |> put_flash(:error, message) |> reload_page()
-    end
-  end
-
   defp reload_page(socket) do
     %{current_scope: scope, page: page} = socket.assigns
 
@@ -808,8 +706,7 @@ defmodule DirmoonWeb.PageLive do
 
   defp panel_context(short_description, _page_without_slug), do: String.downcase(short_description)
 
-  defp preview_address(%Page{published_url: url}, _brief) when is_binary(url), do: url
-  defp preview_address(_page, brief), do: PageDisplay.address(brief.slug)
+  defp preview_address(brief), do: PageDisplay.address(brief.slug)
 
   defp ordered_phrases(%{phrases: phrases, primary_phrase: primary_phrase}) do
     {primary, others} = Enum.split_with(phrases, &(&1 == primary_phrase))

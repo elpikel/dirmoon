@@ -3,7 +3,7 @@ defmodule DirmoonWeb.PageDisplay do
   How a Page reads on screen, shared by the page screen (`PageLive`),
   the pages list (`PagesLive`) and the results screen (`ResultsLive`, which
   starts a page by choosing a Niche): its status labels, its
-  title, its address before it is published, and the Polish copy for each
+  title, its address on the User's domain, and the Polish copy for each
   reason a Niche choice is refused.
   """
 
@@ -15,8 +15,6 @@ defmodule DirmoonWeb.PageDisplay do
   @status_labels %{
     writing: "Piszę",
     ready: "Gotowa",
-    publishing: "Publikuję",
-    published: "Opublikowana",
     failed: "Błąd"
   }
 
@@ -50,7 +48,7 @@ defmodule DirmoonWeb.PageDisplay do
   def title(%Page{brief: nil, niche: niche}), do: niche.name
 
   @doc """
-  Where a page will live before it is published: the domain Placeholder and
+  Where a page will live on the User's domain: the domain Placeholder and
   its slug ("[TWOJA-DOMENA]/pierwszy-raz-kamperem").
   """
   def address(slug) do
