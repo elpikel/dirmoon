@@ -2,7 +2,8 @@ defmodule DirmoonWeb.PageHTML do
   @moduledoc """
   The landing page rendered by `DirmoonWeb.PageController`, and its two
   sign-up forms, `:hero` and `:closing`, also re-rendered by
-  `DirmoonWeb.SignUpController` when a submitted email is invalid.
+  `DirmoonWeb.SignUpController` when a sign-up fails. The landing page shows
+  no flash notices: what a form has to say is shown in the form.
 
   See the `page_html` directory for all templates available.
   """
@@ -23,8 +24,17 @@ defmodule DirmoonWeb.PageHTML do
   Returns the landing sign-up forms with the submitted one built from its
   changeset, so only that form shows the submitted email and its errors.
   """
-  def sign_up_forms(submitted_form_name, changeset_or_params) when submitted_form_name in @sign_up_form_names do
-    Map.put(sign_up_forms(), submitted_form_name, to_form(changeset_or_params, as: :user))
+  def sign_up_forms(submitted_form_name, %Ecto.Changeset{} = changeset) when submitted_form_name in @sign_up_form_names do
+    Map.put(sign_up_forms(), submitted_form_name, to_form(changeset, as: :user))
+  end
+
+  @doc """
+  Returns the landing sign-up forms with the submitted one filled in again
+  and the given message under its email field, for a sign-up that failed
+  for a reason other than the email itself.
+  """
+  def sign_up_forms(submitted_form_name, user_params, email_error) when submitted_form_name in @sign_up_form_names do
+    Map.put(sign_up_forms(), submitted_form_name, to_form(user_params, as: :user, errors: [email: {email_error, []}]))
   end
 
   @doc """

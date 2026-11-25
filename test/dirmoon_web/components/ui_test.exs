@@ -50,7 +50,7 @@ defmodule DirmoonWeb.UITest do
     document =
       parse(~H"""
       <UI.nav_card id="nav">
-        <UI.nav_link href="/somewhere">Zaloguj się</UI.nav_link>
+        <UI.button variant="dark" href="/somewhere">Zaloguj się</UI.button>
       </UI.nav_card>
       """)
 
@@ -65,16 +65,6 @@ defmodule DirmoonWeb.UITest do
     assert ["/"] = document |> LazyHTML.query("#nav [data-part=brand]") |> LazyHTML.attribute("href")
     assert ["Główna"] = document |> LazyHTML.query("#nav nav") |> LazyHTML.attribute("aria-label")
     assert document |> LazyHTML.query("#nav nav a[href='/somewhere']") |> Enum.count() == 1
-  end
-
-  test "a nav link is muted and not marked as the current page" do
-    assigns = %{}
-
-    document = parse(~H|<UI.nav_link href="/elsewhere">Strony</UI.nav_link>|)
-
-    assert document |> LazyHTML.query("a[aria-current]") |> Enum.count() == 0
-    assert has_class?(document, "a", "text-body-muted")
-    assert has_class?(document, "a", "min-h-target-min")
   end
 
   test "the eyebrow tag is a small mono uppercase label on the chip fill" do
@@ -107,17 +97,42 @@ defmodule DirmoonWeb.UITest do
     assert document |> LazyHTML.query("h1 [data-part=underline]") |> LazyHTML.text() =~ "w toku."
 
     assert [@underline_path] =
-             document |> LazyHTML.query("h1 [data-part=underline] svg path") |> LazyHTML.attribute("d")
+             document |> LazyHTML.query("h1 [data-part=underline] svg[data-part=stroke] path") |> LazyHTML.attribute("d")
 
-    assert has_class?(document, "h1 [data-part=underline] svg path", "stroke-accent")
+    assert has_class?(document, "h1 [data-part=underline] svg[data-part=stroke] path", "stroke-accent")
 
     assert ["7"] =
-             document |> LazyHTML.query("h1 [data-part=underline] svg path") |> LazyHTML.attribute("stroke-width")
+             document
+             |> LazyHTML.query("h1 [data-part=underline] svg[data-part=stroke] path")
+             |> LazyHTML.attribute("stroke-width")
 
     assert ["round"] =
-             document |> LazyHTML.query("h1 [data-part=underline] svg path") |> LazyHTML.attribute("stroke-linecap")
+             document
+             |> LazyHTML.query("h1 [data-part=underline] svg[data-part=stroke] path")
+             |> LazyHTML.attribute("stroke-linecap")
 
-    assert has_class?(document, "h1 [data-part=underline] svg", "-z-10")
+    assert has_class?(document, "h1 [data-part=underline] svg[data-part=stroke]", "-z-10")
+  end
+
+  test "the headline's underline ends with a rocket flying off it, hidden on phones" do
+    assigns = %{}
+
+    document = parse(~H|<UI.headline>
+  Research
+  <:underline>w toku.</:underline>
+</UI.headline>|)
+
+    rocket = "h1 [data-part=underline] svg[data-part=rocket][aria-hidden=true]"
+
+    for class <- ~w(absolute left-full max-sm:hidden) do
+      assert has_class?(document, rocket, class)
+    end
+
+    assert document |> LazyHTML.query(rocket <> " path.stroke-accent[stroke-dasharray]") |> Enum.count() == 1
+    assert document |> LazyHTML.query(rocket <> " g[transform] path.fill-ink") |> Enum.count() == 1
+
+    assert document |> LazyHTML.query(rocket <> " [data-moon-mark], " <> rocket <> " > path.fill-ink") |> Enum.count() ==
+             0
   end
 
   test "the headline can render at a lower heading level" do

@@ -222,7 +222,7 @@ defmodule DirmoonWeb.LayoutsTest do
     refute has_class?(document, "#flash-info [data-kind=info]", "bg-white")
   end
 
-  test "on the landing and sign-in pages the flash notices stay white cards" do
+  test "on the sign-in pages the flash notices stay white cards" do
     assigns = %{}
 
     document = parse(~H|<Layouts.auth flash={%{"info" => "Zapisano"}}>Treść</Layouts.auth>|)
@@ -233,7 +233,7 @@ defmodule DirmoonWeb.LayoutsTest do
     refute has_class?(document, "#flash-info [data-kind=info]", "bg-app-raised")
   end
 
-  test "on the landing and sign-in pages the flash group sits below the nav card on desktop" do
+  test "on the sign-in pages the flash group sits on the top right on desktop" do
     assigns = %{}
 
     document = parse(~H|<Layouts.auth flash={%{"info" => "Zapisano"}}>Treść</Layouts.auth>|)
@@ -248,7 +248,7 @@ defmodule DirmoonWeb.LayoutsTest do
 
     document =
       parse(~H"""
-      <Layouts.landing flash={%{}}>
+      <Layouts.landing>
         <:nav><a id="sign-in" href="/users/log-in">Zaloguj się</a></:nav>
         <section id="hero">Hero</section>
       </Layouts.landing>
@@ -259,6 +259,7 @@ defmodule DirmoonWeb.LayoutsTest do
     assert has_class?(document, "main", "max-w-content")
     assert document |> LazyHTML.query("#app-nav, #app-top-bar") |> Enum.count() == 0
     assert document |> LazyHTML.query("#landing-nav nav #sign-in") |> Enum.count() == 1
+    assert document |> LazyHTML.query("#flash-group") |> Enum.count() == 0
     assert document |> LazyHTML.query("#landing-nav a[href='/app/runs']") |> Enum.count() == 0
     assert document |> LazyHTML.query("main #hero") |> Enum.count() == 1
   end

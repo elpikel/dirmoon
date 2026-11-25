@@ -8,7 +8,7 @@ defmodule DirmoonWeb.Controllers.UserSession.DeleteTest do
 
     assert redirected_to(conn) == ~p"/"
     refute get_session(conn, :user_token)
-    assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Wylogowano."
+    assert conn.assigns.flash == %{}
   end
 
   test "logging out succeeds for a visitor who is not signed in", %{conn: conn} do

@@ -15,7 +15,11 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     headline = LazyHTML.query(document, "#landing-hero h1")
 
     assert squish(headline) == "Zanim zbudujesz, sprawdź, czy ktoś tego szuka."
-    assert headline |> LazyHTML.query("[data-part=underline] svg path.stroke-accent") |> Enum.count() == 1
+
+    assert headline |> LazyHTML.query("[data-part=underline] svg[data-part=stroke] path.stroke-accent") |> Enum.count() ==
+             1
+
+    assert headline |> LazyHTML.query("[data-part=underline] svg[data-part=rocket]") |> Enum.count() == 1
   end
 
   test "the hero sign-up form has a labelled email input and a Załóż konto button", %{conn: conn} do
@@ -55,7 +59,9 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
   test "a signed-out visitor is offered sign-in in the nav", %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
-    assert document |> LazyHTML.query("#landing-nav a[href='/users/log-in']") |> squish() == "Zaloguj się"
+    assert document |> LazyHTML.query("#landing-nav a#sign-in-link[data-variant=dark][href='/users/log-in']") |> squish() ==
+             "Zaloguj się"
+
     assert document |> LazyHTML.query("#landing-nav a[href='/app']") |> Enum.count() == 0
   end
 
@@ -67,19 +73,14 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     assert redirected_to(conn) == ~p"/app"
   end
 
-  test "after logging out the landing page shows the log-out notice with a close button", %{conn: conn} do
+  test "after logging out the landing page shows no notice", %{conn: conn} do
     %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
 
     conn = delete(conn, ~p"/users/log-out")
 
     document = conn |> recycle() |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
-    notice = LazyHTML.query(document, "#flash-group #flash-info[role=alert]")
-
-    assert squish(notice) =~ "Wylogowano."
-    assert [close_command] = LazyHTML.attribute(notice, "phx-click")
-    assert close_command =~ "#flash-info"
-    assert notice |> LazyHTML.query("button[type=button][aria-label]") |> Enum.count() == 1
+    assert document |> LazyHTML.query("#flash-group, [role=alert]") |> Enum.count() == 0
   end
 
   defp squish(node) do

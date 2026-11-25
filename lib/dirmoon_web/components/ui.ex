@@ -72,7 +72,7 @@ defmodule DirmoonWeb.UI do
   right. It wraps onto two rows on narrow screens.
 
       <.nav_card id="landing-nav">
-        <.nav_link href={~p"/users/log-in"}>Zaloguj się</.nav_link>
+        <.button variant="dark" href={~p"/users/log-in"}>Zaloguj się</.button>
       </.nav_card>
   """
   attr :id, :string, required: true
@@ -95,25 +95,6 @@ defmodule DirmoonWeb.UI do
         {render_slot(@inner_block)}
       </nav>
     </div>
-    """
-  end
-
-  @doc """
-  Renders a muted text link for the nav card.
-
-      <.nav_link href={~p"/users/log-in"}>Zaloguj się</.nav_link>
-  """
-  attr :rest, :global, include: ~w(href)
-  slot :inner_block, required: true
-
-  def nav_link(assigns) do
-    ~H"""
-    <.link
-      class="inline-flex min-h-target-min items-center text-body-muted no-underline transition-colors duration-150 hover:text-ink"
-      {@rest}
-    >
-      {render_slot(@inner_block)}
-    </.link>
     """
   end
 
@@ -171,7 +152,9 @@ defmodule DirmoonWeb.UI do
   @doc """
   Renders a landing page headline: Inter 800, tight tracking, line height
   about 1. The `underline` slot holds the one phrase that carries the lime
-  hand-drawn underline; it is rendered after the inner block.
+  hand-drawn underline; it is rendered after the inner block. Past the
+  underline's end a rocket flies off it (not on phones, where the headline
+  fills the width).
 
       <.headline size="hero">
         Zanim zbudujesz, sprawdź,
@@ -201,6 +184,7 @@ defmodule DirmoonWeb.UI do
       {render_slot(@inner_block)}
       <span data-part="underline" class="relative inline-block">
         {render_slot(@underline)}<svg
+          data-part="stroke"
           aria-hidden="true"
           viewBox="0 0 600 24"
           preserveAspectRatio="none"
@@ -212,7 +196,29 @@ defmodule DirmoonWeb.UI do
           stroke-linecap="round"
           vector-effect="non-scaling-stroke"
           class="stroke-accent"
-        /></svg>
+        /></svg><svg
+          data-part="rocket"
+          aria-hidden="true"
+          viewBox="0 0 100 100"
+          class="absolute bottom-[-0.14em] left-full size-[1em] overflow-visible max-sm:hidden"
+        >
+          <path
+            d="M0 88 C 12 88, 23 83, 30 72"
+            fill="none"
+            stroke-width="6"
+            stroke-linecap="round"
+            stroke-dasharray="0.1 12"
+            class="stroke-accent"
+          />
+          <g transform="translate(62 38) rotate(45) scale(1.8)">
+            <path d="M-3.5 10 L0 21 L3.5 10 Z" class="fill-accent" />
+            <path
+              d="M0 -17 C7 -10 8 1 6 10 L-6 10 C-8 1 -7 -10 0 -17 Z M-6 1 L-13 13 L-6 10 Z M6 1 L13 13 L6 10 Z"
+              class="fill-ink"
+            />
+            <circle cx="0" cy="-4" r="2.8" class="fill-page" />
+          </g>
+        </svg>
       </span>
     </.dynamic_tag>
     """

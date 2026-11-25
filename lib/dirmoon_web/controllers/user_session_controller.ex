@@ -13,9 +13,7 @@ defmodule DirmoonWeb.UserSessionController do
   end
 
   def delete(conn, _params) do
-    conn
-    |> put_flash(:info, "Wylogowano.")
-    |> UserAuth.log_out_user()
+    UserAuth.log_out_user(conn)
   end
 
   defp log_in_with_magic_link(conn, %{"token" => token} = user_params, info) do

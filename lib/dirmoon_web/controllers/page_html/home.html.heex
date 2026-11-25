@@ -1,8 +1,8 @@
-<Layouts.landing flash={@flash}>
+<Layouts.landing>
   <:nav>
-    <.nav_link id="sign-in-link" href={~p"/users/log-in"}>
+    <.button id="sign-in-link" variant="dark" href={~p"/users/log-in"}>
       Zaloguj się
-    </.nav_link>
+    </.button>
   </:nav>
 
   <section id="landing-hero" class="flex flex-col items-center gap-7 text-center">

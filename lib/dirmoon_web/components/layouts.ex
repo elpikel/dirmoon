@@ -150,12 +150,11 @@ defmodule DirmoonWeb.Layouts do
   floating nav card, with the `nav` slot on the card's right-hand side (the
   sign-in link).
 
-      <Layouts.landing flash={@flash}>
-        <:nav><.nav_link href={~p"/users/log-in"}>Zaloguj się</.nav_link></:nav>
+      <Layouts.landing>
+        <:nav><.button variant="dark" href={~p"/users/log-in"}>Zaloguj się</.button></:nav>
         <section id="hero">...</section>
       </Layouts.landing>
   """
-  attr :flash, :map, required: true, doc: "the map of flash messages"
   slot :nav, doc: "the right-hand side of the nav card"
   slot :inner_block, required: true
 
@@ -169,8 +168,6 @@ defmodule DirmoonWeb.Layouts do
         {render_slot(@inner_block)}
       </main>
     </div>
-
-    <.flash_group flash={@flash} />
     """
   end
 
