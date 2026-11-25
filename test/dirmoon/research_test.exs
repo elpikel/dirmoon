@@ -29,12 +29,30 @@ defmodule Dirmoon.ResearchTest do
     assert_enqueued(worker: GenerateSeeds, args: %{run_id: run.id}, queue: :pipeline)
   end
 
-  test "starting a run derives the language and keyword location from the country" do
+  test "starting a run stores the chosen country and language with the country's location code and both names" do
     scope = scope_for(insert(:account))
+    country = insert(:market_country)
+    language = insert(:market_language)
+    attrs = %{valid_run_attrs() | "country_code" => country.country_code, "language_code" => language.language_code}
 
-    {:ok, run} = Research.start_run(scope, valid_run_attrs())
+    {:ok, run} = Research.start_run(scope, attrs)
 
-    assert %Run{country_code: "PL", language_code: "pl", location_code: 2616} = run
+    assert %Run{} = stored = Repo.reload!(run)
+    assert stored.country_code == country.country_code
+    assert stored.location_code == country.location_code
+    assert stored.country_name == country.name
+    assert stored.language_code == language.language_code
+    assert stored.language_name == language.name
+  end
+
+  test "a posted location code is ignored: the run takes the stored country's" do
+    scope = scope_for(insert(:account))
+    country = insert(:market_country)
+    attrs = Map.merge(valid_run_attrs(), %{"country_code" => country.country_code, "location_code" => "1"})
+
+    {:ok, run} = Research.start_run(scope, attrs)
+
+    assert run.location_code == country.location_code
   end
 
   test "a run without a description is rejected with an error on the description" do
@@ -344,13 +362,30 @@ defmodule Dirmoon.ResearchTest do
     assert %{domain: ["can't be blank"]} = errors_on(changeset)
   end
 
-  test "a run in a country dirmoon has no location for is rejected with an error on the country" do
+  test "a run in a country not in the stored countries is rejected with an error on the country" do
     scope = scope_for(insert(:account))
 
-    assert {:error, changeset} = Research.start_run(scope, %{valid_run_attrs() | "country_code" => "XX"})
+    assert {:error, changeset} = Research.start_run(scope, %{valid_run_attrs() | "country_code" => "T-unknown"})
 
-    assert %{country_code: ["is not supported"]} = errors_on(changeset)
+    assert %{country_code: ["is not available"]} = errors_on(changeset)
     refute_enqueued(worker: GenerateSeeds)
+  end
+
+  test "a run in a language not in the stored languages is rejected with an error on the language" do
+    scope = scope_for(insert(:account))
+
+    assert {:error, changeset} = Research.start_run(scope, %{valid_run_attrs() | "language_code" => "x-unknown"})
+
+    assert %{language_code: ["is not available"]} = errors_on(changeset)
+    refute_enqueued(worker: GenerateSeeds)
+  end
+
+  test "a run without a language is rejected with an error on the language" do
+    scope = scope_for(insert(:account))
+
+    assert {:error, changeset} = Research.start_run(scope, %{valid_run_attrs() | "language_code" => ""})
+
+    assert %{language_code: ["can't be blank"]} = errors_on(changeset)
   end
 
   test "a run without a country is rejected with an error on the country" do
@@ -481,10 +516,14 @@ defmodule Dirmoon.ResearchTest do
   end
 
   defp valid_run_attrs do
+    country = insert(:market_country)
+    language = insert(:market_language)
+
     %{
       "description" => "Kancelaria adwokacka w Gdańsku, prawo rodzinne i karne",
       "mode" => "new_idea",
-      "country_code" => "PL",
+      "country_code" => country.country_code,
+      "language_code" => language.language_code,
       "city" => "Gdańsk",
       "domain" => "",
       "priority_services" => ["rozwody", "obrona karna"]

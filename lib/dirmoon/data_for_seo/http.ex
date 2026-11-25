@@ -24,6 +24,8 @@ defmodule Dirmoon.DataForSEO.HTTP do
   @serp_depth 10
   @organic_type "organic"
   @city_location_type "City"
+  @country_location_type "Country"
+  @locations_path "/v3/keywords_data/google_ads/locations"
   @google_redirect_prefix "https://google.com/goto?"
   @breadcrumb_separator "›"
 
@@ -68,7 +70,7 @@ defmodule Dirmoon.DataForSEO.HTTP do
   def find_location(%{city: city, country_code: <<first, second>> = country_code})
       when ascii_letter?(first) and ascii_letter?(second) do
     with {:ok, %{result: locations, raw: raw, cost: cost}} <-
-           send_request(method: :get, url: "/v3/keywords_data/google_ads/locations/#{String.downcase(country_code)}"),
+           send_request(method: :get, url: "#{@locations_path}/#{String.downcase(country_code)}"),
          %{"location_code" => location_code, "location_name" => name} <- find_city(locations, city) do
       {:ok, %{location_code: location_code, name: name, raw: raw, cost: cost}}
     else
@@ -78,6 +80,36 @@ defmodule Dirmoon.DataForSEO.HTTP do
   end
 
   def find_location(%{country_code: _invalid_country_code}), do: {:error, :invalid_country_code}
+
+  @impl DataForSEO
+  def countries do
+    with {:ok, %{result: locations}} <- send_request(method: :get, url: @locations_path) do
+      {:ok,
+       for(
+         %{
+           "location_type" => @country_location_type,
+           "location_code" => location_code,
+           "location_name" => name,
+           "country_iso_code" => country_code
+         }
+         when is_integer(location_code) and is_binary(name) and is_binary(country_code) <- locations,
+         do: %{country_code: country_code, location_code: location_code, name: name}
+       )}
+    end
+  end
+
+  @impl DataForSEO
+  def languages do
+    with {:ok, %{result: languages}} <-
+           send_request(method: :get, url: "/v3/keywords_data/google_ads/languages") do
+      {:ok,
+       for(
+         %{"language_code" => language_code, "language_name" => name}
+         when is_binary(language_code) and is_binary(name) <- languages,
+         do: %{language_code: language_code, name: name}
+       )}
+    end
+  end
 
   defp post_task(%{path: path, task: task}), do: send_request(method: :post, url: path, json: [task])
 
@@ -203,7 +235,13 @@ defmodule Dirmoon.DataForSEO.HTTP do
     |> comparable()
   end
 
-  defp comparable(name), do: name |> String.trim() |> Spelling.without_diacritics()
+  defp comparable(name) do
+    name
+    |> String.trim()
+    |> Spelling.without_diacritics()
+    |> String.normalize(:nfd)
+    |> String.replace(~r/\p{Mn}/u, "")
+  end
 
   defp cost(nil), do: Decimal.new(0)
   defp cost(value), do: decimal(value)

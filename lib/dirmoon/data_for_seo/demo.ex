@@ -6,7 +6,9 @@ defmodule Dirmoon.DataForSEO.Demo do
   Volumes, CPC and trends come from `:erlang.phash2/2` of the phrase and
   location, so the same phrase always gets the same numbers. Any city
   resolves to one demo location whose volumes are a tenth of the country's.
-  SERP results sit on `.example` domains.
+  SERP results sit on `.example` domains. The countries and languages are a
+  short real list (the United States, the United Kingdom and Poland; English
+  and Polish), so a run can be started without credentials.
   """
 
   @behaviour Dirmoon.DataForSEO
@@ -25,6 +27,15 @@ defmodule Dirmoon.DataForSEO.Demo do
   @trend_spread_percent 41
   @currency "USD"
   @raw %{"demo" => true}
+  @countries [
+    %{country_code: "US", location_code: 2840, name: "United States"},
+    %{country_code: "GB", location_code: 2826, name: "United Kingdom"},
+    %{country_code: "PL", location_code: 2616, name: "Poland"}
+  ]
+  @languages [
+    %{language_code: "en", name: "English"},
+    %{language_code: "pl", name: "Polish"}
+  ]
   @domains ~w(
     demo-blog-1.example
     demo-forum.example
@@ -81,6 +92,12 @@ defmodule Dirmoon.DataForSEO.Demo do
   def find_location(%{city: city}) do
     {:ok, %{location_code: @city_location_code, name: "#{@marker} #{city}", raw: @raw, cost: Decimal.new(0)}}
   end
+
+  @impl DataForSEO
+  def countries, do: {:ok, @countries}
+
+  @impl DataForSEO
+  def languages, do: {:ok, @languages}
 
   defp answer(rows), do: {:ok, %{rows: rows, raw: @raw, cost: Decimal.new(0)}}
 

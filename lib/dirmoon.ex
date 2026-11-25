@@ -9,7 +9,7 @@ defmodule Dirmoon do
 
   @demo_services [
     llm_adapter: {Dirmoon.LLM.Demo, "language model (OpenAI)"},
-    data_for_seo_adapter: {Dirmoon.DataForSEO.Demo, "phrases and competition (DataForSEO)"},
+    data_for_seo_adapter: {Dirmoon.DataForSEO.Demo, "Google searches and competition (DataForSEO)"},
     search_console_adapter: {Dirmoon.SearchConsole.Client.Demo, "Search Console"}
   ]
 

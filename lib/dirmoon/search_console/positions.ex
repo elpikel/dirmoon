@@ -22,12 +22,12 @@ defmodule Dirmoon.SearchConsole.Positions do
   @not_configured_result "Search Console is not configured"
   @no_data_result "Search Console has no data for this domain"
   @access_token_rejected "Search Console rejected the access token"
-  @phrase_forms %{one: "phrase", other: "phrases"}
+  @phrase_forms %{one: "search", other: "searches"}
 
   @doc """
   Fetches the run's Current Positions.
 
-  Returns `{:ok, %{result: "N phrases at positions 8–20", output: output}}` with
+  Returns `{:ok, %{result: "N searches where your site is at positions 8–20", output: output}}` with
   `output` `%{"rows" => [%{"query", "clicks", "impressions", "ctr", "position"}],
   "matched", "quick_wins", "start_date", "end_date"}`; `{:skip, line}` for a
   New Idea run, an Account without a Connection, a Connection that needs a
@@ -96,7 +96,8 @@ defmodule Dirmoon.SearchConsole.Positions do
 
   defp result_line(_rows, %{quick_wins: quick_wins}) do
     range = Phrases.quick_win_range()
-    "#{quick_wins} #{Format.plural(quick_wins, @phrase_forms)} at positions #{range.first}–#{range.last}"
+
+    "#{quick_wins} #{Format.plural(quick_wins, @phrase_forms)} where your site is at positions #{range.first}–#{range.last}"
   end
 
   defp output(rows, %{matched: matched, quick_wins: quick_wins}, %{start_date: start_date, end_date: end_date}) do

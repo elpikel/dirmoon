@@ -19,7 +19,7 @@ defmodule DirmoonTest do
     Application.put_env(:dirmoon, :search_console_adapter, Demo)
     Application.put_env(:dirmoon, :data_for_seo_adapter, Dirmoon.DataForSEO.Demo)
 
-    assert Dirmoon.demo_services() == ["phrases and competition (DataForSEO)", "Search Console"]
+    assert Dirmoon.demo_services() == ["Google searches and competition (DataForSEO)", "Search Console"]
     assert Dirmoon.demo_data?()
   end
 
@@ -30,7 +30,7 @@ defmodule DirmoonTest do
 
     assert Dirmoon.demo_services() == [
              "language model (OpenAI)",
-             "phrases and competition (DataForSEO)",
+             "Google searches and competition (DataForSEO)",
              "Search Console"
            ]
   end

@@ -22,10 +22,14 @@ defmodule Dirmoon.Pages.StatusLine do
     writing_on_stopped_run: "The research is stopped, so the brief is waiting. Resume it on the research screen.",
     failed: "The brief failed: %{reason}.",
     failed_without_reason: "The brief failed.",
-    ready: "I wrote the brief: it answers %{count} %{questions}. You fill in the prices and contact details.",
+    ready:
+      "I wrote the brief, the plan and the text for one page: it answers %{count} %{questions}. " <>
+        "You fill in the prices and contact details.",
     approval: "The business owner must approve legal, medical and financial answers before publishing.",
-    no_briefs: "No briefs yet. Choose a niche in the results and I'll write a brief for it.",
-    briefs: "I have %{count} %{briefs} for your niches."
+    no_briefs:
+      "No briefs yet. Choose a topic in the results and I'll write a brief for it: " <>
+        "the plan and the text for one page about it.",
+    briefs: "I have %{count} %{briefs} for your topics."
   }
 
   @doc """

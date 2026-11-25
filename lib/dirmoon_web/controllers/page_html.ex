@@ -29,14 +29,14 @@ defmodule DirmoonWeb.PageHTML do
         name: "Skate rental",
         verdict: :hard,
         score: "7.7",
-        figures: "1,090 searches a month · $6.79 per ad click",
+        figures: "Typed 1,090 times a month · $6.79 per ad click",
         first_page: "On page one today: businesses like yours and big portals."
       },
       %{
         name: "Ice rinks with skate rental",
         verdict: :hard,
         score: "5.6",
-        figures: "40 searches a month · $4.10 per ad click",
+        figures: "Typed 40 times a month · $4.10 per ad click",
         first_page: "On page one today: businesses like yours, guides and blogs."
       },
       %{
@@ -56,35 +56,35 @@ defmodule DirmoonWeb.PageHTML do
     %{
       question: "Where do the numbers come from?",
       answer:
-        "From Google's own keyword and search results data. dirmoon looks up what people actually type about your idea, how often each phrase is searched, what an ad click costs and who holds the first page today."
+        "From Google's own search and ad data. dirmoon looks up what people actually type into Google about your idea, how many times a month they type it, what an ad click costs and who is on Google's first page today."
     },
     %{
       question: "Does an AI make any of it up?",
       answer:
-        "No. The AI only suggests where to look and sorts what was found into niches. Every phrase and every number comes from Google's data, never from an AI's guess."
+        "No. The AI only suggests where to look and sorts what was found by what customers want. Every search and every number comes from Google's data, never from an AI's guess."
     }
   ]
 
   @answers [
     %{
-      question: "Do people search for this at all, and how many of them?",
+      question: "How do I know if people are searching for my business idea?",
       answer:
-        "Yes, but mostly in one way: \"skate rental\" gets 1,090 searches a month. The other niches get 40 or fewer, and several get none that Google can measure."
+        "You see how many times a month people type each search into Google. Here: \"skate rental\" is typed 1,090 times a month. The other topics get 40 or fewer, and several get none that Google can measure."
     },
     %{
-      question: "Is a customer here worth real money?",
+      question: "What would a Google Ads click cost for my idea?",
       answer:
-        "Businesses pay Google $6.79 for a single click on an ad for skate rental. Nobody pays for the low-demand niches. The higher the click price, the more a customer is worth."
+        "Businesses pay Google $6.79 for a single click on an ad for skate rental. Nobody pays for ads on the searches few people make. The higher the click price, the more a customer is worth."
     },
     %{
-      question: "Who is already there, and can I get past them?",
+      question: "Who is on the first page of Google, and is the competition too strong?",
       answer:
         "Page one is held by businesses like yours and big portals, so it will be a fight. The report lists every site on page one, with a link to each and what kind of site it is."
     },
     %{
       question: "What do my competitors charge?",
       answer:
-        "Ask for it on any niche: dirmoon opens the competitors' pages and lists the prices they publish, each with a link to the page it came from. It never guesses a price that is not written there."
+        "Ask for it on any topic: dirmoon opens the competitors' pages and lists the prices they publish, each with a link to the page it came from. It never guesses a price that is not written there."
     }
   ]
 
@@ -93,7 +93,14 @@ defmodule DirmoonWeb.PageHTML do
   forms and the page title.
   """
   def landing_assigns(sign_up_forms) do
-    [sign_up_forms: sign_up_forms, page_title: "Check demand before you build"]
+    [
+      sign_up_forms: sign_up_forms,
+      page_title: "Validate your business idea with Google search data",
+      meta_description:
+        "Test a business idea before you build it. dirmoon finds what people search on Google, the monthly search volume " <>
+          "(how often they search), the ad click cost and the keyword competition (who holds Google's first page), " <>
+          "and tells you which topics are worth going after."
+    ]
   end
 
   @doc """
@@ -215,7 +222,7 @@ defmodule DirmoonWeb.PageHTML do
       <ol class="m-0 flex list-none flex-col gap-20 p-0 pb-4">
         <.journey_step id={"#{@id}-idea"} number="01" title="You start with a question">
           <:lead>
-            You want to open a business or add a service, and you are about to put time and money into it. First you need to know whether anyone is looking for it. Describe the idea in one sentence. No keyword lists, no SEO knowledge.
+            You want to open a business or add a service, and you are about to put time and money into it. First you need to know whether anyone is looking for it. Describe the idea in one sentence. No lists of search terms, no marketing knowledge.
           </:lead>
           <blockquote
             data-part="example-idea"
@@ -266,13 +273,13 @@ defmodule DirmoonWeb.PageHTML do
 
         <.journey_step id={"#{@id}-report"} number="03" title="You get a ranked report">
           <:lead>
-            The phrases are grouped into niches, the best one first. Each niche gets a verdict in plain words and the numbers behind it. Together they answer the questions you came with.
+            The searches are sorted into topics, the best one first. People ask Google for the same thing in many different words. A topic is those searches put together. Each topic gets a verdict in plain words and the numbers behind it. Together they answer the questions you came with.
           </:lead>
           <figure class="m-0 flex flex-col gap-3">
             <.dark_panel
               id={"#{@id}-report-panel"}
               context={String.downcase(@example.description)}
-              note={"#{@example.niche_count} niches"}
+              note={"#{@example.niche_count} topics"}
             >
               <ol class="m-0 flex list-none flex-col divide-y divide-slate-line p-0">
                 <li
@@ -286,14 +293,14 @@ defmodule DirmoonWeb.PageHTML do
                       data-part="verdict"
                       class={["text-sm font-semibold", Map.fetch!(@verdict_classes, niche.verdict)]}
                     >
-                      {Map.fetch!(@verdict_labels, niche.verdict)} · {niche.score}/10
+                      {Map.fetch!(@verdict_labels, niche.verdict)} · rating {niche.score} out of 10
                     </span>
                   </div>
                   <span data-part="figures" class="font-mono text-[13px] text-on-slate-2">{niche.figures}</span>
                   <span data-part="first-page" class="text-sm text-on-slate-muted">{niche.first_page}</span>
                 </li>
                 <li data-part="more" class="px-5 py-4 text-sm text-on-slate-muted sm:px-6">
-                  And {@example.other_niche_count} more niches, ranked the same way.
+                  And {@example.other_niche_count} more topics, ranked the same way.
                 </li>
               </ol>
             </.dark_panel>
@@ -315,10 +322,10 @@ defmodule DirmoonWeb.PageHTML do
 
         <.journey_step id={"#{@id}-value"} number="04" title="You decide with numbers, not hope">
           <:lead>
-            Here {@example.low_niche_count} of {@example.niche_count} niches turned out not worth a page, and the best one will be a fight. That is cheaper to learn now than after you build.
+            Here {@example.low_niche_count} of {@example.niche_count} topics turned out not worth a page, and the best one will be a fight. That is cheaper to learn now than after you build.
           </:lead>
           <p class="m-0 max-w-[640px] text-[17px] leading-normal text-body">
-            Pick the niche you want and dirmoon writes its brief: the plan and the text for one page about that niche, with the title, headings, sections and the phrases to cover. You hand it to whoever builds your site.
+            Pick the topic you want and dirmoon writes its brief: the plan and the text for one page about that topic, with the title, headings, sections and the searches to cover. You hand it to whoever builds your site.
           </p>
         </.journey_step>
       </ol>

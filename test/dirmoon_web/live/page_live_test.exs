@@ -50,7 +50,7 @@ defmodule DirmoonWeb.PageLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
 
-    assert has_element?(view, "#app-note", "Niche: #{page.niche.name} · New idea")
+    assert has_element?(view, "#app-note", "Topic: #{page.niche.name} · New idea")
     assert has_element?(view, "#app-nav #nav-pages[aria-current=page]")
     assert has_element?(view, "#app-main #page-screen #brief-form")
     refute has_element?(view, "#page-headline")
@@ -67,7 +67,7 @@ defmodule DirmoonWeb.PageLiveTest do
     assert has_element?(
              view,
              "#page-status-line",
-             "I wrote the brief: it answers 2 customer questions. You fill in the prices and contact details."
+             "I wrote the brief, the plan and the text for one page: it answers 2 customer questions. You fill in the prices and contact details."
            )
 
     refute has_element?(view, "#page-status-line", "must approve")
@@ -459,7 +459,7 @@ defmodule DirmoonWeb.PageLiveTest do
 
     view |> element("#retry-brief") |> render_click()
 
-    assert has_element?(view, "#flash-error", "A brief for another niche is being written")
+    assert has_element?(view, "#flash-error", "I'm still writing the brief for another topic")
     assert Repo.get!(Page, page.id).status == :failed
     refute_enqueued(worker: WriteBrief)
   end

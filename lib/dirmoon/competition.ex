@@ -19,7 +19,7 @@ defmodule Dirmoon.Competition do
   alias Dirmoon.Research.Run
 
   @strong_direct_competitors 5
-  @checked_forms %{one: "phrase checked", other: "phrases checked"}
+  @checked_forms %{one: "search checked", other: "searches checked"}
   @no_holders "no results"
   @direct_competitor Atom.to_string(SerpAssessment.direct_competitor())
   @weak_page_types Enum.map(SerpAssessment.weak_page_types(), &Atom.to_string/1)
@@ -181,7 +181,7 @@ defmodule Dirmoon.Competition do
 
   @doc """
   How many of the Phrases picked for the competition check are checked:
-  `"4 of 10 phrases checked"`, `"1 of 1 phrase checked"`.
+  `"4 of 10 searches checked"`, `"1 of 1 search checked"`.
   """
   def checked_line(checked, total) when is_integer(checked) and is_integer(total) do
     "#{checked} of #{total} #{Format.plural(total, @checked_forms)}"

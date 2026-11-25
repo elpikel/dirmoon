@@ -21,6 +21,8 @@ defmodule DirmoonWeb.UserLive.ConfirmationTest do
     assert redirected_to(conn) == ~p"/app"
     assert Repo.get!(User, user.id).confirmed_at
 
+    insert(:market_country)
+    insert(:market_language)
     {:ok, app_view, _html} = conn |> recycle() |> live(~p"/app/research/new")
     assert has_element?(app_view, "#research-form")
     assert has_element?(app_view, "#user-email", user.email)

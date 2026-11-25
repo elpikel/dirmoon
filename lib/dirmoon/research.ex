@@ -14,6 +14,7 @@ defmodule Dirmoon.Research do
   import Ecto.Query
 
   alias Dirmoon.Accounts.Scope
+  alias Dirmoon.Markets
   alias Dirmoon.Repo
   alias Dirmoon.Research.ApiRequest
   alias Dirmoon.Research.Pipeline
@@ -25,12 +26,23 @@ defmodule Dirmoon.Research do
   @cancellable_job_states ~w(available scheduled retryable)
 
   @doc """
-  A changeset of a new run's input, for the form.
+  A changeset of a new run's input, for the form. The chosen country and
+  language must be in the stored Market lists (`Dirmoon.Markets`); the run
+  takes their location code and names from there.
   """
   def change_run(%Scope{} = scope, attrs \\ %{}) do
-    scope
-    |> new_run()
-    |> Run.changeset(attrs)
+    changeset =
+      scope
+      |> new_run()
+      |> Run.changeset(attrs)
+
+    market =
+      Markets.find_market(%{
+        country_code: Ecto.Changeset.get_field(changeset, :country_code),
+        language_code: Ecto.Changeset.get_field(changeset, :language_code)
+      })
+
+    Run.put_market(changeset, market)
   end
 
   @doc """

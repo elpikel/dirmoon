@@ -103,9 +103,9 @@ defmodule Dirmoon.CompetitionTest do
   end
 
   test "the checked line says how many of the phrases are checked, in Polish" do
-    assert Competition.checked_line(4, 10) == "4 of 10 phrases checked"
-    assert Competition.checked_line(0, 3) == "0 of 3 phrases checked"
-    assert Competition.checked_line(1, 1) == "1 of 1 phrase checked"
+    assert Competition.checked_line(4, 10) == "4 of 10 searches checked"
+    assert Competition.checked_line(0, 3) == "0 of 3 searches checked"
+    assert Competition.checked_line(1, 1) == "1 of 1 search checked"
   end
 
   test "the weak share is the part of the labelled results held by blogs, forums and directories" do

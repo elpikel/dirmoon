@@ -27,7 +27,6 @@ defmodule DirmoonWeb.Router do
     get "/search-console/connect", SearchConsoleController, :connect
     get "/search-console/callback", SearchConsoleController, :callback
     delete "/search-console", SearchConsoleController, :delete
-    get "/runs/:id/export.csv", RunExportController, :show
 
     live_session :app,
       on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}, {DirmoonWeb.Layouts, :app_body}] do

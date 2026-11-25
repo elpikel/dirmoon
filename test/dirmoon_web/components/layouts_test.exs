@@ -129,7 +129,7 @@ defmodule DirmoonWeb.LayoutsTest do
       parse(~H|<Layouts.app
   flash={%{}}
   context="results"
-  demo_services={["phrases and competition (DataForSEO)", "Search Console"]}
+  demo_services={["Google searches and competition (DataForSEO)", "Search Console"]}
 >
   Content
 </Layouts.app>|)
@@ -138,7 +138,7 @@ defmodule DirmoonWeb.LayoutsTest do
     assert banner_text =~ "TEST DATA"
 
     assert link_text(document, "#demo-data-services") ==
-             "Demo data instead of real data: phrases and competition (DataForSEO), Search Console."
+             "Demo data instead of real data: Google searches and competition (DataForSEO), Search Console."
   end
 
   test "the app layout has no TEST DATA strip when no service is on demo data" do
@@ -288,6 +288,8 @@ defmodule DirmoonWeb.LayoutsTest do
 
   test "signed-in app screens and settings paint the page body the app's gray behind the dark shell", %{conn: conn} do
     %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    insert(:market_country)
+    insert(:market_language)
 
     for path <- [~p"/app/runs", ~p"/app/research/new", ~p"/users/settings"] do
       document = conn |> get(path) |> html_response(200) |> LazyHTML.from_document()

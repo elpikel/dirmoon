@@ -32,7 +32,7 @@ defmodule Dirmoon.Competition.Check do
   alias Dirmoon.Research.Steps
 
   @step_number Steps.number!(:competition)
-  @no_phrases_result "No phrases to check"
+  @no_phrases_result "No searches to check"
   @unlabelled_results_error "The model did not label every result"
   @page_type_names Enum.map(SerpAssessment.page_types(), &Atom.to_string/1)
 
@@ -63,9 +63,9 @@ defmodule Dirmoon.Competition.Check do
   @doc """
   Checks the competition for the run's best Phrases.
 
-  Returns `{:ok, %{result: "30 of 30 phrases checked", output: output}}` with
+  Returns `{:ok, %{result: "30 of 30 searches checked", output: output}}` with
   `output` `%{"checked", "total", "reused_snapshots", "weak", "medium", "strong"}`,
-  `{:skip, "No phrases to check"}` when no kept Phrase is in a Niche,
+  `{:skip, "No searches to check"}` when no kept Phrase is in a Niche,
   `:stopped` when the run stopped meanwhile,
   `{:error, "The model did not label every result"}`, or the keyword API's
   or LLM's `{:error, reason}`. Phrases assessed before an error stay
@@ -237,7 +237,7 @@ defmodule Dirmoon.Competition.Check do
       [
         "Business description:\n#{run.description}",
         mode_line(run),
-        "Phrase (in #{Run.language_name(run)}): #{phrase}",
+        "Phrase (in #{run.language_name}): #{phrase}",
         "Give each result one page type: " <>
           "direct_competitor (a business offering the same as the business described), " <>
           "directory (a business directory or comparison site), " <>

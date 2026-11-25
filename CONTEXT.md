@@ -4,6 +4,8 @@ dirmoon turns a plain-language business description into a ranked list of search
 
 ## Language
 
+The terms below are internal (code, schemas, docs); readers never see them. Screens, emails and the landing page say instead: Niche → "topic" ("need" once named on the screen), Phrase → "search" or "what people type into Google", Rejected Phrases → "Searches I left out", Seed → "starting ideas" / "starting searches", Volume → "how many times a month people type it" ("typed N times a month"), CPC → "what businesses pay Google for one ad click" ("ad click price"), SERP / top 10 → "Google's first page", Score → "rating N out of 10", Competition Verdict → weak / medium / strong plus what it means ("easy to get onto Google's first page", "possible, but not at once", "hard to get onto Google's first page"), Brief → "brief", explained on first use as the plan and the text for one page; only the landing hero, title and meta description keep "niche finder", "monthly search volume" and "keyword competition" for search engines, explained in passing.
+
 ### Tenancy
 
 **Account**:
@@ -26,8 +28,12 @@ An Account's authorised access to Google Search Console, one per Account, used b
 ### Research
 
 **Research Run**:
-One pass of the pipeline for one business description, in one Mode, for one country and optionally one city. Stored in `research_runs`.
+One pass of the pipeline for one business description, in one Mode, for one Market and optionally one city. Stored in `research_runs`, with the Market's country and language names copied onto the run when it starts.
 _Avoid_: Job, search, analysis, project
+
+**Market**:
+The country and language a Research Run targets, chosen separately on the new research screen: a country from the Google Ads locations of type Country (its ISO code, the keyword API's location code and its name) and a language the keyword API accepts. Both lists come from DataForSEO, are stored in `market_countries` and `market_languages`, and are fetched again once older than a configured number of days. A first run starts in the United States, in English; later runs start in the Market of the Account's latest run.
+_Avoid_: Locale, region
 
 **Mode**:
 Which kind of business a Research Run is for: **New Idea** (nothing exists yet) or **Existing Site** (a site with a domain and Search Console data).

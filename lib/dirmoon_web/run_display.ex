@@ -2,7 +2,7 @@ defmodule DirmoonWeb.RunDisplay do
   @moduledoc """
   How a Research Run reads on screen, shared by the run screen (`RunLive`),
   the runs list (`RunsLive`), the results (`ResultsLive`) and its CSV
-  export: its short description, Mode, location and status labels, the
+  export: its short description, Mode, Market, location and status labels, the
   labels of its Steps' statuses and of competition verdicts, its date, and
   the paths to the run, its results and a Niche's page.
   """
@@ -40,6 +40,12 @@ defmodule DirmoonWeb.RunDisplay do
     strong: "Strong"
   }
 
+  @verdict_meanings %{
+    weak: "easy to get onto Google's first page",
+    medium: "possible to get onto Google's first page, but not at once",
+    strong: "hard to get onto Google's first page"
+  }
+
   @doc """
   The description's first sentence, cut at a word boundary with an ellipsis
   when it runs longer than #{@short_description_length} characters.
@@ -65,27 +71,16 @@ defmodule DirmoonWeb.RunDisplay do
   The run's country name, and its city when it has one ("Poland · Toruń").
   """
   def location(%Run{city: city} = run) do
-    [country_name(run), city]
+    [run.country_name, city]
     |> Enum.reject(&(&1 in [nil, ""]))
     |> Enum.join(" · ")
   end
 
   @doc """
-  The name of the run's country ("Poland"), from `Run.locations/0`.
+  The run's Market: its country and language ("Poland · Polish"), as stored
+  on the run when it started.
   """
-  def country_name(%Run{country_code: country_code}) do
-    country_code
-    |> run_location()
-    |> Map.fetch!(:country_name)
-  end
-
-  @doc """
-  The run's country and language ("Poland · Polish").
-  """
-  def country_and_language(%Run{country_code: country_code}) do
-    %{country_name: country_name, language_name: language_name} = run_location(country_code)
-    "#{country_name} · #{language_name}"
-  end
+  def market(%Run{} = run), do: "#{run.country_name} · #{run.language_name}"
 
   @doc """
   The eyebrow line of a run's screens: its short description, country and
@@ -121,6 +116,13 @@ defmodule DirmoonWeb.RunDisplay do
   def verdict_label(verdict), do: Map.fetch!(@verdict_labels, verdict)
 
   @doc """
+  What a competition verdict means for the reader, in plain words
+  ("easy to get onto Google's first page"), one for each of
+  `SerpAssessment.verdicts/0`.
+  """
+  def verdict_meaning(verdict), do: Map.fetch!(@verdict_meanings, verdict)
+
+  @doc """
   The text colour of a competition verdict in the app: weak in the accent,
   strong in the warning colour, medium in the secondary text colour, an
   unchecked one (nil) muted.
@@ -152,9 +154,4 @@ defmodule DirmoonWeb.RunDisplay do
   The path to a page's screen.
   """
   def page_path(%Page{} = page), do: ~p"/app/pages/#{page}"
-
-  defp run_location(country_code) do
-    locations = Run.locations()
-    Enum.find(locations, %{country_name: country_code, language_name: ""}, &(&1.country_code == country_code))
-  end
 end

@@ -33,7 +33,32 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert Decimal.equal?(cpc, Decimal.new("1.75"))
     assert %Run{city_location_code: @city_location_code} = Repo.get!(Run, run.id)
-    assert %RunStep{status: :done, result: "Poland and Gdańsk, 12-month trend"} = step(run, 3)
+    assert %RunStep{status: :done, result: "Poland and Gdańsk, the last 12 months"} = step(run, 3)
+  end
+
+  test "a run outside Poland looks its city up in its own country and names that country in the result" do
+    run =
+      volumes_run(%{
+        city: "Recife",
+        country_code: "BR",
+        country_name: "Brazil",
+        language_code: "pt",
+        language_name: "Portuguese",
+        location_code: 2076
+      })
+
+    phrase = kept_phrase(run, "aluguel de caiaque")
+    insert(:metrics, phrase: phrase, location_code: run.location_code)
+
+    Dirmoon.DataForSEOMock
+    |> expect(:find_location, 1, fn %{city: "Recife", country_code: "BR"} -> city_found() end)
+    |> expect(:search_volumes, 1, fn %{location_code: @city_location_code, language_code: "pt"} ->
+      volumes([row(phrase.phrase, 30)])
+    end)
+
+    assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
+
+    assert %RunStep{status: :done, result: "Brazil and Recife, the last 12 months"} = step(run, 3)
   end
 
   test "decimals in the city volume rows and raw answer are stored as decimal strings in every jsonb column" do
@@ -122,7 +147,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "No data for the city, using the country volume"} = step(run, 3)
+    assert %RunStep{status: :done, result: "No numbers for the city, so I used the country's"} = step(run, 3)
     assert %Run{city_location_code: nil} = Repo.get!(Run, run.id)
   end
 
@@ -150,7 +175,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "No data for the city, using the country volume"} = step(run, 3)
+    assert %RunStep{status: :done, result: "No numbers for the city, so I used the country's"} = step(run, 3)
   end
 
   test "a run without a city whose country volumes are all stored finishes without an API call" do
@@ -162,7 +187,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert %RunStep{
              status: :done,
-             result: "Poland, 12-month trend",
+             result: "Poland, the last 12 months",
              output: %{"country" => %{"requested" => 0, "reused" => 2}, "city" => nil}
            } = step(run, 3)
 
@@ -289,7 +314,7 @@ defmodule Dirmoon.Workers.FetchVolumesTest do
 
     assert :ok = perform_job(FetchVolumes, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "Poland and Gdańsk, 12-month trend"} = step(run, 3)
+    assert %RunStep{status: :done, result: "Poland and Gdańsk, the last 12 months"} = step(run, 3)
     assert Repo.aggregate(ApiRequest, :count) == 3
   end
 

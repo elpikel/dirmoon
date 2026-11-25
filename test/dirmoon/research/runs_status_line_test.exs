@@ -6,13 +6,13 @@ defmodule Dirmoon.Research.RunsStatusLineTest do
   alias Dirmoon.Research.RunsStatusLine
 
   test "with no runs it says there is no research yet and invites a description" do
-    assert RunsStatusLine.sentence([]) == "No research yet. Describe a business and I'll find its niches."
+    assert RunsStatusLine.sentence([]) == "No research yet. Describe a business and I'll find what its customers want."
   end
 
   test "it counts the runs and says how many wait for a niche choice" do
     runs = [build(:run, status: :stopped), build(:run, status: :awaiting_choice), build(:run, status: :stopped)]
 
-    assert RunsStatusLine.sentence(runs) == "You have 3 research runs: 1 waiting for a niche choice."
+    assert RunsStatusLine.sentence(runs) == "You have 3 research runs: 1 waiting for you to choose a topic."
   end
 
   test "it names the runs in progress, waiting for a choice and failed, in that order" do
@@ -24,7 +24,7 @@ defmodule Dirmoon.Research.RunsStatusLineTest do
     ]
 
     assert RunsStatusLine.sentence(runs) ==
-             "You have 4 research runs: 1 in progress, 2 waiting for a niche choice, 1 failed."
+             "You have 4 research runs: 1 in progress, 2 waiting for you to choose a topic, 1 failed."
   end
 
   test "runs that need nothing from the User are only counted" do

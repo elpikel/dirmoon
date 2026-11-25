@@ -179,8 +179,8 @@ defmodule DirmoonWeb.UI do
   fills the width).
 
       <.headline size="hero">
-        Before you build, check
-        <:underline>if anyone searches for it.</:underline>
+        Validate your business idea
+        <:underline>before you build it.</:underline>
       </.headline>
 
       <.headline level="h2">Got an idea? <:underline>Check it first.</:underline></.headline>
@@ -193,6 +193,7 @@ defmodule DirmoonWeb.UI do
     doc: "hero is the landing hero (up to 84px), page is the other headlines (up to 64px)"
 
   slot :inner_block
+
   slot :underline, required: true, doc: "the phrase drawn over the lime underline"
 
   def headline(assigns) do

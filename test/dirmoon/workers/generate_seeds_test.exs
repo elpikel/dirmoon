@@ -22,7 +22,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
 
     assert :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "18 seed phrases, 12 questions", output: output} = step(run, 1)
+    assert %RunStep{status: :done, result: "18 starting searches, 12 customer questions", output: output} = step(run, 1)
     assert output == %{"seeds" => seeds, "questions" => questions}
   end
 
@@ -37,7 +37,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
 
     :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
-    assert %RunStep{result: "11 seed phrases, 1 question", output: output} = step(run, 1)
+    assert %RunStep{result: "11 starting searches, 1 customer question", output: output} = step(run, 1)
     assert output == %{"seeds" => ["hotel dla psów" | seed_list(10)], "questions" => ["Ile to kosztuje?"]}
   end
 
@@ -50,7 +50,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
 
     :ok = perform_job(GenerateSeeds, %{run_id: run.id})
 
-    assert %RunStep{result: "20 seed phrases, 3 questions", output: %{"seeds" => seeds}} = step(run, 1)
+    assert %RunStep{result: "20 starting searches, 3 customer questions", output: %{"seeds" => seeds}} = step(run, 1)
     assert seeds == seed_list(20)
   end
 
@@ -115,6 +115,31 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
     assert prompt =~ "the way customers type them into Google, written in Polish."
     assert prompt =~ "the questions this business's customers ask, written in Polish."
     assert system =~ "in the language of the business's market"
+  end
+
+  test "the prompt names the run's country and language for a market outside Poland" do
+    run =
+      insert(:run,
+        country_code: "BR",
+        country_name: "Brazil",
+        language_code: "pt",
+        language_name: "Portuguese",
+        location_code: 2076,
+        steps: build_run_steps()
+      )
+
+    test_process = self()
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn request ->
+      send(test_process, {:llm_request, request})
+      valid_answer()
+    end)
+
+    :ok = perform_job(GenerateSeeds, %{run_id: run.id})
+
+    assert_received {:llm_request, %{prompt: prompt}}
+    assert prompt =~ "Country: Brazil. Market language: Portuguese."
+    assert prompt =~ "written in Portuguese."
   end
 
   test "the prompt states the mode and the domain of an existing site" do
@@ -183,7 +208,7 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
     run = insert(:run, steps: build_run_steps())
     expect(Dirmoon.LLMMock, :structured, 1, fn _request -> too_few_seeds_answer() end)
 
-    assert {:error, "The model returned too few seed phrases"} =
+    assert {:error, "The AI gave too few starting searches"} =
              perform_job(GenerateSeeds, %{run_id: run.id}, attempt: 1)
 
     assert %Run{status: :running} = Repo.get!(Run, run.id)
@@ -227,10 +252,10 @@ defmodule Dirmoon.Workers.GenerateSeedsTest do
     run = insert(:run, steps: build_run_steps())
     expect(Dirmoon.LLMMock, :structured, 1, fn _request -> too_few_seeds_answer() end)
 
-    assert {:cancel, "The model returned too few seed phrases"} =
+    assert {:cancel, "The AI gave too few starting searches"} =
              perform_job(GenerateSeeds, %{run_id: run.id}, attempt: 3)
 
-    assert %RunStep{status: :failed, error: "The model returned too few seed phrases"} = step(run, 1)
+    assert %RunStep{status: :failed, error: "The AI gave too few starting searches"} = step(run, 1)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
     assert all_enqueued() == []
   end

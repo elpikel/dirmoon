@@ -8,13 +8,13 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     assert document |> LazyHTML.query("#landing-nav [data-part=brand]") |> Enum.count() == 1
   end
 
-  test "the hero headline asks to check whether anyone searches before building, with the lime underline",
+  test "the hero headline says to validate a business idea before building, with the lime underline",
        %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
     headline = LazyHTML.query(document, "#landing-hero h1")
 
-    assert squish(headline) == "Before you build it, check if anyone searches for it."
+    assert squish(headline) == "Validate your business idea before you build it."
 
     assert headline |> LazyHTML.query("[data-part=underline] svg[data-part=stroke] path.stroke-accent") |> Enum.count() ==
              1
@@ -46,7 +46,28 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
     assert document |> LazyHTML.query("html") |> LazyHTML.attribute("lang") == ["en"]
-    assert document |> LazyHTML.query("title") |> squish() == "Check demand before you build · dirmoon"
+
+    assert document |> LazyHTML.query("title") |> squish() ==
+             "Validate your business idea with Google search data · dirmoon"
+
+    assert [description] = document |> LazyHTML.query("meta[name=description]") |> LazyHTML.attribute("content")
+    assert description =~ "Test a business idea before you build it."
+
+    for phrase <- ["niche finder", "monthly search volume", "keyword competition"] do
+      assert document |> LazyHTML.query("#landing-hero p") |> squish() =~ phrase
+    end
+
+    assert description =~ "the monthly search volume (how often they search)"
+    assert description =~ "the keyword competition (who holds Google's first page)"
+  end
+
+  test "the hero lead explains its search terms in plain words as it goes", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+    lead = document |> LazyHTML.query("#landing-hero p") |> squish()
+
+    assert lead =~ "the monthly search volume (how many times a month they type it)"
+    assert lead =~ "the keyword competition (who already holds Google's first page)"
+    assert lead =~ "which topics are worth going after: the things people want that your business could offer"
   end
 
   test "the journey walks four steps from the idea to the decision, along a flight path with the rocket",
@@ -80,9 +101,9 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     assert document |> LazyHTML.query("#journey input, #journey [class*=shadow-prompt]") |> Enum.count() == 0
 
     questions = [
-      "Do people search for this at all, and how many of them?",
-      "Is a customer here worth real money?",
-      "Who is already there, and can I get past them?",
+      "How do I know if people are searching for my business idea?",
+      "What would a Google Ads click cost for my idea?",
+      "Who is on the first page of Google, and is the competition too strong?",
       "What do my competitors charge?"
     ]
 
@@ -97,15 +118,18 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
 
     sources = document |> LazyHTML.query("#journey-steps-sources dd") |> Enum.map(&squish/1)
 
-    assert Enum.at(sources, 0) =~ "Google's own keyword and search results data"
+    assert Enum.at(sources, 0) =~ "Google's own search and ad data"
     assert Enum.at(sources, 1) =~ "never from an AI's guess"
     refute document |> LazyHTML.query("#journey") |> squish() =~ "API fees"
 
     report = LazyHTML.query(document, "#journey-steps-report")
     panel = LazyHTML.query(report, "#journey-steps-report-panel[data-surface=dark]")
 
+    assert squish(report) =~
+             "People ask Google for the same thing in many different words. A topic is those searches put together."
+
     assert panel |> LazyHTML.query("[data-part=context]") |> squish() == "dirmoon / ice skate rental"
-    assert panel |> LazyHTML.query("[data-part=note]") |> squish() == "7 niches"
+    assert panel |> LazyHTML.query("[data-part=note]") |> squish() == "7 topics"
 
     niches = LazyHTML.query(panel, "[data-part=niche]")
 
@@ -113,29 +137,33 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
              ["Skate rental", "Ice rinks with skate rental", "Skates for kids"]
 
     assert niches |> LazyHTML.query("[data-part=verdict]") |> Enum.map(&squish/1) ==
-             ["Worth it, but hard · 7.7/10", "Worth it, but hard · 5.6/10", "Probably not worth it · 2.3/10"]
+             [
+               "Worth it, but hard · rating 7.7 out of 10",
+               "Worth it, but hard · rating 5.6 out of 10",
+               "Probably not worth it · rating 2.3 out of 10"
+             ]
 
     assert niches |> LazyHTML.query("[data-part=figures]") |> Enum.at(0) |> squish() ==
-             "1,090 searches a month · $6.79 per ad click"
+             "Typed 1,090 times a month · $6.79 per ad click"
 
-    assert panel |> LazyHTML.query("[data-part=more]") |> squish() =~ "And 4 more niches"
+    assert panel |> LazyHTML.query("[data-part=more]") |> squish() =~ "And 4 more topics"
     assert report |> LazyHTML.query("figcaption") |> squish() =~ "A real research from 24 Nov 2026"
 
     assert report |> LazyHTML.query("#journey-steps-answers dt") |> Enum.map(&squish/1) == questions
 
     answers = report |> LazyHTML.query("#journey-steps-answers dd") |> Enum.map(&squish/1)
 
-    assert Enum.at(answers, 0) =~ "1,090 searches a month"
+    assert Enum.at(answers, 0) =~ "is typed 1,090 times a month"
     assert Enum.at(answers, 1) =~ "$6.79"
     assert Enum.at(answers, 2) =~ "with a link to each"
     assert Enum.at(answers, 3) =~ "lists the prices they publish"
 
     value = document |> LazyHTML.query("#journey-steps-value") |> squish()
 
-    assert value =~ "5 of 7 niches turned out not worth a page"
+    assert value =~ "5 of 7 topics turned out not worth a page"
 
     assert value =~
-             "dirmoon writes its brief: the plan and the text for one page about that niche, with the title, headings, sections and the phrases to cover. You hand it to whoever builds your site."
+             "dirmoon writes its brief: the plan and the text for one page about that topic, with the title, headings, sections and the searches to cover. You hand it to whoever builds your site."
 
     refute value =~ "page content"
   end

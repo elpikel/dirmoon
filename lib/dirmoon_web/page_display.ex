@@ -17,11 +17,11 @@ defmodule DirmoonWeb.PageDisplay do
   }
 
   @choose_errors %{
-    not_found: "Niche not found",
-    run_not_ready: "You can't choose a niche now: the research hasn't finished scoring or is stopped",
-    run_busy: "The research is still working. You can choose a niche when it finishes the current step",
-    brief_in_progress: "A brief for another niche is being written",
-    not_choosable: "This niche can no longer be chosen"
+    not_found: "Topic not found",
+    run_not_ready: "You can't choose a topic now: the research hasn't finished rating them or is stopped",
+    run_busy: "The research is still working. You can choose a topic when it finishes the current step",
+    brief_in_progress: "I'm still writing the brief for another topic",
+    not_choosable: "This topic can no longer be chosen"
   }
 
   @doc """

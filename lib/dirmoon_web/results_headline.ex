@@ -1,22 +1,23 @@
 defmodule DirmoonWeb.ResultsHeadline do
   @moduledoc """
   The words of the results screen, built from counts and data, never by
-  the LLM: the heading stating the outcome ("Nine niches. Three worth going
-  after.") above the Niche list, and the first-person status sentence
+  the LLM: the heading stating the outcome ("Nine topics. Three worth
+  going after.") above the Niche list, and the first-person status sentence
   about the best Niche.
   See `docs/design/README.md` section 8.3, screen 3.
   """
 
   alias Dirmoon.Format
 
-  @niche_forms %{one: "niche", other: "niches"}
+  @niche_forms %{one: "topic", other: "topics"}
   @worth_suffix "worth going after."
-  @before_scoring "Phrases so far."
+  @before_scoring "What people type into Google, so far."
 
   @verdict_sentences %{
-    weak: "Weak results lead the first page: %{holders}.",
-    medium: "The competition is medium: %{holders}.",
-    strong: "The competition is strong: %{holders}."
+    weak: "Weak competition: easy to get onto Google's first page, which holds mostly %{holders}.",
+    medium:
+      "Medium competition: Google's first page is a mix of %{holders}, so getting onto it is possible, but not at once.",
+    strong: "Strong competition: hard to get onto Google's first page, which holds mostly %{holders}."
   }
 
   @doc """
@@ -25,7 +26,7 @@ defmodule DirmoonWeb.ResultsHeadline do
   `:before_scoring` is the heading of a run whose Niches aren't scored yet.
 
       iex> DirmoonWeb.ResultsHeadline.text(%{niches: 9, worth: 3})
-      "Nine niches. Three worth going after."
+      "Nine topics. Three worth going after."
   """
   def text(:before_scoring), do: @before_scoring
 
@@ -38,10 +39,10 @@ defmodule DirmoonWeb.ResultsHeadline do
   left): its name and what its competition looks like, from its pooled
   verdict and who holds the top 10.
   """
-  def status_line(nil), do: "No niche is left to choose. Every phrase is in the other view."
+  def status_line(nil), do: "No topic is left to choose. Every search is in the other views."
 
   def status_line(%{name: name, competition: nil}) do
-    "The best chance is #{name}. I haven't checked the competition yet."
+    "The best chance is #{name}. I haven't checked who is on Google's first page yet."
   end
 
   def status_line(%{name: name, competition: %{verdict: verdict, holders: holders}}) do

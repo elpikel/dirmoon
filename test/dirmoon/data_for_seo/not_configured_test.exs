@@ -16,5 +16,7 @@ defmodule Dirmoon.DataForSEO.NotConfiguredTest do
              not_configured
 
     assert NotConfigured.find_location(%{city: "Gdańsk", country_code: "PL"}) == not_configured
+    assert NotConfigured.countries() == not_configured
+    assert NotConfigured.languages() == not_configured
   end
 end

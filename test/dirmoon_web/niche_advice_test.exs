@@ -13,7 +13,7 @@ defmodule DirmoonWeb.NicheAdviceTest do
     assert %{kind: :worth, label: "Worth a try", class: "text-accent"} = advice
 
     assert advice.competition ==
-             "Google's first page is mixed: big portals, businesses like yours. You can get in, but not right away."
+             "Medium competition: Google's first page is a mix of big portals, businesses like yours. Getting onto it is possible, but not at once."
   end
 
   test "a Niche scoring 4 or more against strong competition is worth it but hard, in the warning colour" do
@@ -25,7 +25,7 @@ defmodule DirmoonWeb.NicheAdviceTest do
     assert %{kind: :hard, label: "Worth it, but hard", class: "text-warn"} = advice
 
     assert advice.competition ==
-             "Google's first page today holds mostly businesses like yours, big portals. Breaking in among them will take time."
+             "Strong competition: Google's first page today holds mostly businesses like yours, big portals. Getting onto it will be hard and slow."
   end
 
   test "a Niche scoring under 4 is rather not worth it, whatever its competition" do
@@ -37,49 +37,49 @@ defmodule DirmoonWeb.NicheAdviceTest do
     assert %{kind: :low, label: "Probably not worth it", class: "text-on-app-muted"} = advice
 
     assert advice.competition ==
-             "Google's first page today holds mostly business directories, big portals, not offers from businesses like yours. A good page has a chance here."
+             "Weak competition: Google's first page today holds mostly business directories, big portals, not offers from businesses like yours. A good page can get onto it."
   end
 
   test "an unscored Niche has no verdict" do
-    assert %{kind: :unscored, label: "Not scored", class: "text-on-app-muted"} =
+    assert %{kind: :unscored, label: "Not rated yet", class: "text-on-app-muted"} =
              NicheAdvice.advice(summary(%{score: nil}))
   end
 
   test "the demand reason gives the monthly searches, or says nobody searches" do
     assert NicheAdvice.advice(summary(%{volume: 1_090})).demand ==
-             "People type these phrases into Google about 1,090 times a month."
+             "People type these searches into Google about 1,090 times a month."
 
     assert NicheAdvice.advice(summary(%{volume: 1})).demand ==
-             "People type these phrases into Google about 1 time a month."
+             "People type these searches into Google about 1 time a month."
 
     assert NicheAdvice.advice(summary(%{volume: 0})).demand ==
-             "Almost nobody searches like this: Google shows no measurable number of searches for these phrases."
+             "Almost nobody types these into Google: Google can't measure even one search a month."
   end
 
   test "the value reason gives the price of a click, or says nobody advertises" do
     assert NicheAdvice.advice(summary(%{cpc: Decimal.new("6.79")})).value ==
-             "Businesses pay Google $6.79 on average for one ad click on these phrases. The higher the price, the more a customer is worth."
+             "Businesses pay Google $6.79 on average for one ad click on these searches. The higher the price, the more a customer is worth."
 
     assert NicheAdvice.advice(summary(%{cpc: nil})).value ==
-             "Nobody pays for ads on these phrases, so I can't tell what a customer is worth here."
+             "Nobody pays Google for ads on these searches, so I can't tell what a customer is worth here."
   end
 
   test "the competition reason says so when no Phrase was checked" do
     assert NicheAdvice.advice(summary(%{competition: nil})).competition ==
-             "I haven't checked who is on Google's first page for these phrases."
+             "I haven't checked who is on Google's first page for these searches."
   end
 
-  test "the list figures give the monthly searches with their noun and the competition verdict" do
+  test "the list figures give how many times a month people type the searches and the competition verdict with what it means" do
     strong = %{verdict: :strong, holders: "businesses like yours"}
 
     assert NicheAdvice.figures(summary(%{volume: 1_090, competition: strong})) ==
-             "1,090 searches / mo. · strong competition"
+             "Typed 1,090 times a month · strong competition, hard to get onto Google's first page"
 
     assert NicheAdvice.figures(summary(%{volume: 1, competition: nil})) ==
-             "1 search / mo. · competition not checked"
+             "Typed 1 time a month · competition not checked yet"
 
     assert NicheAdvice.figures(summary(%{volume: 22, competition: %{verdict: :weak, holders: "guides and blogs"}})) ==
-             "22 searches / mo. · weak competition"
+             "Typed 22 times a month · weak competition, easy to get onto Google's first page"
   end
 
   defp summary(attrs) do

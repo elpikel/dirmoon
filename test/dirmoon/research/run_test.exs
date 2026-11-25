@@ -40,19 +40,4 @@ defmodule Dirmoon.Research.RunTest do
     refute Run.choosable?(stopped)
     refute Run.choosable?(before_scoring)
   end
-
-  test "every location names its country and language" do
-    for location <- Run.locations() do
-      assert %{country_name: country_name, language_name: language_name} = location
-      assert location.label == "#{country_name} · #{language_name}"
-    end
-  end
-
-  test "the market language of a run is named in English" do
-    assert Run.language_name(build(:run, language_code: "pl")) == "Polish"
-  end
-
-  test "a language no location has is named by its code" do
-    assert Run.language_name(build(:run, language_code: "xx")) == "xx"
-  end
 end

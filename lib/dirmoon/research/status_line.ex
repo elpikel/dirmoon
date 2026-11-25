@@ -18,18 +18,24 @@ defmodule Dirmoon.Research.StatusLine do
   @competition_step Steps.number!(:competition)
 
   @sentences %{
-    {:running, :seeds} => "I'm turning the description into seed phrases and customer questions.",
-    {:running, :expansion} => "I'm expanding the seed phrases into what people really type.",
-    {:running, :volumes} => "I'm checking the volume and CPC of every phrase.",
-    {:running, :filter_and_group} => "I'm dropping phrases outside the business and grouping the rest into niches.",
-    {:running, :competition} => "I'm checking who ranks for the best phrases. After step 7 you choose a niche.",
-    {:running, :current_positions} => "I'm checking which phrases the site already shows up for.",
-    {:running, :scoring} => "I'm scoring the niches by volume, CPC and how weak the competition is.",
-    {:running, :brief} => "I'm writing the brief for the chosen niche.",
+    {:running, :seeds} => "I'm turning the description into starting searches and customer questions.",
+    {:running, :expansion} => "I'm looking up what people really type into Google, starting from those ideas.",
+    {:running, :volumes} =>
+      "I'm checking how many times a month people type each search and what businesses pay Google for one ad click.",
+    {:running, :filter_and_group} =>
+      "I'm leaving out searches that aren't about the business and sorting the rest into topics.",
+    {:running, :competition} =>
+      "I'm checking who is on Google's first page for the searches people type most. After step 7 you choose a topic.",
+    {:running, :current_positions} => "I'm checking which searches the site already shows up for on Google.",
+    {:running, :scoring} =>
+      "I'm rating the topics out of 10: how often people search, the ad click price and how easy Google's first page is.",
+    {:running, :brief} => "I'm writing the brief for the chosen topic.",
     :competition_progress =>
-      "I'm checking who ranks for the best phrases (%{checked} of %{total}). After step 7 you choose a niche.",
+      "I'm checking who is on Google's first page for the searches people type most (%{checked} of %{total}). " <>
+        "After step 7 you choose a topic.",
     :running => "I'm working on the research.",
-    :awaiting_choice => "The niches are scored. Choose one and I'll write a brief for it.",
+    :awaiting_choice =>
+      "The topics are rated. Choose one and I'll write a brief for it: the plan and the text for one page.",
     :stopped => "I stopped the research at step %{step}. You can resume it.",
     :stopped_after_last_step => "I stopped the research. You can resume it.",
     :failed => "Step %{step} failed: %{reason}.",

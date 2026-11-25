@@ -40,7 +40,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "1 phrase at positions 8–20", output: output} = step(run, 6)
+    assert %RunStep{status: :done, result: "1 search where your site is at positions 8–20", output: output} = step(run, 6)
 
     assert %{"matched" => 2, "quick_wins" => 1, "start_date" => start_date, "end_date" => end_date} = output
     assert start_date == Date.to_iso8601(expected_start)
@@ -78,7 +78,11 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
 
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "5 phrases at positions 8–20", output: %{"quick_wins" => 5}} = step(run, 6)
+    assert %RunStep{
+             status: :done,
+             result: "5 searches where your site is at positions 8–20",
+             output: %{"quick_wins" => 5}
+           } = step(run, 6)
   end
 
   test "positions are matched to phrases regardless of case and extra whitespace" do
@@ -92,7 +96,7 @@ defmodule Dirmoon.Workers.FetchCurrentPositionsTest do
     assert :ok = perform_job(FetchCurrentPositions, %{run_id: run.id})
 
     assert Decimal.equal?(current_position(phrase), Decimal.new("9.0"))
-    assert %RunStep{result: "1 phrase at positions 8–20"} = step(run, 6)
+    assert %RunStep{result: "1 search where your site is at positions 8–20"} = step(run, 6)
   end
 
   test "rejected phrases of the run get their current position too" do

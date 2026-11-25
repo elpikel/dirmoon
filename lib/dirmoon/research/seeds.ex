@@ -13,9 +13,9 @@ defmodule Dirmoon.Research.Seeds do
 
   @minimum_seeds 10
   @maximum_seeds 20
-  @too_few_seeds_error "The model returned too few seed phrases"
-  @seed_forms %{one: "seed phrase", other: "seed phrases"}
-  @question_forms %{one: "question", other: "questions"}
+  @too_few_seeds_error "The AI gave too few starting searches"
+  @seed_forms %{one: "starting search", other: "starting searches"}
+  @question_forms %{one: "customer question", other: "customer questions"}
 
   @system """
   You are an SEO specialist. From a business description you guess how its customers \
@@ -38,8 +38,8 @@ defmodule Dirmoon.Research.Seeds do
   before it is recorded, so a rejected answer is never stored and a retry
   asks the LLM again.
 
-  Returns `{:ok, %{result: "18 seed phrases, 12 questions", output: %{"seeds" => [...], "questions" => [...]}}}`,
-  `{:error, "The model returned too few seed phrases"}` when fewer than 10 Seeds
+  Returns `{:ok, %{result: "18 starting searches, 12 customer questions", output: %{"seeds" => [...], "questions" => [...]}}}`,
+  `{:error, "The AI gave too few starting searches"}` when fewer than 10 Seeds
   are left after cleaning, or the LLM's `{:error, reason}`.
   """
   def generate(%Run{} = run) do
@@ -71,12 +71,12 @@ defmodule Dirmoon.Research.Seeds do
     [
       "Business description:\n#{run.description}",
       mode_line(run),
-      "Country: #{run.country_code}. Market language: #{Run.language_name(run)}.",
+      "Country: #{run.country_name}. Market language: #{run.language_name}.",
       "Give #{@minimum_seeds} to #{@maximum_seeds} seed phrases: short, in lower case, " <>
-        "the way customers type them into Google, written in #{Run.language_name(run)}.",
+        "the way customers type them into Google, written in #{run.language_name}.",
       priority_services_line(run.priority_services),
       city_line(run.city),
-      "Also list the questions this business's customers ask, written in #{Run.language_name(run)}."
+      "Also list the questions this business's customers ask, written in #{run.language_name}."
     ]
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n\n")

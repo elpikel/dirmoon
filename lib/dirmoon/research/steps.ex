@@ -11,7 +11,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 1,
       key: :seeds,
-      name: "Seeds",
+      name: "Starting ideas",
       worker: Dirmoon.Workers.GenerateSeeds,
       modes: @all_modes,
       auto_chained?: true
@@ -19,7 +19,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 2,
       key: :expansion,
-      name: "Expansion",
+      name: "Real searches",
       worker: Dirmoon.Workers.ExpandPhrases,
       modes: @all_modes,
       auto_chained?: true
@@ -27,7 +27,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 3,
       key: :volumes,
-      name: "Volumes",
+      name: "How often people search",
       worker: Dirmoon.Workers.FetchVolumes,
       modes: @all_modes,
       auto_chained?: true
@@ -35,7 +35,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 4,
       key: :filter_and_group,
-      name: "Filter and group",
+      name: "Topics",
       worker: Dirmoon.Workers.FilterAndGroup,
       modes: @all_modes,
       auto_chained?: true
@@ -43,7 +43,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 5,
       key: :competition,
-      name: "Competition",
+      name: "Google's first page",
       worker: Dirmoon.Workers.CheckCompetition,
       modes: @all_modes,
       auto_chained?: true
@@ -51,7 +51,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 6,
       key: :current_positions,
-      name: "Current positions",
+      name: "Where your site shows up",
       worker: Dirmoon.Workers.FetchCurrentPositions,
       modes: [:existing_site],
       skipped_result: "New idea, no site yet",
@@ -60,7 +60,7 @@ defmodule Dirmoon.Research.Steps do
     %{
       number: 7,
       key: :scoring,
-      name: "Scoring",
+      name: "Rating",
       worker: Dirmoon.Workers.ScoreNiches,
       modes: @all_modes,
       auto_chained?: true

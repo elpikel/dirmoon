@@ -16,6 +16,8 @@ defmodule DirmoonWeb.Controllers.UserSession.CreateTest do
     assert redirected_to(conn) == ~p"/app"
     assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Welcome back!"
 
+    insert(:market_country)
+    insert(:market_language)
     document = conn |> get(~p"/app/research/new") |> html_response(200) |> LazyHTML.from_document()
     assert document |> LazyHTML.query("#user-email") |> LazyHTML.text() == user.email
     assert document |> LazyHTML.query("#settings-link[href='/users/settings']") |> Enum.count() == 1

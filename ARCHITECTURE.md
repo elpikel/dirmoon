@@ -29,6 +29,7 @@ flowchart LR
     SearchConsole
     Pages
     PriceChecks
+    Markets
   end
 
   subgraph Seams["Seams (behaviours)"]
@@ -108,7 +109,7 @@ flowchart LR
 - Phoenix.PubSub (`Dirmoon.PubSub`) for run and page updates
 - Req for every HTTP client; Swoosh for email
 - Tailwind v4 and esbuild; design tokens in `assets/css/tokens.css` (the handover tokens plus the app surface tokens `--app-*`/`--on-app*`), mapped to utilities in `assets/css/app.css`; fonts in `assets/css/fonts.css`; no daisyUI
-- Gettext with the default locale `en` (no translations: Ecto error messages show in English); screen copy is English, written in the templates. Market-facing text (Seeds, Phrases and the Brief) is in the run's market language (`Run.language_name/1`, named in the LLM prompts)
+- Gettext with the default locale `en` (no translations: Ecto error messages show in English); screen copy is English, written in the templates. Market-facing text (Seeds, Phrases and the Brief) is in the run's Market language (`run.language_name`, stored on the run when it starts and named in the LLM prompts)
 - Tests: ExUnit, Mox, ExMachina, `Req.Test`, LazyHTML
 - Styler, Credo (`--strict`) and ex_slop, all run by `mix precommit`, which also runs `mix test --cover` and fails below the line-coverage threshold in `mix.exs` (`test_coverage`; generated boilerplate and test support are ignored)
 
@@ -125,6 +126,7 @@ All under `lib/dirmoon/`. Functions that take an id from params take the `Scope`
 | `Competition` | `SerpSnapshot` (`serp_snapshots`), `SerpAssessment` (`serp_assessments`); `Check` (Step 5) | `fresh_snapshot/2`, `store_snapshot/1`, `store_assessment/2`, `assessments_for_run/1`, `assessment_summaries_for_run/1`, `verdict/1`, `holders/1`, `weak_share/1`, `direct_competitor_count/1`, `checked_line/2` | `Research` (Ledger, `running?/1`, `broadcast_progress/2`), `Phrases`, `DataForSEO`, `LLM` |
 | `SearchConsole` | `Connection` (`search_console_connections`); `Client` (seam), `Positions` (Step 6) | `authorize_url/2`, `connect/2`, `get_connection/1`, `connected?/1`, `disconnect/1`, `connection_for_run/1`, `refresh_token/1` | `SearchConsole.Client`, `Phrases` (`store_current_positions/2`) |
 | `PriceChecks` | `PriceCheck` (`price_checks`), `CompetitorPage` (`competitor_pages`) with the embedded `CompetitorOffer`; `Checker` (the work of a Price Check) | `start/2`, `get_for_niche/1`, `competitor_pages/1`, `page_limit/0`, `subscribe/1`; worker-internal: `get_checking/1`, `record_page/3`, `finish/1`, `fail/2`; `CompetitorOffer.verified/2` | `Niches` (`get_niche/2`, `niche_detail/2`), `Research` (Ledger, `lock_run!/1`), `Phrases`, `WebPage`, `LLM` |
+| `Markets` | `Country` (`market_countries`), `Language` (`market_languages`): the Market lists, cached from DataForSEO | `countries/0`, `languages/0` (stored rows, fetched again on first need once older than `market_lists_max_age_days`; a failed or empty fetch keeps the stored rows; nothing stored and no answer is `{:error, reason}`), `find_market/1` (stored rows only, never the API), `default_market/0` (US, `en`) | `DataForSEO` |
 | `Pages` | `Page` (`pages`) with the embedded `Brief`; `BriefWriter` (Step 8), `Placeholders`, `StatusLine` | `get_page/2`, `list_pages/1`, `change_brief/2`, `update_brief/3`, `subscribe/1`; pipeline-internal: `create_for_niche/2`, `restart_writing/1`, `writing_page_for_run/1`, `store_brief/2`, `fail_writing_pages/2` | `Research` (Ledger), `Phrases`, `LLM` |
 
 Seam modules and helpers at the same level:
@@ -134,7 +136,7 @@ Seam modules and helpers at the same level:
 | `Dirmoon.LLM`, `Dirmoon.DataForSEO`, `Dirmoon.SearchConsole.Client`, `Dirmoon.WebPage` | Behaviour plus dispatch to the adapter in app config (see External services) |
 | `Dirmoon.WebPage.PublicUrl`, `Dirmoon.WebPage.VisibleText` | The address guard (only http/https, no `localhost` or loopback/private/link-local/shared IP literal) and HTML → visible text, used by `WebPage.HTTP` |
 | `Dirmoon.Format` | English noun forms and number, decimal and money formatting (`plural/2`, `usd/1`, `money/2`, `integer/1`, `decimal/2`, `number_word/1`) |
-| `Dirmoon.Spelling` | Compares spellings of Polish-market Phrases (`without_diacritics/1`, `diacritic_count/1`), used by Step 4 and the DataForSEO city match |
+| `Dirmoon.Spelling` | Compares spellings of Polish-market Phrases (`without_diacritics/1`, `diacritic_count/1`), used by Step 4 and the DataForSEO city match (which also strips any other combining accent, so a city in any country matches typed with or without its accents) |
 | `Dirmoon.demo_services/0`, `Dirmoon.demo_data?/0` | The services answered by a `Demo` adapter right now (read from the adapter config keys), and whether there is any; the "TEST DATA" strip lists them |
 | `Dirmoon.Workers.*` | The eight Step workers and `CheckCompetitorPrices` (see Background work) |
 
@@ -159,7 +161,7 @@ Screens (all `Layouts.app`). The signed-in app is one full-screen dark shell in 
 | Route | Module | What it does |
 |---|---|---|
 | `GET /app` | `AppController.index/2` | Redirects to `/app/research/new` |
-| `/app/research/new` | `NewResearchLive` | A tool view, no pitch: the run form (description, Mode, country, city, domain, Priority Services), example prompts, estimated API Cost, Search Console connect link, and the Account's five latest runs; `Research.start_run/2` |
+| `/app/research/new` | `NewResearchLive` | A tool view, no pitch: the run form (description, Mode, country and language from the Market lists, city, domain, Priority Services; the Market starts as the latest run's, US and English for a first run; with no list available it says why and disables the start button), example prompts, estimated API Cost, Search Console connect link, and the Account's five latest runs; `Research.start_run/2` |
 | `/app/runs` | `RunsLive` | The newest 50 runs with status and API Cost; not live |
 | `/app/runs/:id` | `RunLive` | Live Step list, Step 5 progress, stop and resume, API Cost; navigates to the results when Step 7 finishes |
 | `/app/runs/:id/results` | `ResultsLive` | Views `niches`, `phrases`, `rejected` (`?view=`, `?niche=`); Niche detail; choose and reject a Niche. Phrase views show at most 500 rows. The Niche detail's "Competitor prices" section (`#competitor-prices`) starts a Price Check (`PriceChecks.start/2`), shows its progress, and lists each Competitor Page (domain linked to the address read, new tab, `noopener noreferrer`) with its offers as "name: price", "I found no prices on this page" or "This page could not be opened"; a failed check shows its reason and the button again; a Niche without direct competitors on page one says so instead |
@@ -216,7 +218,7 @@ Migrations in `priv/repo/migrations/`. Table names keep the handover's words (`k
 | `users_tokens` | `Accounts.UserToken` | per User | unique (`context`, `token`) |
 | `accounts` | `Accounts.Account` | the tenant | timestamps only |
 | `account_memberships` | `Accounts.Membership` | User ↔ Account | no primary key; unique (`account_id`, `user_id`) |
-| `research_runs` | `Research.Run` | per Account | index (`account_id`, `inserted_at`); checks: at most five `priority_services`, `domain` required for `existing_site` |
+| `research_runs` | `Research.Run` | per Account | Market: `country_code`, `location_code`, `country_name`, `language_code`, `language_name` (names copied from the Market lists at start; rows from before were backfilled for US, GB, PL, en and pl, else the bare code); index (`account_id`, `inserted_at`); checks: at most five `priority_services`, `domain` required for `existing_site` |
 | `run_steps` | `Research.RunStep` | per run | unique (`run_id`, `number`); check `number` 1–8; `output` jsonb is how a later Step reads an earlier one (`Research.step_output/2`) |
 | `api_requests` | `Research.ApiRequest` | per run | unique (`run_id`, `request_hash`); `cost` decimal(12,6), check `cost >= 0`; insert-only |
 | `keywords` | `Phrases.Phrase` | **shared** | unique (`phrase`, `language_code`); `phrase` normalised (trimmed, lower case, single spaces) |
@@ -229,6 +231,8 @@ Migrations in `priv/repo/migrations/`. Table names keep the handover's words (`k
 | `price_checks` | `PriceChecks.PriceCheck` | per Niche | unique `cluster_id` (one check per Niche, deleted with it or the run); `status` `checking`/`done`/`failed`, `error` |
 | `competitor_pages` | `PriceChecks.CompetitorPage` | per Price Check | unique (`price_check_id`, `domain`); `google_position`, `url`, `read_url` (after redirects), `outcome` `waiting`/`prices_found`/`no_prices`/`unreadable`, `offers` jsonb (embedded `CompetitorOffer`: name, price as written, quote) |
 | `search_console_connections` | `SearchConsole.Connection` | per Account | unique `account_id`; `encrypted_refresh_token` (`Plug.Crypto`, keyed by the endpoint's `secret_key_base`) |
+| `market_countries` | `Markets.Country` | **shared** | no primary key; unique `country_code` (the upsert target); `location_code`, `name`, `fetched_at`. The whole list is replaced on refresh |
+| `market_languages` | `Markets.Language` | **shared** | no primary key; unique `language_code` (the upsert target); `name`, `fetched_at`. The whole list is replaced on refresh |
 | `oban_jobs` | Oban | — | Oban's own migration |
 
 The shared tables hold nothing that identifies an Account: no description, domain, run id or Search Console figure. Everything a run decided (kept or rejected, Niche, Page Type labels, Current Position) is in the per-run tables. Deleting an Account or a run cascades to its rows; shared rows stay.
@@ -240,19 +244,19 @@ Each service is a behaviour with a dispatching module; the adapter is one app-co
 | Seam (behaviour) | Config key | Real adapter | Selected when | Demo / NotConfigured | Tests |
 |---|---|---|---|---|---|
 | `Dirmoon.LLM` (`structured/1`) | `:llm_adapter` | `LLM.OpenAI` | `OPENAI_API_KEY` (model: `OPENAI_MODEL`, default `gpt-6.2-sol`) | `LLM.Demo` / `LLM.NotConfigured` (`:llm_not_configured`) | `Dirmoon.LLMMock`; `OpenAI` itself against `Req.Test` |
-| `Dirmoon.DataForSEO` (`phrase_ideas/1`, `search_volumes/1`, `serp_top10/1`, `find_location/1`) | `:data_for_seo_adapter` | `DataForSEO.HTTP` | `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` | `DataForSEO.Demo` / `DataForSEO.NotConfigured` (`:data_for_seo_not_configured`) | `Dirmoon.DataForSEOMock`; `HTTP` itself against `Req.Test` |
+| `Dirmoon.DataForSEO` (`phrase_ideas/1`, `search_volumes/1`, `serp_top10/1`, `find_location/1`, `countries/0`, `languages/0`; the last two read the free `GET /v3/keywords_data/google_ads/locations` (rows of `location_type` Country) and `GET /v3/keywords_data/google_ads/languages`) | `:data_for_seo_adapter` | `DataForSEO.HTTP` | `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` | `DataForSEO.Demo` / `DataForSEO.NotConfigured` (`:data_for_seo_not_configured`) | `Dirmoon.DataForSEOMock`; `HTTP` itself against `Req.Test` |
 | `Dirmoon.SearchConsole.Client` (`authorize_url/1`, `exchange_code/1`, `refresh_access_token/1`, `query/1`) | `:search_console_adapter` | `SearchConsole.Client.Google` | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` | `Client.Demo` / `Client.NotConfigured` (`:search_console_not_configured`) | `Dirmoon.SearchConsoleMock`; `Google` itself against `Req.Test` |
 | `Dirmoon.WebPage` (`fetch_text/1`) | `:web_page_adapter` | `WebPage.HTTP` | Always outside test (no credentials; set in `config/config.exs`) | none | `Dirmoon.WebPageMock`; `HTTP` itself against `Req.Test` |
 
 - **The LLM is OpenAI.** `LLM.OpenAI` sends one Responses API request per structured request, with the Step's schema as a strict JSON schema (every object closed with `additionalProperties: false`) and `store: false`. The cost is the reported token usage times the prices in `config :dirmoon, Dirmoon.LLM.OpenAI` (`prices`, USD per million tokens, cached input priced apart); a model without prices is refused before any request. A refusal, a cut-short answer or text that is not a JSON object is an error. With `NotConfigured` Step 1 fails at once with "No OpenAI API key".
 - **The OpenAI, DataForSEO and Google adapters have never been run against the live services.** They were written from the documentation and are tested only against `Req.Test` stubs; their assumptions are listed in `docs/MEMORY.md`.
 - **Reading a web page.** `WebPage.HTTP` sends one GET with a generic User-Agent (`Mozilla/5.0 (compatible; PageReader/1.0)`, nothing identifying the app or the owner), 5 s connect and 10 s receive timeouts, no compression, and follows at most three redirects by hand so every address passes `PublicUrl.check/1` (host names are not resolved, so a public name pointing at a private address is not caught). Only `text/html`, `application/xhtml+xml` and `text/plain` answers are read, at most 2 MB of body (the rest is not downloaded); the text is cut to 15 000 characters. `LLM.Demo` answers `:competitor_prices` with no offers, so Demo Data never shows a price.
-- Demo adapters return deterministic, obviously synthetic data (text marked `(demo)`, never a Placeholder; `*.example` domains) at cost 0.
+- Demo adapters return deterministic, obviously synthetic data (text marked `(demo)`, never a Placeholder; `*.example` domains) at cost 0. `DataForSEO.Demo`'s Market lists are a short real list instead: the United States, the United Kingdom and Poland; English and Polish.
 - A `NotConfigured` LLM or DataForSEO fails the Step immediately, without retries; a `NotConfigured` Search Console skips Step 6.
 - The mocks are defined in `test/test_helper.exs`. Real adapters set `retry: false` and take `req_options` from config, which is where test config plugs `Req.Test`.
 - Email: `Dirmoon.Mailer` (Swoosh). `Swoosh.Adapters.Local` in dev (mailbox at `/dev/mailbox`), `Swoosh.Adapters.Test` in test. No production adapter is configured.
 
-Other runtime settings in `config/config.exs`: `grouping_phrase_limit` (400), `serp_phrase_limit` (30), `serp_max_age_days` (30), `scoring_weights` (volume 0.4, CPC 0.3, weakness 0.3), `price_check_page_limit` (5), `cost_estimates` (the per-request prices behind the estimate on the new research screen).
+Other runtime settings in `config/config.exs`: `grouping_phrase_limit` (400), `serp_phrase_limit` (30), `serp_max_age_days` (30), `market_lists_max_age_days` (30, how old the Market lists may get before they are fetched again), `scoring_weights` (volume 0.4, CPC 0.3, weakness 0.3), `price_check_page_limit` (5), `cost_estimates` (the per-request prices behind the estimate on the new research screen).
 
 ## Decisions
 

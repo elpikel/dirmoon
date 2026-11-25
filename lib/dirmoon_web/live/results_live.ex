@@ -3,7 +3,7 @@ defmodule DirmoonWeb.ResultsLive do
   Screen 3, Results (`/app/runs/:id/results`): the headline stating the
   outcome, and one dark panel in three columns modelled on an inbox: the
   views (Niches, all kept Phrases, Rejected Phrases) with the run's
-  parameters and the CSV export; the list of the chosen view; and the
+  parameters; the list of the chosen view; and the
   selected Niche with its stat tiles, its Phrases and the actions to choose
   or reject it. The view and the selected Niche live in the URL
   (`?view=niches|phrases|rejected&niche=<id>`).
@@ -46,22 +46,22 @@ defmodule DirmoonWeb.ResultsLive do
     blog: "Articles and guides, not offers. A business's page usually beats them.",
     forum: "Forums and question-and-answer sites. A business's page usually beats them."
   ]
-  @phrase_forms %{one: "phrase", other: "phrases"}
-  @niche_forms %{one: "niche", other: "niches"}
+  @phrase_forms %{one: "search", other: "searches"}
+  @niche_forms %{one: "topic", other: "topics"}
   @result_forms %{one: "result", other: "results"}
   @quick_win_forms %{one: "quick win", other: "quick wins"}
 
   @page_forms %{one: "page", other: "pages"}
 
   @price_check_errors %{
-    not_found: "Niche not found",
+    not_found: "Topic not found",
     run_not_ready: "I'll check prices when the results are ready",
     no_competitors: "No business like yours is on Google's first page, so I have no prices to check"
   }
 
   @reject_errors %{
-    not_found: "Niche not found",
-    not_rejectable: "This niche can no longer be rejected"
+    not_found: "Topic not found",
+    not_rejectable: "This topic can no longer be rejected"
   }
 
   @impl true
@@ -77,45 +77,52 @@ defmodule DirmoonWeb.ResultsLive do
       <:status><span id="results-status-line">{@status_line}</span></:status>
       <section id="results" class="flex grow flex-col min-[860px]:flex-row min-[860px]:flex-wrap">
         <div class="box-border flex flex-[1_1_190px] flex-col gap-5 border-app-line px-3 py-4 min-[860px]:border-r max-[859px]:border-b">
-          <nav id="results-views" aria-label="Views" class="flex flex-col gap-0.5">
+          <nav id="results-views" aria-label="Views" class="flex flex-col gap-1">
+            <span class="px-3 pb-1 font-mono text-[10px] uppercase tracking-[0.1em] text-on-app-muted">
+              What I found
+            </span>
             <.view_link
               id="view-niches"
-              label="Niches"
+              label="Topics"
+              hint="Searches about the same thing, put together. Start here."
               count={@counts.niches}
               active={@view == :niches}
               patch={@ready? && view_path(@run, %{view: "niches", niche: @selected_id})}
             />
             <.view_link
               id="view-phrases"
-              label="All phrases"
+              label="All searches"
+              hint="Each exact thing people type into Google, and how often."
               count={@counts.kept}
               active={@view == :phrases}
               patch={view_path(@run, %{view: "phrases", niche: @selected_id})}
             />
             <.view_link
               id="view-rejected"
-              label="Rejected"
+              label="Searches I left out"
+              hint="Searches I didn't use, and why."
               count={@counts.rejected}
               active={@view == :rejected}
               patch={@ready? && view_path(@run, %{view: "rejected", niche: @selected_id})}
             />
           </nav>
-          <div id="run-parameters" class="flex flex-col gap-2.5 px-3 font-mono text-xs">
-            <span class="text-[10px] uppercase tracking-[0.1em] text-on-app-muted">
-              Research
+          <div id="run-parameters" class="flex flex-col gap-2.5 px-3 text-xs">
+            <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-app-muted">
+              What you asked about
             </span>
-            <span class="text-on-app-2">{@short_description}</span>
-            <span class="text-on-app-2">{RunDisplay.country_and_language(@run)}</span>
-            <span :if={@run.city} class="text-on-app-2">{@run.city}</span>
-            <span :if={@run.mode == :existing_site} class="text-on-app-2">{@run.domain}</span>
+            <p
+              id="run-description"
+              class="m-0 border-l-2 border-accent pl-3 text-[13px] leading-normal break-words whitespace-pre-line text-on-app"
+            >
+              {@run.description}
+            </p>
+            <span class="font-mono text-on-app-2">{RunDisplay.market(@run)}</span>
+            <span :if={@run.city} class="font-mono text-on-app-2">{@run.city}</span>
+            <span :if={@run.mode == :existing_site} class="font-mono text-on-app-2">{@run.domain}</span>
+            <span :if={@run.priority_services != []} id="run-services" class="text-on-app-2">
+              Services: {Enum.join(@run.priority_services, ", ")}
+            </span>
           </div>
-          <.link
-            id="export-csv"
-            href={~p"/app/runs/#{@run}/export.csv"}
-            class="mt-auto inline-flex min-h-target-min items-center justify-center rounded-control border border-app-line-strong px-3 text-sm font-medium text-on-app no-underline transition-colors duration-150 hover:bg-app-raised"
-          >
-            Export CSV
-          </.link>
         </div>
 
         <div class="flex min-w-0 flex-[3_1_250px] flex-col border-app-line min-[860px]:border-r max-[859px]:border-b">
@@ -125,6 +132,13 @@ defmodule DirmoonWeb.ResultsLive do
           >
             {@headline}
           </h1>
+          <p
+            :if={@ready?}
+            id="results-explainer"
+            class="m-0 border-b border-app-line px-[18px] py-3 text-[13px] leading-normal text-on-app-2"
+          >
+            {view_explainer(@view)}
+          </p>
           <.niche_list
             :if={@view == :niches}
             niches={@streams.niches}
@@ -137,7 +151,7 @@ defmodule DirmoonWeb.ResultsLive do
             rows={@streams.phrases}
             shown={min(@counts.kept, @list_limit)}
             total={@counts.kept}
-            empty="No phrases yet."
+            empty="No searches yet."
           />
           <.phrase_list
             :if={@view == :rejected}
@@ -145,7 +159,7 @@ defmodule DirmoonWeb.ResultsLive do
             rows={@streams.rejected_phrases}
             shown={min(@counts.rejected, @list_limit)}
             total={@counts.rejected}
-            empty="No phrase was rejected."
+            empty="I left no search out."
           />
         </div>
 
@@ -156,9 +170,9 @@ defmodule DirmoonWeb.ResultsLive do
             id="niche-detail-empty"
             class="flex flex-col gap-2"
           >
-            <span class="text-[22px] leading-snug font-bold">No niches to choose.</span>
+            <span class="text-[22px] leading-snug font-bold">No topic to choose.</span>
             <p class="m-0 text-[15px] leading-normal text-on-app-muted">
-              Every phrase and rejection reason is in the views on the left and in the CSV export.
+              Every search, and why I left some out, is in the views on the left.
             </p>
           </div>
           <.niche_detail
@@ -247,7 +261,7 @@ defmodule DirmoonWeb.ResultsLive do
 
         {:noreply,
          socket
-         |> put_flash(:info, "I rejected the niche.")
+         |> put_flash(:info, "I rejected the topic.")
          |> push_patch(to: next_path)}
 
       {:error, reason} ->
@@ -277,8 +291,22 @@ defmodule DirmoonWeb.ResultsLive do
 
   def handle_event(action, _params, socket) when action in ["choose", "reject", "check_prices"], do: {:noreply, socket}
 
+  defp view_explainer(:niches) do
+    "People ask Google for the same thing in many different words. A topic is those searches put together. " <>
+      "Each row is one topic, the best first. Click a topic to see its searches and who is on Google's first page, " <>
+      "then choose it and I'll write the plan and the text for one page about it."
+  end
+
+  defp view_explainer(:phrases) do
+    "Every search I kept: what people type into Google, how many times a month they type it " <>
+      "and what businesses pay Google for one ad click."
+  end
+
+  defp view_explainer(:rejected), do: "Searches I left out of the topics, each with the reason."
+
   attr :id, :string, required: true
   attr :label, :string, required: true
+  attr :hint, :string, required: true, doc: "one line saying what the view holds"
   attr :count, :integer, required: true
   attr :active, :boolean, required: true
   attr :patch, :any, required: true, doc: "where the view leads, false when it isn't available yet"
@@ -288,9 +316,12 @@ defmodule DirmoonWeb.ResultsLive do
     <span
       id={@id}
       aria-disabled="true"
-      class="flex min-h-target-min items-center justify-between rounded-[8px] px-3 text-sm font-medium text-on-app-muted opacity-60"
+      class="flex min-h-target-min items-start justify-between gap-3 rounded-[8px] px-3 py-2.5 text-sm font-medium text-on-app-muted opacity-60"
     >
-      <span>{@label}</span>
+      <span class="flex flex-col gap-0.5">
+        <span>{@label}</span>
+        <span data-part="hint" class="text-xs leading-snug font-normal">{@hint}</span>
+      </span>
       <span data-part="count" class="font-mono text-[11px]">{@count}</span>
     </span>
     """
@@ -303,14 +334,17 @@ defmodule DirmoonWeb.ResultsLive do
       patch={@patch}
       aria-current={@active && "page"}
       class={[
-        "flex min-h-target-min items-center justify-between rounded-[8px] px-3 text-sm font-medium no-underline transition-colors duration-150",
+        "flex min-h-target-min items-start justify-between gap-3 rounded-[8px] px-3 py-2.5 text-sm font-medium no-underline transition-colors duration-150",
         if(@active,
           do: "bg-app-selected text-on-app",
           else: "text-on-app-muted hover:bg-app-raised hover:text-on-app"
         )
       ]}
     >
-      <span>{@label}</span>
+      <span class="flex flex-col gap-0.5">
+        <span>{@label}</span>
+        <span data-part="hint" class="text-xs leading-snug font-normal text-on-app-muted">{@hint}</span>
+      </span>
       <span
         data-part="count"
         class={[
@@ -332,7 +366,7 @@ defmodule DirmoonWeb.ResultsLive do
     ~H"""
     <ul id="niches" phx-update="stream" class="m-0 flex list-none flex-col p-0">
       <li id="niches-empty" class="hidden px-[18px] py-4 text-sm text-on-app-muted only:block">
-        No niche has a score of 4 or higher.
+        No topic has a rating of 4 out of 10 or higher.
       </li>
       <li :for={{dom_id, row} <- @niches} id={dom_id} class="border-b border-app-line">
         <.link
@@ -394,7 +428,7 @@ defmodule DirmoonWeb.ResultsLive do
       </li>
     </ul>
     <p :if={@total > @shown} class="m-0 px-[18px] py-3.5 font-mono text-[11px] text-on-app-muted">
-      Showing {@shown} of {@total}. All of them are in the CSV export.
+      Showing the first {@shown} of {@total}.
     </p>
     """
   end
@@ -418,9 +452,9 @@ defmodule DirmoonWeb.ResultsLive do
   defp not_ready(assigns) do
     ~H"""
     <div id="results-not-ready" class="flex flex-col items-start gap-3">
-      <span class="text-[22px] leading-snug font-bold">The niches are still taking shape.</span>
+      <span class="text-[22px] leading-snug font-bold">The topics are still taking shape.</span>
       <p class="m-0 text-[15px] leading-normal text-on-app-muted">
-        Showing the phrases collected so far. Niches to choose from will show up here when I finish scoring (step 7).
+        Showing the searches I collected so far. Topics to choose from will show up here when I finish rating them (step 7).
       </p>
       <.button id="back-to-run" variant="outline" size="large" navigate={~p"/app/runs/#{@run}"}>
         Back to the research
@@ -451,7 +485,7 @@ defmodule DirmoonWeb.ResultsLive do
     <article id="niche-detail" data-niche-id={@selected.niche.id} class="flex flex-col gap-5">
       <div class="flex flex-col gap-2">
         <span class="font-mono text-[11px] text-on-app-muted">
-          niche · {@phrase_total} {@phrase_noun} · {@score_label}<span
+          topic · {@phrase_total} {@phrase_noun} · {@score_label}<span
             :if={@detail.quick_win_count > 0}
             id="niche-quick-win-count"
           > · {@detail.quick_win_count} {quick_win_noun(@detail.quick_win_count)}</span>
@@ -494,12 +528,12 @@ defmodule DirmoonWeb.ResultsLive do
       >
         <.stat_tile
           id="niche-stat-volume"
-          label="Searches a month"
+          label="Times a month people type these"
           value={Format.integer(@selected.volume)}
         />
         <.stat_tile
           id="niche-stat-cpc"
-          label="Price of an ad click"
+          label="What businesses pay Google for one ad click"
           value={usd_or_missing(@selected.cpc)}
         />
         <.stat_tile
@@ -530,7 +564,7 @@ defmodule DirmoonWeb.ResultsLive do
                   rowspan="2"
                   class="border-b border-app-line-strong px-4 py-3 align-bottom font-medium"
                 >
-                  Phrase
+                  Search
                 </th>
                 <th
                   id="niche-phrases-volumes"
@@ -545,7 +579,7 @@ defmodule DirmoonWeb.ResultsLive do
                   rowspan="2"
                   class="border-b border-app-line-strong px-2.5 py-3 text-right align-bottom font-medium"
                 >
-                  Click price
+                  Ad click price
                 </th>
                 <th
                   scope="col"
@@ -570,7 +604,7 @@ defmodule DirmoonWeb.ResultsLive do
                   scope="col"
                   class="border-b border-app-line-strong px-2.5 pb-3 text-right font-medium"
                 >
-                  {RunDisplay.country_name(@run)}
+                  {@run.country_name}
                 </th>
                 <th
                   :if={@run.city}
@@ -585,7 +619,7 @@ defmodule DirmoonWeb.ResultsLive do
             <tbody id="niche-phrases" phx-update="stream">
               <tr id="niche-phrases-empty" class="hidden only:table-row">
                 <td colspan="6" class="px-4 py-3.5 text-on-app-muted">
-                  This niche has no phrases left.
+                  This topic has no searches left.
                 </td>
               </tr>
               <tr :for={{dom_id, row} <- @niche_phrases} id={dom_id}>
@@ -641,7 +675,12 @@ defmodule DirmoonWeb.ResultsLive do
           class="rounded-tile border border-app-line-strong bg-app-raised"
         >
           <summary class="flex min-h-target-min cursor-pointer items-center justify-between gap-3 px-4 text-sm font-medium">
-            <span>{first_page.phrase}</span>
+            <span class="flex flex-wrap items-baseline gap-x-2">
+              <span data-part="first-page-label" class="text-xs font-normal text-on-app-muted">
+                When someone types into Google:
+              </span>
+              <span data-part="first-page-phrase">“{first_page.phrase}”</span>
+            </span>
             <span class="font-mono text-[11px] text-on-app-muted">
               {result_count(first_page.results)}
             </span>
@@ -650,7 +689,7 @@ defmodule DirmoonWeb.ResultsLive do
             :if={first_page.results == []}
             class="m-0 border-t border-app-line-strong px-4 py-3 text-sm text-on-app-muted"
           >
-            Google showed no results for this phrase.
+            Google showed no results for this search.
           </p>
           <ol class="m-0 flex list-none flex-col p-0">
             <li
@@ -719,7 +758,7 @@ defmodule DirmoonWeb.ResultsLive do
         link_id="results-resume-link"
         run={@run}
       >
-        The research is stopped. Resume it to choose a niche.
+        The research is stopped. Resume it to choose a topic.
       </.run_stopped_note>
 
       <p
@@ -727,7 +766,7 @@ defmodule DirmoonWeb.ResultsLive do
         id="niche-next-step"
         class="m-0 mt-auto text-sm leading-normal text-on-app-muted"
       >
-        Once you choose, I'll write a brief for one page about these phrases: its title, headings, sections and the phrases to cover. You read it, fix it and hand it to whoever builds your site.
+        Once you choose, I'll write a brief: the plan and the text for one page about this topic, with its title, headings, sections and the searches it should cover. You read it, fix it and hand it to whoever builds your site.
       </p>
 
       <div class={["flex flex-wrap gap-2.5", (@page || not @choosable?) && "mt-auto"]}>
@@ -748,7 +787,7 @@ defmodule DirmoonWeb.ResultsLive do
           phx-click="choose"
           phx-disable-with="Choosing…"
         >
-          Choose niche and write brief
+          Choose this topic and write its brief
         </.button>
         <.button
           :if={@phrase_total > niche_phrases_preview() and not @show_all_niche_phrases}
@@ -767,7 +806,7 @@ defmodule DirmoonWeb.ResultsLive do
           phx-click="reject"
           phx-disable-with="Rejecting…"
         >
-          Reject niche
+          Reject this topic
         </.button>
       </div>
     </article>
@@ -788,7 +827,7 @@ defmodule DirmoonWeb.ResultsLive do
         id="competitor-prices-none"
         class="m-0 text-sm leading-normal text-on-app-muted"
       >
-        No business like yours is on Google's first page for these phrases, so I have no prices to check.
+        No business like yours is on Google's first page for these searches, so I have no prices to check.
       </p>
       <p
         :if={@price_check && @price_check.status == :failed}
@@ -802,7 +841,7 @@ defmodule DirmoonWeb.ResultsLive do
         class="flex flex-col items-start gap-2.5"
       >
         <p id="check-prices-note" class="m-0 text-sm leading-normal text-on-app-muted">
-          I'll open the pages of up to {PriceChecks.page_limit()} businesses like yours from Google's first page and copy the prices they state; each page is one language model request, added to this research's API cost.
+          I'll open the pages of up to {PriceChecks.page_limit()} businesses like yours from Google's first page and copy the prices they state; reading each page is one AI request, added to this research's API cost.
         </p>
         <.button
           id="check-prices"
@@ -1011,10 +1050,10 @@ defmodule DirmoonWeb.ResultsLive do
       id: run_phrase.id,
       phrase: run_phrase.phrase.phrase,
       figures:
-        "#{volume_or_missing(run_phrase.metrics)} / mo. · click #{cpc_or_missing(run_phrase.metrics)}" <>
+        "typed #{volume_or_missing(run_phrase.metrics)} times a month · ad click price #{cpc_or_missing(run_phrase.metrics)}" <>
           position_figure(mode, run_phrase.current_position),
       quick_win?: Phrases.quick_win?(run_phrase.current_position),
-      note: Map.get(names, run_phrase.cluster_id)
+      note: need_note(Map.get(names, run_phrase.cluster_id))
     }
   end
 
@@ -1022,7 +1061,7 @@ defmodule DirmoonWeb.ResultsLive do
     %{
       id: run_phrase.id,
       phrase: run_phrase.phrase.phrase,
-      figures: "#{volume_or_missing(run_phrase.metrics)} / mo.",
+      figures: "typed #{volume_or_missing(run_phrase.metrics)} times a month",
       quick_win?: false,
       note: run_phrase.rejection_reason
     }
@@ -1046,6 +1085,9 @@ defmodule DirmoonWeb.ResultsLive do
   end
 
   defp niche_names(summaries), do: Map.new(summaries, &{&1.niche.id, &1.niche.name})
+
+  defp need_note(nil), do: nil
+  defp need_note(niche_name), do: "Topic: #{niche_name}"
 
   defp view_path(run, %{view: view, niche: nil}), do: ~p"/app/runs/#{run}/results?#{[view: view]}"
   defp view_path(run, %{view: view, niche: niche_id}), do: ~p"/app/runs/#{run}/results?#{[view: view, niche: niche_id]}"
@@ -1072,17 +1114,17 @@ defmodule DirmoonWeb.ResultsLive do
     |> push_navigate(to: ~p"/app/runs")
   end
 
-  defp score_label(nil), do: "not scored"
+  defp score_label(nil), do: "not rated"
 
   defp score_label(%Decimal{} = score) do
     rounded = score |> Decimal.round(0) |> Decimal.to_integer()
-    "score #{rounded}/10"
+    "rating #{rounded} out of 10"
   end
 
   defp low_niches_label(count) do
     worth_threshold = Scoring.worth_threshold()
     threshold = Decimal.to_string(worth_threshold, :normal)
-    "#{Format.plural(count, @niche_forms)} scored below #{threshold}"
+    "#{Format.plural(count, @niche_forms)} rated below #{threshold} out of 10"
   end
 
   defp volume_or_missing(nil), do: @missing
@@ -1103,7 +1145,7 @@ defmodule DirmoonWeb.ResultsLive do
   defp competitors_or_missing(nil), do: @missing
   defp competitors_or_missing(count), do: "#{count} of #{@serp_size}"
 
-  defp position_figure(:existing_site, position), do: " · position #{position_or_missing(position)}"
+  defp position_figure(:existing_site, position), do: " · your site's position #{position_or_missing(position)}"
   defp position_figure(_mode, _position), do: ""
 
   defp quick_win_noun(count), do: Format.plural(count, @quick_win_forms)

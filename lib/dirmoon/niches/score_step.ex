@@ -11,12 +11,12 @@ defmodule Dirmoon.Niches.ScoreStep do
   alias Dirmoon.Niches.Scoring
   alias Dirmoon.Research.Run
 
-  @no_niches_error "No niches to score"
-  @scored_forms %{one: "niche scored", other: "niches scored"}
+  @no_niches_error "No topics to rate"
+  @scored_forms %{one: "topic rated", other: "topics rated"}
   @worth_forms %{one: "worth going after", other: "worth going after"}
 
   @doc """
-  Returns `{:ok, %{result: "9 niches scored, 3 worth going after", output: %{"niches" => 9, "worth" => 3, "weights" => %{"volume" => 0.4, "cpc" => 0.3, "weakness" => 0.3}}}}`
+  Returns `{:ok, %{result: "9 topics rated, 3 worth going after", output: %{"niches" => 9, "worth" => 3, "weights" => %{"volume" => 0.4, "cpc" => 0.3, "weakness" => 0.3}}}}`
   or `{:error, "#{@no_niches_error}"}`.
   """
   def score(%Run{} = run) do

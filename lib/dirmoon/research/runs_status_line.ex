@@ -9,19 +9,19 @@ defmodule Dirmoon.Research.RunsStatusLine do
   alias Dirmoon.Format
   alias Dirmoon.Research.Run
 
-  @empty_sentence "No research yet. Describe a business and I'll find its niches."
+  @empty_sentence "No research yet. Describe a business and I'll find what its customers want."
 
   @run_noun %{one: "research run", other: "research runs"}
 
   @status_clauses [
     %{status: :running, label: "in progress"},
-    %{status: :awaiting_choice, label: "waiting for a niche choice"},
+    %{status: :awaiting_choice, label: "waiting for you to choose a topic"},
     %{status: :failed, label: "failed"}
   ]
 
   @doc """
   The sentence for the listed runs, e.g. "You have 3 research runs: 1
-  waiting for a niche choice."
+  waiting for you to choose a topic."
   """
   def sentence([]), do: @empty_sentence
 

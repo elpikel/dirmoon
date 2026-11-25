@@ -1,13 +1,17 @@
 defmodule Dirmoon.Research.Run do
   @moduledoc """
   A Research Run: one pass of the pipeline for one business description, in
-  one Mode, for one country and optionally one city. Belongs to one Account.
+  one Mode, for one Market (a country and a language) and optionally one
+  city. Belongs to one Account. The country and language names are stored
+  with the run when it starts, so showing them never needs the Market lists.
   """
   use Ecto.Schema
 
   import Ecto.Changeset
 
   alias Dirmoon.Accounts.Account
+  alias Dirmoon.Markets.Country
+  alias Dirmoon.Markets.Language
   alias Dirmoon.Research.RunStep
   alias Dirmoon.Research.Steps
 
@@ -16,22 +20,13 @@ defmodule Dirmoon.Research.Run do
   @max_priority_services 5
   @scoring_step Steps.number!(:scoring)
 
-  @locations [
-    %{
-      country_code: "PL",
-      language_code: "pl",
-      location_code: 2616,
-      country_name: "Poland",
-      language_name: "Polish",
-      label: "Poland · Polish"
-    }
-  ]
-
   schema "research_runs" do
     field :description, :string
     field :mode, Ecto.Enum, values: @modes
     field :country_code, :string
+    field :country_name, :string
     field :language_code, :string
+    field :language_name, :string
     field :location_code, :integer
     field :city, :string
     field :city_location_code, :integer
@@ -50,24 +45,6 @@ defmodule Dirmoon.Research.Run do
   def statuses, do: @statuses
 
   def max_priority_services, do: @max_priority_services
-
-  @doc """
-  The countries a run can target, each with its language and the keyword
-  API's location code. The country is chosen; the rest is derived from it.
-  """
-  def locations, do: @locations
-
-  @doc """
-  The name of the run's market language ("Polish"), which prompts name so the
-  LLM writes Seeds and the Brief in it; the bare code for a language no
-  location has.
-  """
-  def language_name(%__MODULE__{language_code: language_code}) do
-    case Enum.find(@locations, &(&1.language_code == language_code)) do
-      nil -> language_code
-      location -> location.language_name
-    end
-  end
 
   @doc """
   Whether the run's results are ready: Step 7 (Scoring) is done, so its
@@ -91,25 +68,53 @@ defmodule Dirmoon.Research.Run do
   def choosable?(%__MODULE__{} = run), do: results_ready?(run)
 
   @doc """
-  Validates a run's input as typed in the form. The language and keyword
-  location come from the chosen country; the domain is normalised to a bare
-  host (`https://www.KKadwokat.pl/` → `kkadwokat.pl`); blank Priority Services
-  are dropped.
+  Validates a run's input as typed in the form: the chosen country and
+  language codes are cast, and `put_market/2` checks them against the Market
+  lists; the domain is normalised to a bare host (`https://www.KKadwokat.pl/`
+  → `kkadwokat.pl`); blank Priority Services are dropped.
   """
   def changeset(run, attrs) do
     run
-    |> cast(attrs, [:description, :mode, :country_code, :city, :domain, :priority_services])
+    |> cast(attrs, [:description, :mode, :country_code, :language_code, :city, :domain, :priority_services])
     |> update_change(:description, &String.trim/1)
     |> update_change(:city, &String.trim/1)
     |> update_change(:priority_services, &drop_blank_services/1)
     |> update_change(:domain, &normalise_domain/1)
-    |> validate_required([:description, :mode, :country_code])
+    |> validate_required([:description, :mode, :country_code, :language_code])
     |> validate_required_domain()
     |> validate_format(:domain, ~r/^[^\s.\/]+(\.[^\s.\/]+)+$/u)
     |> validate_length(:priority_services, max: @max_priority_services)
-    |> put_location()
     |> check_constraint(:priority_services, name: :research_runs_priority_services_at_most_five)
     |> check_constraint(:domain, name: :research_runs_domain_required_for_existing_site)
+  end
+
+  @doc """
+  Puts the chosen Market on a run's changeset: the stored country (its
+  keyword location code and name) and language (its name) that match the
+  cast codes, as `Dirmoon.Markets.find_market/1` found them. A code that is
+  given but matches nothing stored is an error on that field; the posted
+  location code is never read.
+  """
+  def put_market(changeset, %{country: country, language: language}) do
+    changeset
+    |> put_country(country)
+    |> put_language(language)
+  end
+
+  defp put_country(changeset, %Country{location_code: location_code, name: name}) do
+    change(changeset, location_code: location_code, country_name: name)
+  end
+
+  defp put_country(changeset, nil), do: unavailable_unless_blank(changeset, :country_code)
+
+  defp put_language(changeset, %Language{name: name}), do: put_change(changeset, :language_name, name)
+  defp put_language(changeset, nil), do: unavailable_unless_blank(changeset, :language_code)
+
+  defp unavailable_unless_blank(changeset, field) do
+    case get_field(changeset, field) do
+      nil -> changeset
+      _code -> add_error(changeset, field, "is not available")
+    end
   end
 
   defp drop_blank_services(services) do
@@ -136,24 +141,6 @@ defmodule Dirmoon.Research.Run do
     case get_field(changeset, :mode) do
       :existing_site -> validate_required(changeset, [:domain])
       _new_idea_or_missing -> changeset
-    end
-  end
-
-  defp put_location(changeset) do
-    put_location(changeset, get_field(changeset, :country_code))
-  end
-
-  defp put_location(changeset, nil), do: changeset
-
-  defp put_location(changeset, country_code) do
-    case Enum.find(@locations, &(&1.country_code == country_code)) do
-      nil ->
-        add_error(changeset, :country_code, "is not supported")
-
-      location ->
-        changeset
-        |> put_change(:language_code, location.language_code)
-        |> put_change(:location_code, location.location_code)
     end
   end
 end

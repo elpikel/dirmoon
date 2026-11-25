@@ -12,7 +12,7 @@ defmodule Dirmoon.Pages.StatusLineTest do
     page = ready_page(%{mode: :new_idea, questions: 4})
 
     assert StatusLine.sentence(page) ==
-             "I wrote the brief: it answers 4 customer questions. You fill in the prices and contact details."
+             "I wrote the brief, the plan and the text for one page: it answers 4 customer questions. You fill in the prices and contact details."
   end
 
   test "the question count agrees with its noun" do
@@ -24,7 +24,7 @@ defmodule Dirmoon.Pages.StatusLineTest do
     page = ready_page(%{mode: :existing_site, questions: 2})
 
     assert StatusLine.sentence(page) ==
-             "I wrote the brief: it answers 2 customer questions. You fill in the prices and contact details. " <>
+             "I wrote the brief, the plan and the text for one page: it answers 2 customer questions. You fill in the prices and contact details. " <>
                @approval
   end
 
@@ -49,10 +49,10 @@ defmodule Dirmoon.Pages.StatusLineTest do
 
   test "the briefs list counts the briefs, or invites the User to pick a Niche" do
     assert StatusLine.list_sentence([]) ==
-             "No briefs yet. Choose a niche in the results and I'll write a brief for it."
+             "No briefs yet. Choose a topic in the results and I'll write a brief for it: the plan and the text for one page about it."
 
-    assert StatusLine.list_sentence(build_list(1, :page)) == "I have 1 brief for your niches."
-    assert StatusLine.list_sentence(build_list(3, :page)) == "I have 3 briefs for your niches."
+    assert StatusLine.list_sentence(build_list(1, :page)) == "I have 1 brief for your topics."
+    assert StatusLine.list_sentence(build_list(3, :page)) == "I have 3 briefs for your topics."
   end
 
   defp ready_page(%{mode: mode, questions: count}) do

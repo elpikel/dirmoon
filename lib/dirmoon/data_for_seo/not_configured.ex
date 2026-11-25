@@ -18,5 +18,11 @@ defmodule Dirmoon.DataForSEO.NotConfigured do
   @impl Dirmoon.DataForSEO
   def find_location(_request), do: not_configured()
 
+  @impl Dirmoon.DataForSEO
+  def countries, do: not_configured()
+
+  @impl Dirmoon.DataForSEO
+  def languages, do: not_configured()
+
   defp not_configured, do: {:error, :data_for_seo_not_configured}
 end

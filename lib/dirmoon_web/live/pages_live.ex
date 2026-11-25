@@ -37,7 +37,7 @@ defmodule DirmoonWeb.PagesLive do
                 Your briefs will show up here.
               </span>
               <p class="m-0 max-w-[460px] text-[15px] leading-normal text-on-app-2">
-                Choose a niche in the research results and I'll write a brief for it.
+                Choose a topic in the research results and I'll write a brief for it: the plan and the text for one page about that topic.
               </p>
               <.button id="go-to-results" variant="lime" size="large" navigate={~p"/app/runs"}>
                 Go to results <.icon name="hero-arrow-right" class="size-[18px]" />

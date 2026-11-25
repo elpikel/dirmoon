@@ -223,6 +223,43 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
     assert_received {:request, %{method: "GET", path: "/v3/keywords_data/google_ads/locations/pl"}}
   end
 
+  test "the countries are the Google Ads locations of type Country, with their ISO code, location code and name" do
+    stub_json(all_locations_body())
+
+    assert HTTP.countries() ==
+             {:ok,
+              [
+                %{country_code: "US", location_code: 2840, name: "United States"},
+                %{country_code: "BR", location_code: 2076, name: "Brazil"}
+              ]}
+
+    assert_received {:request, %{method: "GET", path: "/v3/keywords_data/google_ads/locations"}}
+  end
+
+  test "the languages are the keyword endpoints' languages with their code and name" do
+    stub_json(languages_body())
+
+    assert HTTP.languages() ==
+             {:ok, [%{language_code: "ar", name: "Arabic"}, %{language_code: "pt", name: "Portuguese"}]}
+
+    assert_received {:request, %{method: "GET", path: "/v3/keywords_data/google_ads/languages"}}
+  end
+
+  test "a failed countries or languages request returns DataForSEO's message" do
+    stub_json(%{"status_code" => 40_100, "status_message" => "You are not authorized to access this resource."}, 401)
+
+    assert HTTP.countries() == {:error, "DataForSEO: You are not authorized to access this resource."}
+    assert HTTP.languages() == {:error, "DataForSEO: You are not authorized to access this resource."}
+  end
+
+  test "a city outside Poland matches whatever accents it is typed with" do
+    stub_json(brazil_locations_body())
+
+    assert {:ok, %{location_code: 1_001_773}} = HTTP.find_location(%{city: "São Paulo", country_code: "BR"})
+    assert {:ok, %{location_code: 1_001_773}} = HTTP.find_location(%{city: "sao paulo", country_code: "br"})
+    assert_received {:request, %{method: "GET", path: "/v3/keywords_data/google_ads/locations/br"}}
+  end
+
   test "a city name without Polish diacritics matches the city with them" do
     stub_json(locations_body())
 
@@ -369,6 +406,70 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
 
     refute success_log =~ @password
     refute error_log =~ @password
+  end
+
+  defp all_locations_body do
+    envelope(%{
+      cost: 0,
+      task: %{
+        "status_code" => 20_000,
+        "status_message" => "Ok.",
+        "cost" => 0,
+        "path" => ["v3", "keywords_data", "google_ads", "locations"],
+        "result" => [
+          location(%{code: 2840, name: "United States", parent: nil, country_code: "US", type: "Country"}),
+          location(%{code: 21_132, name: "Alaska,United States", parent: 2840, country_code: "US", type: "State"}),
+          location(%{code: 2076, name: "Brazil", parent: nil, country_code: "BR", type: "Country"}),
+          location(%{
+            code: 1_001_773,
+            name: "Sao Paulo,State of Sao Paulo,Brazil",
+            parent: 20_106,
+            country_code: "BR",
+            type: "City"
+          }),
+          location(%{code: 9_999_999, name: "Nowhere", parent: nil, country_code: nil, type: "Country"})
+        ]
+      }
+    })
+  end
+
+  defp brazil_locations_body do
+    envelope(%{
+      cost: 0,
+      task: %{
+        "status_code" => 20_000,
+        "status_message" => "Ok.",
+        "cost" => 0,
+        "path" => ["v3", "keywords_data", "google_ads", "locations", "br"],
+        "result" => [
+          location(%{code: 2076, name: "Brazil", parent: nil, country_code: "BR", type: "Country"}),
+          location(%{
+            code: 1_001_773,
+            name: "Sao Paulo,State of Sao Paulo,Brazil",
+            parent: 20_106,
+            country_code: "BR",
+            type: "City"
+          })
+        ]
+      }
+    })
+  end
+
+  defp languages_body do
+    envelope(%{
+      cost: 0,
+      task: %{
+        "status_code" => 20_000,
+        "status_message" => "Ok.",
+        "cost" => 0,
+        "path" => ["v3", "keywords_data", "google_ads", "languages"],
+        "result" => [
+          %{"language_name" => "Arabic", "language_code" => "ar"},
+          %{"language_name" => "Portuguese", "language_code" => "pt"},
+          %{"language_name" => nil, "language_code" => "xx"}
+        ]
+      }
+    })
   end
 
   defp stub_json(body, status \\ 200) do
@@ -612,12 +713,12 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
     })
   end
 
-  defp location(%{code: code, name: name, parent: parent, type: type}) do
+  defp location(%{code: code, name: name, parent: parent, type: type} = fields) do
     %{
       "location_code" => code,
       "location_name" => name,
       "location_code_parent" => parent,
-      "country_iso_code" => "PL",
+      "country_iso_code" => Map.get(fields, :country_code, "PL"),
       "location_type" => type
     }
   end

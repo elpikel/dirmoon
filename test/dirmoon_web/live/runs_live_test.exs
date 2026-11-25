@@ -123,7 +123,12 @@ defmodule DirmoonWeb.RunsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs")
 
-    assert has_element?(view, "#runs-status-line", "You have 2 research runs: 1 waiting for a niche choice.")
+    assert has_element?(
+             view,
+             "#runs-status-line",
+             "You have 2 research runs: 1 waiting for you to choose a topic."
+           )
+
     assert has_element?(view, "#app-note", "2 research runs")
     assert has_element?(view, "#app-context", "/ results")
     assert has_element?(view, "#app-main #runs-screen #runs")

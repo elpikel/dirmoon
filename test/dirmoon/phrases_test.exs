@@ -423,55 +423,6 @@ defmodule Dirmoon.PhrasesTest do
     assert Phrases.count_by_status(insert(:run)) == %{kept: 0, rejected: 0}
   end
 
-  test "export rows hold each Phrase with its Niche, Volumes, CPC, competition and rejection, kept ones first" do
-    run = insert(:run, city: "Płock", city_location_code: 9_990_321)
-    niche = insert(:niche, run: run, name: "Nisza eksportu")
-    kept = phrase_in_niche(run, niche, %{volume: 60, cpc: "0.25"})
-    insert(:metrics, phrase: kept.phrase, location_code: 9_990_321, search_volume: 6)
-    kept |> Ecto.Changeset.change(current_position: Decimal.new("11.4")) |> Repo.update!()
-    insert(:serp_assessment, run: run, phrase: kept.phrase, verdict: :weak)
-
-    rejected =
-      insert(:run_phrase, run: run, status: :rejected, rejection_reason: "poza ofertą", phrase: build(:phrase))
-
-    insert(:metrics, phrase: rejected.phrase, search_volume: 700)
-
-    assert [kept_row, rejected_row] = Phrases.export_rows(run)
-
-    assert %{
-             phrase: kept_text,
-             niche: "Nisza eksportu",
-             country_volume: 60,
-             city_volume: 6,
-             currency: "USD",
-             verdict: :weak,
-             holders: "guides and blogs",
-             rejected?: false,
-             rejection_reason: nil
-           } = kept_row
-
-    assert kept_text == kept.phrase.phrase
-    assert Decimal.equal?(kept_row.cpc, Decimal.new("0.25"))
-    assert Decimal.equal?(kept_row.current_position, Decimal.new("11.4"))
-
-    assert %{
-             niche: nil,
-             country_volume: 700,
-             verdict: nil,
-             holders: nil,
-             rejected?: true,
-             rejection_reason: "poza ofertą"
-           } =
-             rejected_row
-  end
-
-  test "export rows never include another run's Phrases" do
-    run = insert(:run)
-    insert(:run_phrase)
-
-    assert Phrases.export_rows(run) == []
-  end
-
   defp row(phrase, search_volume) do
     %{
       phrase: phrase,

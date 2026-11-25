@@ -4,13 +4,17 @@ defmodule DirmoonWeb.NewResearchLive do
   no pitch (the owner moved the reference's hero and "how it works" to the
   landing page only). The prompt box that starts a Research Run in the
   User's Account, three example prompts and the estimated API Cost, beside
-  the Account's five latest runs. The status row says what the run will do
+  the Account's five latest runs. The Market is chosen from the stored
+  country and language lists (`Dirmoon.Markets`), starting from the latest
+  run's Market (the United States in English for a first run); when no list
+  can be loaded the screen says why and can't start a run. The status row says what the run will do
   for the chosen Mode (`Dirmoon.Research.NewRunStatusLine`). See
   `docs/design/README.md` section 8.3.
   """
   use DirmoonWeb, :live_view
 
   alias Dirmoon.Format
+  alias Dirmoon.Markets
   alias Dirmoon.Research
   alias Dirmoon.Research.NewRunStatusLine
   alias Dirmoon.Research.Run
@@ -164,8 +168,8 @@ defmodule DirmoonWeb.NewResearchLive do
                       class="pointer-events-none absolute top-[11px] right-3 size-3.5 text-on-app-2"
                     />
                   </div>
-                  <div class="relative *:mb-0">
-                    <label for="research-country" class="sr-only">Country and language</label>
+                  <div :if={!@markets_problem} class="relative max-w-full *:mb-0">
+                    <label for="research-country" class="sr-only">Country</label>
                     <.icon
                       name="hero-globe-alt"
                       class="pointer-events-none absolute top-[11px] left-3 size-3.5 text-on-app-muted"
@@ -175,8 +179,29 @@ defmodule DirmoonWeb.NewResearchLive do
                       id="research-country"
                       type="select"
                       surface="app"
-                      options={location_options()}
-                      class={[chip_field_class(), "cursor-pointer appearance-none pr-3 pl-8"]}
+                      options={@country_options}
+                      class={[
+                        chip_field_class(),
+                        "max-w-full cursor-pointer appearance-none pr-3 pl-8"
+                      ]}
+                    />
+                  </div>
+                  <div :if={!@markets_problem} class="relative max-w-full *:mb-0">
+                    <label for="research-language" class="sr-only">Language</label>
+                    <.icon
+                      name="hero-language"
+                      class="pointer-events-none absolute top-[11px] left-3 size-3.5 text-on-app-muted"
+                    />
+                    <.input
+                      field={@form[:language_code]}
+                      id="research-language"
+                      type="select"
+                      surface="app"
+                      options={@language_options}
+                      class={[
+                        chip_field_class(),
+                        "max-w-full cursor-pointer appearance-none pr-3 pl-8"
+                      ]}
                     />
                   </div>
                   <div class="relative *:mb-0">
@@ -217,12 +242,22 @@ defmodule DirmoonWeb.NewResearchLive do
                   variant="lime"
                   size="large"
                   type="submit"
+                  disabled={@markets_problem != nil}
                   phx-disable-with="Starting…"
                   class="flex-none px-[22px] text-base max-sm:w-full"
                 >
                   Start research <.icon name="hero-arrow-right" class="size-[18px]" />
                 </.button>
               </div>
+              <p
+                :if={@markets_problem}
+                id="markets-unavailable"
+                role="alert"
+                class="m-0 flex items-start gap-2 border-t border-app-line px-[26px] py-3.5 text-sm leading-normal text-on-app max-sm:px-5"
+              >
+                <.icon name="hero-exclamation-circle" class="mt-0.5 size-5 shrink-0 text-warn" />
+                {@markets_problem}
+              </p>
             </.prompt_box>
           </.form>
 
@@ -315,9 +350,9 @@ defmodule DirmoonWeb.NewResearchLive do
   @impl true
   def mount(params, _session, socket) do
     %{current_scope: scope} = socket.assigns
-    initial_params = %{"mode" => initial_mode(params), "country_code" => default_country_code()}
-    changeset = Research.change_run(scope, initial_params)
     recent_runs = Research.list_runs(scope, @recent_runs_count)
+    initial_params = Map.put(default_market_params(recent_runs), "mode", initial_mode(params))
+    changeset = Research.change_run(scope, initial_params)
 
     {:ok,
      socket
@@ -329,6 +364,7 @@ defmodule DirmoonWeb.NewResearchLive do
        services_open?: false,
        params: initial_params
      )
+     |> assign_market_options()
      |> assign_form(changeset)
      |> stream_configure(:recent_runs, dom_id: &"recent-run-#{&1.id}")
      |> stream(:recent_runs, Enum.map(recent_runs, &recent_run_row/1))}
@@ -373,7 +409,7 @@ defmodule DirmoonWeb.NewResearchLive do
   defp search_console_note(%{connection: nil} = assigns) do
     ~H"""
     <p id="search-console-note" class="m-0 text-[13px] leading-normal text-on-app-2">
-      Without Search Console, step 6 (the site's current positions) is skipped.
+      Without Search Console, I skip step 6 (where the site already shows up on Google).
       <.link
         id="connect-search-console"
         href={
@@ -465,8 +501,35 @@ defmodule DirmoonWeb.NewResearchLive do
     Enum.map(Run.modes(), &{RunDisplay.mode_label(&1), &1})
   end
 
-  defp location_options do
-    Enum.map(Run.locations(), &{&1.label, &1.country_code})
+  defp assign_market_options(socket) do
+    with {:ok, countries} <- Markets.countries(),
+         {:ok, languages} <- Markets.languages() do
+      assign(socket,
+        country_options: Enum.map(countries, &{&1.name, &1.country_code}),
+        language_options: Enum.map(languages, &{&1.name, &1.language_code}),
+        markets_problem: nil
+      )
+    else
+      {:error, reason} ->
+        assign(socket, country_options: [], language_options: [], markets_problem: markets_problem(reason))
+    end
+  end
+
+  defp markets_problem(:data_for_seo_not_configured) do
+    "I can't offer countries and languages yet: the Google search data provider (DataForSEO) isn't configured. Add its login and password, then reload this page."
+  end
+
+  defp markets_problem(_reason) do
+    "I couldn't load the countries and languages from the Google search data provider (DataForSEO). Reload this page in a moment."
+  end
+
+  defp default_market_params([%Run{country_code: country_code, language_code: language_code} | _older_runs]) do
+    %{"country_code" => country_code, "language_code" => language_code}
+  end
+
+  defp default_market_params([]) do
+    %{country_code: country_code, language_code: language_code} = Markets.default_market()
+    %{"country_code" => country_code, "language_code" => language_code}
   end
 
   defp initial_mode(%{"mode" => mode}) do
@@ -478,11 +541,6 @@ defmodule DirmoonWeb.NewResearchLive do
   defp default_mode, do: hd(mode_names())
 
   defp mode_names, do: Enum.map(Run.modes(), &Atom.to_string/1)
-
-  defp default_country_code do
-    [%{country_code: country_code} | _other_locations] = Run.locations()
-    country_code
-  end
 
   defp service_numbers do
     last_number = Run.max_priority_services()

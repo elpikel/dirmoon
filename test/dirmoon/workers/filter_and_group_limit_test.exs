@@ -7,7 +7,7 @@ defmodule Dirmoon.Workers.FilterAndGroupLimitTest do
   alias Dirmoon.Phrases.RunPhrase
   alias Dirmoon.Workers.FilterAndGroup
 
-  test "phrases beyond the analysis limit are not sent and are rejected as outside the limit" do
+  test "phrases beyond the number of searches I analyse are not sent and are rejected as outside the limit" do
     previous_limit = Application.fetch_env!(:dirmoon, :grouping_phrase_limit)
     Application.put_env(:dirmoon, :grouping_phrase_limit, 2)
     on_exit(fn -> Application.put_env(:dirmoon, :grouping_phrase_limit, previous_limit) end)
@@ -28,7 +28,7 @@ defmodule Dirmoon.Workers.FilterAndGroupLimitTest do
     assert_received {:sent_ids, [top_id, second_id]}
     assert [top_id, second_id] == [top.id, second.id]
 
-    assert %RunPhrase{status: :rejected, rejection_reason: "beyond the analysis limit", cluster_id: nil} =
+    assert %RunPhrase{status: :rejected, rejection_reason: "beyond the number of searches I analyse", cluster_id: nil} =
              Repo.get!(RunPhrase, beyond.id)
   end
 

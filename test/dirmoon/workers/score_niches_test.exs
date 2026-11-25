@@ -29,7 +29,7 @@ defmodule Dirmoon.Workers.ScoreNichesTest do
     assert Decimal.equal?(unchecked_score, Decimal.new("3.2"))
     assert rounded(unchecked_components) == %{"volume" => 0.43339, "cpc" => 0.0, "weakness" => 0.5}
 
-    assert %RunStep{status: :done, result: "2 niches scored, 1 worth going after", output: output} = step(run, 7)
+    assert %RunStep{status: :done, result: "2 topics rated, 1 worth going after", output: output} = step(run, 7)
     assert %{"niches" => 2, "worth" => 1, "weights" => %{"volume" => 0.4, "cpc" => 0.3, "weakness" => 0.3}} = output
   end
 
@@ -109,9 +109,9 @@ defmodule Dirmoon.Workers.ScoreNichesTest do
   test "a run without niches fails the step with a readable reason on the last attempt" do
     run = insert(:run, steps: build_run_steps(done_through(6)))
 
-    assert {:cancel, "No niches to score"} = perform_job(ScoreNiches, %{run_id: run.id}, attempt: 3)
+    assert {:cancel, "No topics to rate"} = perform_job(ScoreNiches, %{run_id: run.id}, attempt: 3)
 
-    assert %RunStep{status: :failed, error: "No niches to score"} = step(run, 7)
+    assert %RunStep{status: :failed, error: "No topics to rate"} = step(run, 7)
     assert %Run{status: :failed} = Repo.reload!(run)
   end
 

@@ -67,7 +67,7 @@ defmodule DirmoonWeb.PagesLiveTest do
 
     assert has_element?(view, "#pages-#{own.id}")
     refute has_element?(view, "#pages-#{foreign.id}")
-    assert has_element?(view, "#pages-status-line", "I have 1 brief for your niches.")
+    assert has_element?(view, "#pages-status-line", "I have 1 brief for your topics.")
   end
 
   test "with no briefs it invites the User to pick a Niche in the results", %{conn: conn} do
@@ -76,14 +76,20 @@ defmodule DirmoonWeb.PagesLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/pages")
 
     assert has_element?(view, "#pages-empty", "Your briefs will show up here.")
-    assert has_element?(view, "#pages-empty", "I'll write a brief for it.")
+
+    assert has_element?(
+             view,
+             "#pages-empty",
+             "Choose a topic in the research results and I'll write a brief for it: the plan and the text for one page about that topic."
+           )
+
     refute has_element?(view, "#pages-empty", "a page for it")
     assert has_element?(view, "#pages-empty a#go-to-results[href='/app/runs']")
 
     assert has_element?(
              view,
              "#pages-status-line",
-             "No briefs yet. Choose a niche in the results and I'll write a brief for it."
+             "No briefs yet. Choose a topic in the results and I'll write a brief for it: the plan and the text for one page about it."
            )
   end
 

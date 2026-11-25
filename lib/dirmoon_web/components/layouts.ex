@@ -160,7 +160,10 @@ defmodule DirmoonWeb.Layouts do
 
   def landing(assigns) do
     ~H"""
-    <div data-layout="landing" class="page-dots flex min-h-screen flex-col font-sans text-ink">
+    <div
+      data-layout="landing"
+      class="page-dots flex min-h-screen flex-col font-sans text-ink"
+    >
       <header class="px-gutter-phone pt-4 sm:px-gutter">
         <.nav_card id="landing-nav">{render_slot(@nav)}</.nav_card>
       </header>

@@ -35,7 +35,7 @@ defmodule DirmoonWeb.RunsLive do
                 Your research runs will show up here.
               </span>
               <p class="m-0 max-w-[460px] text-[15px] leading-normal text-on-app-2">
-                Describe a business or an idea and I'll check what people search for and which niches are worth going after.
+                Describe a business or an idea and I'll check what people search for on Google and which topics are worth going after.
               </p>
               <.button
                 id="start-first-research"

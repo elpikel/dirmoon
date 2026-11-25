@@ -16,15 +16,15 @@ defmodule Dirmoon.Phrases.Expansion do
   alias Dirmoon.Research.Steps
 
   @seeds_step_number Steps.number!(:seeds)
-  @no_seeds_error "No seed phrases from step 1"
-  @no_phrases_error "No phrases for these seeds"
-  @phrase_forms %{one: "real phrase", other: "real phrases"}
+  @no_seeds_error "No starting searches from step 1"
+  @no_phrases_error "Google has no real searches for these starting ideas"
+  @phrase_forms %{one: "real search", other: "real searches"}
 
   @doc """
   Expands the run's Seeds and stores the Phrases with their country Volumes.
 
-  Returns `{:ok, %{result: "412 real phrases", output: %{"phrases" => 412, "requests" => 2}}}`,
-  `{:error, "No seed phrases from step 1"}`, `{:error, "No phrases for these seeds"}`
+  Returns `{:ok, %{result: "412 real searches", output: %{"phrases" => 412, "requests" => 2}}}`,
+  `{:error, "No starting searches from step 1"}`, `{:error, "Google has no real searches for these starting ideas"}`
   or the keyword API's `{:error, reason}` (batches fetched before it stay in
   the ledger).
   """

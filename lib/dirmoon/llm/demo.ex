@@ -7,8 +7,8 @@ defmodule Dirmoon.LLM.Demo do
   Competitor Offers on any page.
 
   What the owner reads (Niche names, intents, Readings, rejection reasons)
-  is English; Seeds, questions and Brief text are Polish, the market of the
-  only location a run can target.
+  is English; Seeds, questions and Brief text are Polish whatever the run's
+  Market.
   """
 
   @behaviour Dirmoon.LLM
@@ -112,7 +112,7 @@ defmodule Dirmoon.LLM.Demo do
     |> Enum.sort_by(fn {niche_index, _phrases} -> niche_index end)
     |> Enum.map(fn {niche_index, [first_phrase | _rest] = niche_phrases} ->
       %{
-        "name" => "#{@marker} Niche: #{first_phrase.phrase}",
+        "name" => "#{@marker} Topic: #{first_phrase.phrase}",
         "intent" => Enum.at(@intents, niche_index),
         "reading" => "#{@marker} People search for: #{first_phrase.phrase}",
         "phrase_ids" => Enum.map(niche_phrases, & &1.id)

@@ -39,6 +39,8 @@ defmodule DirmoonWeb.UserAuthTest do
       inserted_at: DateTime.shift(DateTime.utc_now(:second), hour: 1)
     )
 
+    insert(:market_country)
+    insert(:market_language)
     {:ok, view, _html} = live(conn, ~p"/app/research/new")
 
     assert %Scope{user: scope_user, account: %Account{id: account_id}} = current_scope(view)

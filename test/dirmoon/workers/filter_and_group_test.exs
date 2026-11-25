@@ -66,7 +66,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
 
     :ok = perform_job(FilterAndGroup, %{run_id: run.id})
 
-    assert %RunStep{status: :done, result: "2 niches, 2 phrases rejected", output: output} = step(run, 4)
+    assert %RunStep{status: :done, result: "2 topics, 2 searches left out", output: output} = step(run, 4)
     assert output == %{"niches" => 2, "kept" => 2, "rejected" => 2}
     assert Repo.get!(RunPhrase, fourth.id).status == :rejected
   end
@@ -178,7 +178,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
              } = Repo.get!(RunPhrase, variant.id)
     end
 
-    assert %RunStep{status: :done, result: "1 niche, 2 phrases rejected"} = step(run, 4)
+    assert %RunStep{status: :done, result: "1 topic, 2 searches left out"} = step(run, 4)
   end
 
   test "of two spellings with as many Polish letters one stays and the other is rejected as its variant" do
@@ -350,6 +350,26 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     assert system =~ "in English"
   end
 
+  test "the prompt asks for what the owner reads in plain words, without marketing jargon" do
+    run = insert(:run, steps: build_run_steps())
+    kept = phrase_in_run(run, "hotel dla psów", 300)
+    test_process = self()
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn request ->
+      send(test_process, {:llm_request, request})
+      answer(%{"niches" => [niche_answer("Hotel dla psa", [kept.id])], "rejected" => []})
+    end)
+
+    :ok = perform_job(FilterAndGroup, %{run_id: run.id})
+
+    assert_received {:llm_request, %{prompt: prompt}}
+    assert prompt =~ "The owner is a small-business owner, not a marketer."
+    assert prompt =~ "in plain words: what customers want and what they type into Google."
+
+    assert prompt =~
+             "Never use the words niche, phrase, keyword, seed, SERP, CPC, search volume, score or search intent in them."
+  end
+
   test "the prompt of an existing site names its domain" do
     run = insert(:run, mode: :existing_site, domain: "hotel-testowy.example", steps: build_run_steps())
     kept = phrase_in_run(run, "hotel dla psów", 300)
@@ -388,7 +408,9 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
              Niche |> from(as: :niche) |> where([niche: niche], niche.run_id == ^run.id) |> Repo.all()
 
     assert %RunPhrase{status: :rejected, rejection_reason: "left out by the model"} = Repo.get!(RunPhrase, numbered.id)
-    assert %RunPhrase{status: :rejected, rejection_reason: "rejected by the model"} = Repo.get!(RunPhrase, dropped.id)
+
+    assert %RunPhrase{status: :rejected, rejection_reason: "the AI left it out without a reason"} =
+             Repo.get!(RunPhrase, dropped.id)
   end
 
   test "the competition step is enqueued after the phrases are grouped" do
@@ -426,7 +448,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
 
     assert cluster_ids(run) == %{kept.id => niche_id}
     assert %RunPhrase{status: :rejected, rejection_reason: "inna branża"} = Repo.get!(RunPhrase, dropped.id)
-    assert %RunStep{status: :done, result: "1 niche, 1 phrase rejected"} = step(run, 4)
+    assert %RunStep{status: :done, result: "1 topic, 1 search left out"} = step(run, 4)
     assert [%ApiRequest{service: "llm", operation: "filter_and_group"}] = Repo.all(ApiRequest)
   end
 
@@ -442,7 +464,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
       answer(%{"niches" => [niche_answer("Hotel dla psa", [kept.id])], "rejected" => []})
     end)
 
-    assert {:error, "The model returned no niche"} = perform_job(FilterAndGroup, %{run_id: run.id}, attempt: 1)
+    assert {:error, "The AI found no topic"} = perform_job(FilterAndGroup, %{run_id: run.id}, attempt: 1)
     assert Repo.all(ApiRequest) == []
     assert Niche |> from(as: :niche) |> where([niche: niche], niche.run_id == ^run.id) |> Repo.all() == []
 
@@ -458,9 +480,10 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     run = insert(:run, steps: build_run_steps())
     expect(Dirmoon.LLMMock, :structured, 0, fn _request -> answer(%{}) end)
 
-    assert {:cancel, "No phrases to group"} = perform_job(FilterAndGroup, %{run_id: run.id}, attempt: 3)
+    assert {:cancel, "No searches to sort into topics"} =
+             perform_job(FilterAndGroup, %{run_id: run.id}, attempt: 3)
 
-    assert %RunStep{status: :failed, error: "No phrases to group"} = step(run, 4)
+    assert %RunStep{status: :failed, error: "No searches to sort into topics"} = step(run, 4)
     assert %Run{status: :failed} = Repo.get!(Run, run.id)
   end
 

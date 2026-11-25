@@ -9,7 +9,7 @@ defmodule Dirmoon.Niches.Grouping do
 
   Only the `grouping_phrase_limit` Phrases with the highest Volume
   (`config :dirmoon, grouping_phrase_limit:`) are sent; the rest are
-  rejected as "beyond the analysis limit". Phrases that differ only in Polish
+  rejected as "beyond the number of searches I analyse". Phrases that differ only in Polish
   letters ("wypozyczalnia lyzew", "wypożyczalnia łyżew") are one search to
   Google, which reports the same combined Volume for each: only the spelling
   with the most Polish letters is sent, and the others are rejected as its
@@ -30,13 +30,13 @@ defmodule Dirmoon.Niches.Grouping do
   alias Dirmoon.Research.Run
   alias Dirmoon.Spelling
 
-  @no_phrases_error "No phrases to group"
-  @no_niche_error "The model returned no niche"
-  @beyond_limit_reason "beyond the analysis limit"
+  @no_phrases_error "No searches to sort into topics"
+  @no_niche_error "The AI found no topic"
+  @beyond_limit_reason "beyond the number of searches I analyse"
   @spelling_variant_reason "another spelling of"
-  @default_rejection_reason "rejected by the model"
-  @niche_forms %{one: "niche", other: "niches"}
-  @rejected_forms %{one: "phrase rejected", other: "phrases rejected"}
+  @default_rejection_reason "the AI left it out without a reason"
+  @niche_forms %{one: "topic", other: "topics"}
+  @rejected_forms %{one: "search left out", other: "searches left out"}
 
   @system """
   You are an SEO specialist. You get a list of phrases people really type into Google. \
@@ -81,8 +81,8 @@ defmodule Dirmoon.Niches.Grouping do
   all again; so a re-run sends the same request and reuses the recorded
   answer.
 
-  Returns `{:ok, %{result: "9 niches, 137 phrases rejected", output: %{"niches" => 9, "kept" => 263, "rejected" => 137}}}`,
-  `{:error, "No phrases to group"}`, `{:error, "The model returned no niche"}`
+  Returns `{:ok, %{result: "9 topics, 137 searches left out", output: %{"niches" => 9, "kept" => 263, "rejected" => 137}}}`,
+  `{:error, "No searches to sort into topics"}`, `{:error, "The AI found no topic"}`
   or the LLM's `{:error, reason}`.
   """
   def group(%Run{} = run) do
@@ -164,13 +164,16 @@ defmodule Dirmoon.Niches.Grouping do
       mode_line(run),
       priority_services_line(run.priority_services),
       city_line(run.city),
-      "The phrases are in #{Run.language_name(run)}, the language of the business's market.",
+      "The phrases are in #{run.language_name}, the language of the business's market.",
       "Drop the phrases that are not about this business and give a short reason for each.",
       "Group the remaining phrases into niches by search intent. Each niche has a short name, " <>
         "an intent and a reading in two sentences: what the people searching want and who answers them today. " <>
         "Every phrase goes into one niche or into the rejected ones.",
       "Write every niche name, intent, reading and rejection reason in English: the owner of this tool reads " <>
         "them in English, whatever the language of the phrases.",
+      "The owner is a small-business owner, not a marketer. Write the names, intents, readings and reasons " <>
+        "in plain words: what customers want and what they type into Google. Never use the words niche, " <>
+        "phrase, keyword, seed, SERP, CPC, search volume, score or search intent in them.",
       "Point to phrases only by the ids from the list.",
       "Phrases (id: phrase (monthly volume)):\n" <> Enum.map_join(phrases, "\n", &phrase_line/1)
     ]

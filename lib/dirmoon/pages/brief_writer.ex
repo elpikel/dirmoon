@@ -127,7 +127,7 @@ defmodule Dirmoon.Pages.BriefWriter do
       mode_line(run),
       city_line(run.city),
       "Niche (named in English for the owner): #{niche_name}.",
-      "Write every text of the brief in #{Run.language_name(run)}, the language of the business's market: " <>
+      "Write every text of the brief in #{run.language_name}, the language of the business's market: " <>
         "the page is for its customers. Keep the tags in square brackets exactly as they are, in English.",
       "Write the brief of ONE page that should rank for this niche's phrases: the page title, H1, " <>
         "the address slug (lower case without diacritics, words separated by hyphens), a two-sentence intro, " <>

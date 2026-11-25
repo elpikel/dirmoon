@@ -1,7 +1,8 @@
 defmodule Dirmoon.DataForSEO do
   @moduledoc """
-  The seam to DataForSEO: phrase ideas, search volumes, the Google top 10
-  and city location lookup. The adapter is chosen by
+  The seam to DataForSEO: phrase ideas, search volumes, the Google top 10,
+  city location lookup, and the countries and languages the keyword
+  endpoints accept (both lists are free). The adapter is chosen by
   `config :dirmoon, :data_for_seo_adapter`.
 
   Every paid call answers with parsed `rows` (atom keys), the `raw` response
@@ -27,11 +28,15 @@ defmodule Dirmoon.DataForSEO do
   @type search_volumes_request :: %{phrases: [String.t()], location_code: integer(), language_code: String.t()}
   @type serp_request :: %{phrase: String.t(), location_code: integer(), language_code: String.t()}
   @type location_request :: %{city: String.t(), country_code: String.t()}
+  @type country :: %{country_code: String.t(), location_code: integer(), name: String.t()}
+  @type language :: %{language_code: String.t(), name: String.t()}
 
   @callback phrase_ideas(phrase_ideas_request()) :: answer(phrase_row())
   @callback search_volumes(search_volumes_request()) :: answer(phrase_row())
   @callback serp_top10(serp_request()) :: answer(serp_row())
   @callback find_location(location_request()) :: {:ok, location()} | {:error, :not_found | term()}
+  @callback countries() :: {:ok, [country()]} | {:error, term()}
+  @callback languages() :: {:ok, [language()]} | {:error, term()}
 
   @doc "Phrases related to up to #{@max_seeds} seeds, with country volumes."
   @spec phrase_ideas(phrase_ideas_request()) :: answer(phrase_row())
@@ -48,6 +53,14 @@ defmodule Dirmoon.DataForSEO do
   @doc "The location code of a city in a country, or `{:error, :not_found}`."
   @spec find_location(location_request()) :: {:ok, location()} | {:error, :not_found | term()}
   def find_location(request), do: adapter().find_location(request)
+
+  @doc "Every country the keyword endpoints target (Google Ads locations of type Country), at no cost."
+  @spec countries() :: {:ok, [country()]} | {:error, term()}
+  def countries, do: adapter().countries()
+
+  @doc "Every language the keyword endpoints accept, at no cost."
+  @spec languages() :: {:ok, [language()]} | {:error, term()}
+  def languages, do: adapter().languages()
 
   @doc "How many seeds one phrase ideas request may carry."
   def max_seeds, do: @max_seeds

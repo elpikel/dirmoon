@@ -75,6 +75,7 @@ config :dirmoon,
   # Per-request USD prices for the estimate on the new research screen (unverified, see notes-dataforseo.md).
   cost_estimates: %{phrase_ideas: "0.09", search_volumes: "0.09", serp_top10: "0.002", llm_allowance: "0"},
   serp_max_age_days: 30,
+  market_lists_max_age_days: 30,
   scoring_weights: %{volume: 0.4, cpc: 0.3, weakness: 0.3},
   generators: [timestamp_type: :utc_datetime]
 

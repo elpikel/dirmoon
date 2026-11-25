@@ -16,14 +16,14 @@ defmodule Dirmoon.Phrases.Volumes do
   alias Dirmoon.Research.Ledger
   alias Dirmoon.Research.Run
 
-  @trend_suffix "12-month trend"
-  @city_not_found_result "No data for the city, using the country volume"
+  @trend_suffix "the last 12 months"
+  @city_not_found_result "No numbers for the city, so I used the country's"
 
   @doc """
   Fetches the missing Metrics of the run's kept Phrases for the country and
   the city.
 
-  Returns `{:ok, %{result: "Poland and Gdańsk, 12-month trend", output: output}}`
+  Returns `{:ok, %{result: "Poland and Gdańsk, the last 12 months", output: output}}`
   with `output` `%{"country" => coverage, "city" => coverage | nil, "city_location_code" => integer | nil}`,
   a coverage being `%{"location_code", "requested", "reused"}`, or the keyword
   API's `{:error, reason}` (batches fetched before it stay in the ledger and
@@ -117,12 +117,6 @@ defmodule Dirmoon.Phrases.Volumes do
   end
 
   defp result_line(_run, :not_found), do: @city_not_found_result
-  defp result_line(run, nil), do: "#{country_name(run)}, #{@trend_suffix}"
-  defp result_line(run, _city_location), do: "#{country_name(run)} and #{run.city}, #{@trend_suffix}"
-
-  defp country_name(%Run{country_code: country_code}) do
-    Run.locations()
-    |> Enum.find(%{country_name: country_code}, &(&1.country_code == country_code))
-    |> Map.fetch!(:country_name)
-  end
+  defp result_line(run, nil), do: "#{run.country_name}, #{@trend_suffix}"
+  defp result_line(run, _city_location), do: "#{run.country_name} and #{run.city}, #{@trend_suffix}"
 end

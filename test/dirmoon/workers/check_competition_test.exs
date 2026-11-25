@@ -314,7 +314,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
     assert verdict(run, strong) == :strong
     assert verdict(run, medium) == :medium
 
-    assert %RunStep{status: :done, result: "3 of 3 phrases checked", output: output} = step(run, 5)
+    assert %RunStep{status: :done, result: "3 of 3 searches checked", output: output} = step(run, 5)
 
     assert output == %{
              "checked" => 3,
@@ -434,7 +434,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
     expect(Dirmoon.LLMMock, :structured, 1, &label_all(&1, "blog"))
 
     assert :ok = perform_job(CheckCompetition, %{run_id: run.id}, attempt: 2)
-    assert %RunStep{status: :done, result: "3 of 3 phrases checked"} = step(run, 5)
+    assert %RunStep{status: :done, result: "3 of 3 searches checked"} = step(run, 5)
   end
 
   test "a retry after the model failed labels the top 10 the run bought, not counting it as reused" do
@@ -518,7 +518,7 @@ defmodule Dirmoon.Workers.CheckCompetitionTest do
 
     assert :ok = perform_job(CheckCompetition, %{run_id: run.id})
 
-    assert %RunStep{status: :skipped, result: "No phrases to check"} = step(run, 5)
+    assert %RunStep{status: :skipped, result: "No searches to check"} = step(run, 5)
   end
 
   test "for a new idea the current positions step is skipped and scoring is enqueued" do

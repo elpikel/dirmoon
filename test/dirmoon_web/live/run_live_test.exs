@@ -23,7 +23,7 @@ defmodule DirmoonWeb.RunLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
     assert has_element?(view, "#run-steps #step-1", "01")
-    assert has_element?(view, "#step-1", "Seeds")
+    assert has_element?(view, "#step-1", "Starting ideas")
     assert has_element?(view, "#step-1", "A dozen seed phrases and questions")
     assert has_element?(view, "#step-1-status", "Done")
     assert has_element?(view, "#step-5-status", "In progress")
@@ -32,9 +32,34 @@ defmodule DirmoonWeb.RunLiveTest do
     assert has_element?(view, "#step-8", "08")
     assert has_element?(view, "#step-8", "Brief")
     refute has_element?(view, "#step-8", "content")
-    assert has_element?(view, "#step-8", "After you choose a niche")
+    assert has_element?(view, "#step-8", "After you choose a topic")
     assert has_element?(view, "#run-steps > li:last-child#step-8")
     refute has_element?(view, "#step-9")
+  end
+
+  test "before they run, the eight Steps say in plain words what each one does", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, status: :stopped, steps: build_run_steps(%{}))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+
+    steps = [
+      {"Starting ideas", "I guess what customers might type into Google, and the questions they ask"},
+      {"Real searches", "I look up what people really type into Google, starting from those ideas"},
+      {"How often people search",
+       "How many times a month people type each search, and what businesses pay Google for one ad click"},
+      {"Topics", "I leave out searches that aren't about the business and sort the rest by what customers want"},
+      {"Google's first page", "Who is on Google's first page for the searches people type most"},
+      {"Where your site shows up", "Where your site already shows up on Google, from Search Console"},
+      {"Rating",
+       "I rate each topic out of 10: how often people search, the ad click price and how easy it is to get onto Google's first page"},
+      {"Brief", "After you choose a topic, I write the plan and the text for one page about it"}
+    ]
+
+    for {{name, description}, number} <- Enum.with_index(steps, 1) do
+      assert has_element?(view, "#step-#{number}", name)
+      assert has_element?(view, "#step-#{number}", description)
+    end
   end
 
   test "a queued Step shows as waiting", %{conn: conn} do
@@ -66,7 +91,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     Research.broadcast_progress(run, progress(insert(:phrase), %{checked: 6, total: 24}))
 
-    assert has_element?(view, "#run-detail", "6 of 24 phrases checked")
+    assert has_element?(view, "#run-detail", "6 of 24 searches checked")
     assert has_element?(view, "#run-progress[role=progressbar][aria-valuenow='6'][aria-valuemax='24']")
   end
 
@@ -154,12 +179,12 @@ defmodule DirmoonWeb.RunLiveTest do
     run = insert(:run, account: scope.account, steps: build_run_steps(running_step(5)))
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#step-5", "Who holds the top 10 for the best phrases")
+    assert has_element?(view, "#step-5", "Who is on Google's first page for the searches people type most")
 
     Research.broadcast_progress(run, progress(insert(:phrase), %{checked: 4, total: 10}))
 
-    assert has_element?(view, "#step-5", "4 of 10 phrases checked")
-    refute has_element?(view, "#step-5", "Who holds the top 10 for the best phrases")
+    assert has_element?(view, "#step-5", "4 of 10 searches checked")
+    refute has_element?(view, "#step-5", "Who is on Google's first page for the searches people type most")
   end
 
   test "the status row shows the sentence built from the run's state", %{conn: conn} do
@@ -171,7 +196,7 @@ defmodule DirmoonWeb.RunLiveTest do
     assert has_element?(
              view,
              "#run-status-line",
-             "I'm checking who ranks for the best phrases. After step 7 you choose a niche."
+             "I'm checking who is on Google's first page for the searches people type most. After step 7 you choose a topic."
            )
   end
 
@@ -243,7 +268,13 @@ defmodule DirmoonWeb.RunLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
     assert has_element?(view, "#run-detail #see-results[href='/app/runs/#{run.id}/results']", "See results")
-    assert has_element?(view, "#run-status-line", "The niches are scored. Choose one and I'll write a brief for it.")
+
+    assert has_element?(
+             view,
+             "#run-status-line",
+             "The topics are rated. Choose one and I'll write a brief for it: the plan and the text for one page."
+           )
+
     refute has_element?(view, "#stop-run")
     refute has_element?(view, "#resume-run")
   end
@@ -272,7 +303,7 @@ defmodule DirmoonWeb.RunLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
-    assert has_element?(view, "#show-phrases[href='/app/runs/#{run.id}/results']", "Show phrases so far")
+    assert has_element?(view, "#show-phrases[href='/app/runs/#{run.id}/results']", "Show searches so far")
   end
 
   test "the top bar names the run's description, country and city, with no hero on the screen", %{conn: conn} do
@@ -335,7 +366,12 @@ defmodule DirmoonWeb.RunLiveTest do
 
     Research.broadcast_progress(run, progress(insert(:phrase), %{step: 3, checked: 2, total: 9}))
 
-    assert has_element?(view, "#run-status-line", "I'm checking the volume and CPC of every phrase.")
+    assert has_element?(
+             view,
+             "#run-status-line",
+             "I'm checking how many times a month people type each search and what businesses pay Google for one ad click."
+           )
+
     refute has_element?(view, "#run-progress")
   end
 
@@ -366,7 +402,7 @@ defmodule DirmoonWeb.RunLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
 
     assert has_element?(view, "#step-8-status", "Done")
-    assert has_element?(view, "#run-detail", "The niches are scored.")
+    assert has_element?(view, "#run-detail", "The topics are rated.")
     assert has_element?(view, "#run-detail #see-results[href='/app/runs/#{run.id}/results']")
   end
 

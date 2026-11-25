@@ -7,9 +7,9 @@ defmodule Dirmoon.Research.NewRunStatusLine do
   run's sentence and `Dirmoon.Research.RunsStatusLine` for the runs list.
   """
 
-  @new_idea_sentence "Describe the business and I'll find the phrases people really type and count how many search for them."
-  @existing_site_sentence "Describe the business and give its domain. I'll also check which phrases the site already shows up for."
-  @existing_site_without_search_console_sentence "Describe the business and give its domain. Without Search Console I'll skip the site's current positions."
+  @new_idea_sentence "Describe the business and I'll find what people really type into Google and how many times a month they type it."
+  @existing_site_sentence "Describe the business and give its domain. I'll also check which searches the site already shows up for."
+  @existing_site_without_search_console_sentence "Describe the business and give its domain. Without Search Console I'll skip where the site already shows up on Google."
 
   @doc """
   The sentence for the chosen Mode (`nil` reads as a New Idea) and the

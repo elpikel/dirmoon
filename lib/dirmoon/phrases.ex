@@ -8,7 +8,6 @@ defmodule Dirmoon.Phrases do
 
   import Ecto.Query
 
-  alias Dirmoon.Competition
   alias Dirmoon.JsonSafe
   alias Dirmoon.Phrases.Metrics
   alias Dirmoon.Phrases.Phrase
@@ -162,28 +161,6 @@ defmodule Dirmoon.Phrases do
     })
     |> Repo.all()
     |> Map.new()
-  end
-
-  @doc """
-  The run's Phrases as rows for an export, kept ones first, each by country
-  Volume: the Phrase, its Niche's name, country and city Volume, CPC and its
-  currency, the verdict and holders of the run's SERP Assessment of its top 10
-  (`Dirmoon.Competition`; nil when it wasn't checked), its Current Position
-  whether it is a Quick Win, and whether and why it was rejected. Nothing
-  about the Account.
-
-  Returns `[%{phrase:, niche:, country_volume:, city_volume:, cpc:, currency:, verdict:, holders:, current_position:, quick_win?:, rejected?:, rejection_reason:}]`.
-  """
-  def export_rows(%Run{} = run) do
-    assessment_summaries = Competition.assessment_summaries_for_run(run)
-
-    run
-    |> list_query()
-    |> join(:left, [run_phrase: run_phrase], niche in assoc(run_phrase, :niche), as: :niche)
-    |> preload([niche: niche], niche: niche)
-    |> Repo.all()
-    |> Enum.map(&export_row(&1, assessment_summaries))
-    |> Enum.sort_by(& &1.rejected?)
   end
 
   @doc """
@@ -391,25 +368,6 @@ defmodule Dirmoon.Phrases do
       {:limit, count}, filtered ->
         limit(filtered, ^count)
     end)
-  end
-
-  defp export_row(%RunPhrase{} = run_phrase, assessment_summaries) do
-    assessment = Map.get(assessment_summaries, run_phrase.keyword_id)
-
-    %{
-      phrase: run_phrase.phrase.phrase,
-      niche: run_phrase.niche && run_phrase.niche.name,
-      country_volume: run_phrase.metrics && run_phrase.metrics.search_volume,
-      city_volume: run_phrase.city_metrics && run_phrase.city_metrics.search_volume,
-      cpc: run_phrase.metrics && run_phrase.metrics.cpc,
-      currency: run_phrase.metrics && run_phrase.metrics.currency,
-      verdict: assessment && assessment.verdict,
-      holders: assessment && Competition.holders(assessment.labels),
-      current_position: run_phrase.current_position,
-      quick_win?: quick_win?(run_phrase.current_position),
-      rejected?: run_phrase.status == :rejected,
-      rejection_reason: run_phrase.rejection_reason
-    }
   end
 
   defp join_location_metrics(query, location_code) do

@@ -26,12 +26,82 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
 
-    assert has_element?(view, "#app-main #results h1#results-headline", "Nine niches. Three worth going after.")
+    assert has_element?(view, "#app-main #results h1#results-headline", "Nine topics. Three worth going after.")
     assert has_element?(view, "#app-main #results #results-views")
     assert has_element?(view, "#app-main #results #niches")
     assert has_element?(view, "#app-nav #nav-runs[aria-current=page]")
     refute has_element?(view, "#results-panel")
     refute has_element?(view, "#results-context")
+  end
+
+  test "the results show in full what the owner wrote when starting the research", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+
+    description =
+      "An online tool that checks whether people look for a business idea before you build it. For founders and small business owners."
+
+    run = scored_run(scope, %{description: description, priority_services: ["idea checks", "reports"]})
+    insert(:niche, run: run, score: Decimal.new("7.3"))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#run-parameters", "What you asked about")
+    assert has_element?(view, "#run-parameters #run-description", description)
+    assert has_element?(view, "#run-services", "Services: idea checks, reports")
+
+    plain = scored_run(scope)
+    insert(:niche, run: plain, score: Decimal.new("7.3"))
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{plain}/results")
+
+    refute has_element?(view, "#run-services")
+  end
+
+  test "each view says what it holds, in the list of views and above its own list", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    insert(:niche, run: run, score: Decimal.new("7.3"))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#results-views", "What I found")
+    assert has_element?(view, "#view-niches", "Topics")
+
+    assert has_element?(
+             view,
+             "#view-niches [data-part=hint]",
+             "Searches about the same thing, put together. Start here."
+           )
+
+    assert has_element?(view, "#view-phrases", "All searches")
+
+    assert has_element?(
+             view,
+             "#view-phrases [data-part=hint]",
+             "Each exact thing people type into Google, and how often."
+           )
+
+    assert has_element?(view, "#view-rejected", "Searches I left out")
+    assert has_element?(view, "#view-rejected [data-part=hint]", "Searches I didn't use, and why.")
+
+    assert has_element?(
+             view,
+             "#results-explainer",
+             "People ask Google for the same thing in many different words. A topic is those searches put together."
+           )
+
+    assert has_element?(view, "#results-explainer", "Each row is one topic, the best first.")
+
+    assert has_element?(
+             view,
+             "#results-explainer",
+             "then choose it and I'll write the plan and the text for one page about it."
+           )
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?view=phrases")
+    assert has_element?(view, "#results-explainer", "Every search I kept: what people type into Google")
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?view=rejected")
+    assert has_element?(view, "#results-explainer", "Searches I left out of the topics, each with the reason.")
   end
 
   test "the Niches are listed by Score with a plain verdict, monthly searches and the competition", %{conn: conn} do
@@ -51,13 +121,13 @@ defmodule DirmoonWeb.ResultsLiveTest do
     assert has_element?(
              view,
              "#niche-row-#{first.id} [data-part=figures]",
-             "1,234 searches / mo. · weak competition"
+             "Typed 1,234 times a month · weak competition, easy to get onto Google's first page"
            )
 
     assert has_element?(
              view,
              "#niche-row-#{second.id} [data-part=figures]",
-             "57 searches / mo. · competition not checked"
+             "Typed 57 times a month · competition not checked yet"
            )
   end
 
@@ -71,13 +141,19 @@ defmodule DirmoonWeb.ResultsLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
 
     assert has_element?(view, "#niche-row-#{niche.id} [data-part=advice].text-warn", "Worth it, but hard")
-    assert has_element?(view, "#niche-row-#{niche.id} [data-part=figures]", "20 searches / mo. · strong competition")
+
+    assert has_element?(
+             view,
+             "#niche-row-#{niche.id} [data-part=figures]",
+             "Typed 20 times a month · strong competition, hard to get onto Google's first page"
+           )
+
     assert has_element?(view, "#niche-advice[data-kind=hard] #niche-advice-label.text-warn", "Worth it, but hard")
 
     assert has_element?(
              view,
              "#niche-advice-competition",
-             "Google's first page today holds mostly businesses like yours, big portals. Breaking in among them will take time."
+             "Strong competition: Google's first page today holds mostly businesses like yours, big portals. Getting onto it will be hard and slow."
            )
   end
 
@@ -90,7 +166,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
 
     assert has_element?(view, "#niche-row-#{worth.id}")
-    assert has_element?(view, "#collapsed-niches", "+ 2 niches scored below 4")
+    assert has_element?(view, "#collapsed-niches", "+ 2 topics rated below 4 out of 10")
 
     for niche <- low do
       refute has_element?(view, "#niche-row-#{niche.id}")
@@ -126,13 +202,13 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
 
-    assert has_element?(view, "#niche-detail", "niche · 2 phrases · score 6/10")
+    assert has_element?(view, "#niche-detail", "topic · 2 searches · rating 6 out of 10")
     assert has_element?(view, "#niche-advice[data-kind=worth] #niche-advice-label.text-accent", "Worth a try")
 
     assert has_element?(
              view,
              "#niche-advice-demand",
-             "People type these phrases into Google about 3,000 times a month."
+             "People type these searches into Google about 3,000 times a month."
            )
 
     assert has_element?(view, "#niche-advice-value", "Businesses pay Google $0.57 on average for one ad click")
@@ -140,25 +216,26 @@ defmodule DirmoonWeb.ResultsLiveTest do
     assert has_element?(
              view,
              "#niche-advice-competition",
-             "Google's first page today holds mostly guides and blogs, business directories, not offers from businesses like yours."
+             "Weak competition: Google's first page today holds mostly guides and blogs, business directories, not offers from businesses like yours."
            )
 
     assert has_element?(
              view,
              "#niche-next-step",
-             "Once you choose, I'll write a brief for one page about these phrases"
+             "Once you choose, I'll write a brief: the plan and the text for one page about this topic"
            )
 
     assert has_element?(view, "#niche-detail h2", "Czartery testowe")
     assert has_element?(view, "#niche-detail", "Pierwsze zdanie testowe. Drugie zdanie testowe.")
     assert has_element?(view, "#niche-stats #niche-stat-volume", "3,000")
     assert has_element?(view, "#niche-stats #niche-stat-cpc", "$0.57")
-    assert has_element?(view, "#niche-stats #niche-stat-volume", "Searches a month")
-    assert has_element?(view, "#niche-stats #niche-stat-cpc", "Price of an ad click")
+    assert has_element?(view, "#niche-stats #niche-stat-volume", "Times a month people type these")
+    assert has_element?(view, "#niche-stats #niche-stat-cpc", "What businesses pay Google for one ad click")
     assert has_element?(view, "#niche-stats #niche-stat-competitors [data-part=value]", "0 of 10")
     assert has_element?(view, "#niche-phrases-volumes[colspan='2']", "How many times a month people type it")
     assert has_element?(view, "#niche-phrases-country", "Poland")
-    assert has_element?(view, "#niche-detail th", "Click price")
+    assert has_element?(view, "#niche-detail th", "Search")
+    assert has_element?(view, "#niche-detail th", "Ad click price")
     assert has_element?(view, "#niche-detail th", "Who is on Google's first page")
     assert has_element?(view, "#niche-phrases-city", "Płock")
     assert has_element?(view, "#page-type-direct_competitor dt", "businesses like yours")
@@ -226,7 +303,13 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
 
-    assert has_element?(view, "#first-page-#{first.id}[open] summary", first.phrase.phrase)
+    assert has_element?(view, "#first-page-#{first.id}[open] summary [data-part=first-page-phrase]", first.phrase.phrase)
+
+    assert has_element?(
+             view,
+             "#first-page-#{first.id} summary [data-part=first-page-label]",
+             "When someone types into Google:"
+           )
 
     assert has_element?(
              view,
@@ -255,7 +338,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     assert has_element?(view, "#first-page-#{second.id}:not([open]) summary", "10 results")
     assert has_element?(view, "#first-page-#{second.id} [data-part=page-type]", "guide or blog")
-    assert has_element?(view, "#first-page-#{empty.id}", "Google showed no results for this phrase.")
+    assert has_element?(view, "#first-page-#{empty.id}", "Google showed no results for this search.")
     refute has_element?(view, "#first-page-#{unchecked.id}")
 
     assert has_element?(
@@ -389,9 +472,9 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?view=phrases")
 
-    assert has_element?(view, "#phrases-#{quick_win.id}", "position 9.0")
+    assert has_element?(view, "#phrases-#{quick_win.id}", "your site's position 9.0")
     assert has_element?(view, "#phrases-#{quick_win.id}-quick-win", "quick win")
-    assert has_element?(view, "#phrases-#{unranked.id}", "position —")
+    assert has_element?(view, "#phrases-#{unranked.id}", "your site's position —")
     refute has_element?(view, "#phrases-#{unranked.id}-quick-win")
   end
 
@@ -406,7 +489,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     refute has_element?(view, "#niche-phrases-#{last.id}")
 
-    view |> element("#all-phrases", "All 12 phrases") |> render_click()
+    view |> element("#all-phrases", "All 12 searches") |> render_click()
 
     assert has_element?(view, "#niche-phrases-#{last.id}")
     refute has_element?(view, "#all-phrases")
@@ -441,8 +524,8 @@ defmodule DirmoonWeb.ResultsLiveTest do
     assert has_element?(view, "#view-rejected [data-part=count]", "1")
     assert has_element?(view, "#view-niches [data-part=count]", "1")
     assert has_element?(view, "#phrases-#{kept.id}", kept.phrase.phrase)
-    assert has_element?(view, "#phrases-#{kept.id}", "Nisza widoku fraz")
-    assert has_element?(view, "#phrases-#{kept.id}", "4,321 / mo. · click $0.65")
+    assert has_element?(view, "#phrases-#{kept.id}", "Topic: Nisza widoku fraz")
+    assert has_element?(view, "#phrases-#{kept.id}", "typed 4,321 times a month · ad click price $0.65")
     refute has_element?(view, "#phrases-#{rejected.id}")
     refute has_element?(view, "#niches")
   end
@@ -455,7 +538,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?view=rejected")
 
-    assert has_element?(view, "#view-rejected[aria-current=page]", "Rejected")
+    assert has_element?(view, "#view-rejected[aria-current=page]", "Searches I left out")
     assert has_element?(view, "#rejected-phrases-#{rejected.id}", rejected.phrase.phrase)
     assert has_element?(view, "#rejected-phrases-#{rejected.id}", "poza ofertą testową")
   end
@@ -499,7 +582,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
     niche = insert(:niche, run: run, score: Decimal.new("6.0"))
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
-    view |> element("#choose-niche", "Choose niche and write brief") |> render_click()
+    view |> element("#choose-niche", "Choose this topic and write its brief") |> render_click()
 
     page = Repo.get_by!(Page, cluster_id: niche.id)
     assert_redirect(view, "/app/pages/#{page.id}")
@@ -517,7 +600,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?niche=#{niche.id}")
     view |> element("#choose-niche") |> render_click()
 
-    assert has_element?(view, "#flash-error", "A brief for another niche is being written")
+    assert has_element?(view, "#flash-error", "I'm still writing the brief for another topic")
     assert Repo.get_by(Page, cluster_id: niche.id) == nil
     refute_enqueued(worker: WriteBrief)
   end
@@ -530,7 +613,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
 
     assert has_element?(view, "#niche-detail[data-niche-id='#{niche.id}']")
-    assert has_element?(view, "#results-run-stopped", "The research is stopped. Resume it to choose a niche.")
+    assert has_element?(view, "#results-run-stopped", "The research is stopped. Resume it to choose a topic.")
     assert has_element?(view, "#results-resume-link[href='/app/runs/#{run.id}']")
     refute has_element?(view, "#choose-niche")
     refute has_element?(view, "#reject-niche")
@@ -635,14 +718,15 @@ defmodule DirmoonWeb.ResultsLiveTest do
     next = insert(:niche, run: run, score: Decimal.new("5.0"), name: "Nisza następna testowa")
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
-    view |> element("#reject-niche", "Reject niche") |> render_click()
+    view |> element("#reject-niche", "Reject this topic") |> render_click()
 
     assert_patch(view, "/app/runs/#{run.id}/results?niche=#{next.id}&view=niches")
     assert Repo.get!(Niche, rejected.id).status == :rejected
     refute has_element?(view, "#niche-row-#{rejected.id}")
     assert has_element?(view, "#view-niches [data-part=count]", "1")
-    assert has_element?(view, "#results-headline", "One niche.")
+    assert has_element?(view, "#results-headline", "One topic.")
     assert has_element?(view, "#niche-detail h2", "Nisza następna testowa")
+    assert has_element?(view, "#flash-info", "I rejected the topic.")
   end
 
   test "rejecting the last Niche leaves an empty list", %{conn: conn} do
@@ -653,18 +737,9 @@ defmodule DirmoonWeb.ResultsLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
     view |> element("#reject-niche") |> render_click()
 
-    assert has_element?(view, "#results-headline", "Zero niches.")
+    assert has_element?(view, "#results-headline", "Zero topics.")
     assert has_element?(view, "#niche-detail-empty")
     refute has_element?(view, "#choose-niche")
-  end
-
-  test "the CSV export is a real link to the run's export", %{conn: conn} do
-    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
-    run = scored_run(scope)
-
-    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
-
-    assert has_element?(view, "a#export-csv[href='/app/runs/#{run.id}/export.csv']", "Export CSV")
   end
 
   test "before Step 7 has finished the Phrases so far show without a Niche choice", %{conn: conn} do
@@ -676,7 +751,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?view=niches")
 
-    assert has_element?(view, "#results-headline", "Phrases so far.")
+    assert has_element?(view, "#results-headline", "What people type into Google, so far.")
     assert has_element?(view, "#phrases-#{kept.id}", kept.phrase.phrase)
     assert has_element?(view, "#view-niches[aria-disabled] [data-part=count]", "1")
     assert has_element?(view, "#back-to-run[href='/app/runs/#{run.id}']")
@@ -703,7 +778,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     assert has_element?(view, "#niche-row-#{niche.id}")
     assert has_element?(view, "#choose-niche")
-    assert has_element?(view, "#results-headline", "One niche.")
+    assert has_element?(view, "#results-headline", "One topic.")
   end
 
   test "another Account's run sends the User back to the runs list", %{conn: conn} do
@@ -735,7 +810,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     view |> element("#choose-niche") |> render_click()
 
-    assert has_element?(view, "#flash-error", "Niche not found")
+    assert has_element?(view, "#flash-error", "Topic not found")
     refute_enqueued(worker: WriteBrief)
   end
 
@@ -751,7 +826,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
     assert has_element?(
              view,
              "#flash-error",
-             "You can't choose a niche now: the research hasn't finished scoring or is stopped"
+             "You can't choose a topic now: the research hasn't finished rating them or is stopped"
            )
 
     assert Repo.get_by(Page, cluster_id: niche.id) == nil
@@ -767,7 +842,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     view |> element("#choose-niche") |> render_click()
 
-    assert has_element?(view, "#flash-error", "This niche can no longer be chosen")
+    assert has_element?(view, "#flash-error", "This topic can no longer be chosen")
     assert Repo.get_by(Page, cluster_id: niche.id) == nil
   end
 
@@ -780,7 +855,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     view |> element("#reject-niche") |> render_click()
 
-    assert has_element?(view, "#flash-error", "Niche not found")
+    assert has_element?(view, "#flash-error", "Topic not found")
   end
 
   test "rejecting a Niche chosen meanwhile says it can no longer be rejected", %{conn: conn} do
@@ -792,7 +867,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     view |> element("#reject-niche") |> render_click()
 
-    assert has_element?(view, "#flash-error", "This niche can no longer be rejected")
+    assert has_element?(view, "#flash-error", "This topic can no longer be rejected")
     assert Repo.get!(Niche, niche.id).status == :chosen
   end
 
@@ -826,7 +901,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?view=phrases")
 
-    assert has_element?(view, "#results", "Showing 500 of 501. All of them are in the CSV export.")
+    assert has_element?(view, "#results", "Showing the first 500 of 501.")
   end
 
   test "a kept Phrase without a Volume shows dashes for its Volume and CPC", %{conn: conn} do
@@ -836,7 +911,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?view=phrases")
 
-    assert has_element?(view, "#phrases-#{kept.id}", "— / mo. · click —")
+    assert has_element?(view, "#phrases-#{kept.id}", "typed — times a month · ad click price —")
   end
 
   test "a Niche without a Score reads as unscored", %{conn: conn} do
@@ -846,11 +921,11 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?niche=#{niche.id}")
 
-    assert has_element?(view, "#niche-row-#{niche.id} [data-part=advice].text-on-app-muted", "Not scored")
-    assert has_element?(view, "#niche-detail", "niche · 0 phrases · not scored")
-    assert has_element?(view, "#niche-advice[data-kind=unscored] #niche-advice-label", "Not scored")
-    assert has_element?(view, "#niche-advice-demand", "Almost nobody searches like this")
-    assert has_element?(view, "#niche-advice-value", "Nobody pays for ads on these phrases")
+    assert has_element?(view, "#niche-row-#{niche.id} [data-part=advice].text-on-app-muted", "Not rated yet")
+    assert has_element?(view, "#niche-detail", "topic · 0 searches · not rated")
+    assert has_element?(view, "#niche-advice[data-kind=unscored] #niche-advice-label", "Not rated yet")
+    assert has_element?(view, "#niche-advice-demand", "Almost nobody types these into Google")
+    assert has_element?(view, "#niche-advice-value", "Nobody pays Google for ads on these searches")
     assert has_element?(view, "#niche-advice-competition", "I haven't checked who is on Google's first page")
     assert has_element?(view, "#niche-stat-competitors [data-part=value]", "—")
   end
@@ -910,7 +985,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
     assert has_element?(
              view,
              "#competitor-prices-none",
-             "No business like yours is on Google's first page for these phrases"
+             "No business like yours is on Google's first page for these searches"
            )
 
     refute has_element?(view, "#check-prices")
@@ -1056,7 +1131,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
     view |> element("#check-prices") |> render_click()
 
-    assert has_element?(view, "#flash-error", "Niche not found")
+    assert has_element?(view, "#flash-error", "Topic not found")
   end
 
   test "asking for prices while the results are being redone waits for them", %{conn: conn} do

@@ -2,7 +2,7 @@ defmodule DirmoonWeb.NicheAdvice do
   @moduledoc """
   What the results screen tells a business owner about a Niche in plain
   words: a one-line verdict (is it worth going after) and the three reasons
-  behind it (how many people search, what a click is worth, who answers on
+  behind it (how many people search, what an ad click is worth, who answers on
   Google's first page today). Built from the Niche's Score, market totals and
   pooled competition, never by the LLM.
   """
@@ -15,19 +15,21 @@ defmodule DirmoonWeb.NicheAdvice do
     worth: "Worth a try",
     hard: "Worth it, but hard",
     low: "Probably not worth it",
-    unscored: "Not scored"
+    unscored: "Not rated yet"
   }
 
   @classes %{worth: "text-accent", hard: "text-warn", low: "text-on-app-muted", unscored: "text-on-app-muted"}
 
-  @volume_forms %{one: "search", other: "searches"}
   @time_forms %{one: "time", other: "times"}
 
   @competition_reasons %{
     weak:
-      "Google's first page today holds mostly %{holders}, not offers from businesses like yours. A good page has a chance here.",
-    medium: "Google's first page is mixed: %{holders}. You can get in, but not right away.",
-    strong: "Google's first page today holds mostly %{holders}. Breaking in among them will take time."
+      "Weak competition: Google's first page today holds mostly %{holders}, not offers from businesses like yours. " <>
+        "A good page can get onto it.",
+    medium:
+      "Medium competition: Google's first page is a mix of %{holders}. Getting onto it is possible, but not at once.",
+    strong:
+      "Strong competition: Google's first page today holds mostly %{holders}. Getting onto it will be hard and slow."
   }
 
   @doc """
@@ -52,11 +54,12 @@ defmodule DirmoonWeb.NicheAdvice do
   end
 
   @doc """
-  The short figures under a Niche's name in the list: monthly searches and
-  the competition verdict, e.g. "1,090 searches / mo. · strong competition".
+  The short figures under a Niche's name in the list: how many times a month
+  people type its Phrases and the competition verdict with what it means, e.g.
+  "Typed 1,090 times a month · strong competition, hard to get onto Google's first page".
   """
   def figures(%{volume: volume, competition: competition}) do
-    "#{Format.integer(volume)} #{Format.plural(volume, @volume_forms)} / mo. · #{competition_figure(competition)}"
+    "Typed #{Format.integer(volume)} #{Format.plural(volume, @time_forms)} a month · #{competition_figure(competition)}"
   end
 
   defp kind(nil, _competition), do: :unscored
@@ -69,27 +72,28 @@ defmodule DirmoonWeb.NicheAdvice do
     end
   end
 
-  defp demand(0), do: "Almost nobody searches like this: Google shows no measurable number of searches for these phrases."
+  defp demand(0), do: "Almost nobody types these into Google: Google can't measure even one search a month."
 
   defp demand(volume) do
-    "People type these phrases into Google about #{Format.integer(volume)} #{Format.plural(volume, @time_forms)} a month."
+    "People type these searches into Google about #{Format.integer(volume)} #{Format.plural(volume, @time_forms)} a month."
   end
 
-  defp value(nil), do: "Nobody pays for ads on these phrases, so I can't tell what a customer is worth here."
+  defp value(nil), do: "Nobody pays Google for ads on these searches, so I can't tell what a customer is worth here."
 
   defp value(cpc) do
-    "Businesses pay Google #{Format.usd(cpc)} on average for one ad click on these phrases. " <>
+    "Businesses pay Google #{Format.usd(cpc)} on average for one ad click on these searches. " <>
       "The higher the price, the more a customer is worth."
   end
 
-  defp competition_reason(nil), do: "I haven't checked who is on Google's first page for these phrases."
+  defp competition_reason(nil), do: "I haven't checked who is on Google's first page for these searches."
 
   defp competition_reason(%{verdict: verdict, holders: holders}) do
     @competition_reasons |> Map.fetch!(verdict) |> String.replace("%{holders}", holders)
   end
 
-  defp competition_figure(nil), do: "competition not checked"
+  defp competition_figure(nil), do: "competition not checked yet"
 
-  defp competition_figure(%{verdict: verdict}),
-    do: "#{verdict |> RunDisplay.verdict_label() |> String.downcase()} competition"
+  defp competition_figure(%{verdict: verdict}) do
+    "#{verdict |> RunDisplay.verdict_label() |> String.downcase()} competition, #{RunDisplay.verdict_meaning(verdict)}"
+  end
 end

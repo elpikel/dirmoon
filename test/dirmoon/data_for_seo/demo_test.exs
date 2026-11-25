@@ -86,4 +86,18 @@ defmodule Dirmoon.DataForSEO.DemoTest do
     assert Decimal.equal?(cost, 0)
     assert {:ok, %{location_code: ^location_code}} = Demo.find_location(%{city: "Kraków", country_code: "PL"})
   end
+
+  test "the demo countries are the United States, the United Kingdom and Poland with their real location codes" do
+    assert Demo.countries() ==
+             {:ok,
+              [
+                %{country_code: "US", location_code: 2840, name: "United States"},
+                %{country_code: "GB", location_code: 2826, name: "United Kingdom"},
+                %{country_code: "PL", location_code: 2616, name: "Poland"}
+              ]}
+  end
+
+  test "the demo languages are English and Polish" do
+    assert Demo.languages() == {:ok, [%{language_code: "en", name: "English"}, %{language_code: "pl", name: "Polish"}]}
+  end
 end

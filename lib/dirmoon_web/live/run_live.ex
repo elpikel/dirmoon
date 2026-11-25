@@ -23,14 +23,16 @@ defmodule DirmoonWeb.RunLive do
   @not_found_message "Research not found"
 
   @step_hints %{
-    seeds: "Seed phrases and customer questions",
-    expansion: "The phrases people really type",
-    volumes: "Searches in the country and the city, CPC, 12-month trend",
-    filter_and_group: "Dropping phrases outside the business, grouping into niches",
-    competition: "Who holds the top 10 for the best phrases",
-    current_positions: "The site's positions from Search Console",
-    scoring: "Volume, CPC, weakness of the competition",
-    brief: "After you choose a niche"
+    seeds: "I guess what customers might type into Google, and the questions they ask",
+    expansion: "I look up what people really type into Google, starting from those ideas",
+    volumes: "How many times a month people type each search, and what businesses pay Google for one ad click",
+    filter_and_group: "I leave out searches that aren't about the business and sort the rest by what customers want",
+    competition: "Who is on Google's first page for the searches people type most",
+    current_positions: "Where your site already shows up on Google, from Search Console",
+    scoring:
+      "I rate each topic out of 10: how often people search, the ad click price " <>
+        "and how easy it is to get onto Google's first page",
+    brief: "After you choose a topic, I write the plan and the text for one page about it"
   }
 
   @impl true
@@ -111,7 +113,7 @@ defmodule DirmoonWeb.RunLive do
               size="large"
               navigate={@results_path}
             >
-              Show phrases so far
+              Show searches so far
             </.button>
             <.button
               :if={@run.status == :running}
@@ -243,7 +245,7 @@ defmodule DirmoonWeb.RunLive do
     ~H"""
     <div class="flex flex-col gap-2">
       <span class="font-mono text-[11px] text-on-app-muted">
-        step {@step.label_number} · {String.downcase(@step.name)}
+        step {@step.label_number} · {@step.name}
       </span>
       <%= if @progress do %>
         <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">
@@ -252,7 +254,7 @@ defmodule DirmoonWeb.RunLive do
         <div
           id="run-progress"
           role="progressbar"
-          aria-label="Phrases checked"
+          aria-label="Searches checked"
           aria-valuemin="0"
           aria-valuemax={@progress.total}
           aria-valuenow={@progress.checked}
@@ -262,7 +264,7 @@ defmodule DirmoonWeb.RunLive do
         </div>
       <% else %>
         <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">
-          Checking the first phrases on Google
+          Checking the first searches on Google
         </span>
       <% end %>
     </div>
@@ -309,7 +311,7 @@ defmodule DirmoonWeb.RunLive do
     ~H"""
     <div class="flex flex-col gap-2">
       <span class="font-mono text-[11px] text-on-app-muted">
-        step {@step.label_number} · {String.downcase(@step.name)}
+        step {@step.label_number}
       </span>
       <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">{@step.name}</span>
       <p class="m-0 text-[15px] leading-normal text-on-app-2">{@step.summary}</p>
@@ -324,9 +326,9 @@ defmodule DirmoonWeb.RunLive do
   defp state_detail(%{run: %Run{status: :awaiting_choice}} = assigns) do
     ~H"""
     <div class="flex flex-col items-start gap-3">
-      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">The niches are scored.</span>
+      <span class="text-2xl leading-tight font-bold tracking-[-0.02em]">The topics are rated.</span>
       <p class="m-0 text-[15px] leading-normal text-on-app-2">
-        Choose a niche and I'll write a brief for it.
+        Choose a topic and I'll write a brief for it: the plan and the text for one page about that topic.
       </p>
       <.button id="see-results" variant="lime" size="large" navigate={@results_path}>
         See results <.icon name="hero-arrow-right" class="size-[18px]" />

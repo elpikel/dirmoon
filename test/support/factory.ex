@@ -7,6 +7,8 @@ defmodule Dirmoon.Factory do
   alias Dirmoon.Accounts.User
   alias Dirmoon.Competition.SerpAssessment
   alias Dirmoon.Competition.SerpSnapshot
+  alias Dirmoon.Markets.Country
+  alias Dirmoon.Markets.Language
   alias Dirmoon.Niches.Niche
   alias Dirmoon.Pages.Brief
   alias Dirmoon.Pages.Page
@@ -50,10 +52,29 @@ defmodule Dirmoon.Factory do
       description: sequence(:run_description, &"Opis działalności testowej #{&1}"),
       mode: :new_idea,
       country_code: "PL",
+      country_name: "Poland",
       language_code: "pl",
+      language_name: "Polish",
       location_code: 2616,
       priority_services: [],
       status: :running
+    }
+  end
+
+  def market_country_factory do
+    %Country{
+      country_code: sequence(:market_country_code, &"T#{&1}"),
+      location_code: sequence(:market_location_code, &(3_000_000 + &1)),
+      name: sequence(:market_country_name, &"Test country #{&1}"),
+      fetched_at: DateTime.utc_now(:second)
+    }
+  end
+
+  def market_language_factory do
+    %Language{
+      language_code: sequence(:market_language_code, &"x-test-#{&1}"),
+      name: sequence(:market_language_name, &"Test language #{&1}"),
+      fetched_at: DateTime.utc_now(:second)
     }
   end
 

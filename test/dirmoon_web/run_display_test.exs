@@ -35,12 +35,27 @@ defmodule DirmoonWeb.RunDisplayTest do
     end
   end
 
-  test "the country name and language come from the run's location" do
-    run = build(:run, country_code: "PL", city: "Toruń")
+  test "each competition verdict says how hard it is to get onto Google's first page" do
+    assert Enum.map(SerpAssessment.verdicts(), &RunDisplay.verdict_meaning/1) == [
+             "easy to get onto Google's first page",
+             "possible to get onto Google's first page, but not at once",
+             "hard to get onto Google's first page"
+           ]
+  end
 
-    assert RunDisplay.country_name(run) == "Poland"
-    assert RunDisplay.country_and_language(run) == "Poland · Polish"
-    assert RunDisplay.location(run) == "Poland · Toruń"
+  test "the market and location read the country and language names stored on the run" do
+    run =
+      build(:run,
+        country_code: "BR",
+        country_name: "Brazil",
+        language_code: "pt",
+        language_name: "Portuguese",
+        city: "Recife"
+      )
+
+    assert RunDisplay.market(run) == "Brazil · Portuguese"
+    assert RunDisplay.location(run) == "Brazil · Recife"
+    assert RunDisplay.location(%{run | city: nil}) == "Brazil"
   end
 
   test "the short description is the description's first sentence" do

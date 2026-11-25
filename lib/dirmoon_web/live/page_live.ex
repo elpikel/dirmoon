@@ -47,7 +47,7 @@ defmodule DirmoonWeb.PageLive do
       current_scope={@current_scope}
       active={:pages}
       context={@panel_context}
-      note={"Niche: #{@page.niche.name} · #{RunDisplay.mode_label(@page.run.mode)}"}
+      note={"Topic: #{@page.niche.name} · #{RunDisplay.mode_label(@page.run.mode)}"}
     >
       <:status><span id="page-status-line">{@status_line}</span></:status>
       <section id="page-screen" class="flex grow flex-col">
@@ -302,9 +302,9 @@ defmodule DirmoonWeb.PageLive do
         class="flex min-w-0 flex-[2_1_300px] flex-col gap-7 border-app-line bg-app-raised px-[22px] pt-6 pb-8 max-sm:px-4 min-[860px]:border-l max-[859px]:border-t"
       >
         <div class="flex flex-col gap-3">
-          <span id="brief-phrases-label" class={@block_label_class}>Phrases to cover</span>
+          <span id="brief-phrases-label" class={@block_label_class}>Searches to cover</span>
           <p class="m-0 text-[13px] leading-normal text-on-app-2">
-            What people really type for this niche. The page should use them, the first one most of all.
+            What people really type into Google about this topic. The page should use them, the first one most of all.
           </p>
           <ul
             id="brief-phrases"
@@ -324,7 +324,7 @@ defmodule DirmoonWeb.PageLive do
             >
               {phrase}
             </li>
-            <li :if={@brief.phrases == []} class="text-on-app-muted">No phrases in the brief.</li>
+            <li :if={@brief.phrases == []} class="text-on-app-muted">No searches in the brief.</li>
           </ul>
         </div>
 
@@ -412,10 +412,10 @@ defmodule DirmoonWeb.PageLive do
     <div id="page-writing" class="flex flex-col items-start gap-3 px-7 py-10 max-sm:px-5">
       <span class="flex items-center gap-2.5 text-[22px] leading-snug font-bold">
         <.icon name="hero-arrow-path" class="size-5 motion-safe:animate-spin text-accent" />
-        I'm writing the brief for this niche.
+        I'm writing the brief for this topic.
       </span>
       <p class="m-0 max-w-[560px] text-[15px] leading-normal text-on-app-2">
-        Title, heading, customer questions with answers and phrases to cover. This screen turns into the editor by itself when I'm done.
+        The plan and the text for one page about it: title, heading, customer questions with answers and the searches to cover. This screen turns into the editor by itself when I'm done.
       </p>
     </div>
     """

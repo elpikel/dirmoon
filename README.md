@@ -14,7 +14,7 @@ Not exercised yet:
 
 ## Stack
 
-Elixir ~> 1.17, Phoenix 1.8 with LiveView 1.2, Ecto and PostgreSQL, Tailwind v4, Req for HTTP. Oban runs the eight pipeline steps on the `pipeline` queue. External services: OpenAI (the LLM), DataForSEO and Google Search Console. The interface is in English; Seeds, Phrases and Briefs are in the run's market language. Tests use Mox and ExMachina; checks use Styler, Credo and ex_slop.
+Elixir ~> 1.17, Phoenix 1.8 with LiveView 1.2, Ecto and PostgreSQL, Tailwind v4, Req for HTTP. Oban runs the eight pipeline steps on the `pipeline` queue. External services: OpenAI (the LLM), DataForSEO and Google Search Console. The interface is in English; Seeds, Phrases and Briefs are in the run's market language. A run can target any country DataForSEO's keyword data covers, in any language it accepts: both lists are fetched from DataForSEO (free requests) and cached in the database. Tests use Mox and ExMachina; checks use Styler, Credo and ex_slop.
 
 ## Setup and run
 
@@ -35,7 +35,7 @@ Dev runs with no environment variables: demo adapters stand in for every externa
 |---|---|---|
 | `OPENAI_API_KEY` | Real Seeds, filtering and grouping, SERP labels, Briefs and competitor prices from OpenAI | Dev: demo answers. Prod: the step fails with "No OpenAI API key" |
 | `OPENAI_MODEL` | Another OpenAI model than `gpt-6.2-sol`; it must have prices in `config/config.exs` | `gpt-6.2-sol` |
-| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` (both) | Real phrase ideas, volumes and SERP top 10 from DataForSEO | Dev: demo data. Prod: the step fails with "No DataForSEO credentials" |
+| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` (both) | Real phrase ideas, volumes and SERP top 10 from DataForSEO, and the full lists of countries and languages a run can target | Dev: demo data, and only the United States, the United Kingdom and Poland with English and Polish. Prod: the step fails with "No DataForSEO credentials", and with no lists stored the new research screen says DataForSEO isn't configured and can't start a run |
 | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (both) | Connecting Google Search Console, for Existing Site runs | Dev: demo connection. Prod: Step 6 (current positions) is skipped |
 | `DATABASE_URL`, `SECRET_KEY_BASE` | Prod database and cookie signing (required) | Prod does not start |
 | `PHX_HOST`, `POOL_SIZE` | Prod host, database pool size | `example.com`, `10` |
@@ -53,6 +53,7 @@ Google redirect URI to add to the Google Cloud OAuth client: `https://<PHX_HOST>
 
 - `serp_phrase_limit`: how many of the top kept phrases get a SERP check.
 - `serp_max_age_days`: how old a stored SERP snapshot may be and still be reused.
+- `market_lists_max_age_days`: how old the stored lists of countries and languages may get before they are fetched again (30). A failed fetch keeps the stored lists.
 - `grouping_phrase_limit`: how many phrases go to the LLM for filtering and grouping.
 - `scoring_weights`: weights of volume, CPC and competitor weakness in the niche score.
 - `cost_estimates`: per-request USD prices behind the cost estimate on the new research screen.
