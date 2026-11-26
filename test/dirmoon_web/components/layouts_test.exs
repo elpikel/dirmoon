@@ -100,7 +100,7 @@ defmodule DirmoonWeb.LayoutsTest do
 
     document =
       parse(~H"""
-      <Layouts.app flash={%{}} context="results" demo_services={["Search Console"]}>
+      <Layouts.app flash={%{}} context="results" demo_services={["language model (OpenAI)"]}>
         <:status>Masz 3 researche.</:status>
         Content
       </Layouts.app>
@@ -129,7 +129,7 @@ defmodule DirmoonWeb.LayoutsTest do
       parse(~H|<Layouts.app
   flash={%{}}
   context="results"
-  demo_services={["Google searches and competition (DataForSEO)", "Search Console"]}
+  demo_services={["language model (OpenAI)", "Google searches and competition (DataForSEO)"]}
 >
   Content
 </Layouts.app>|)
@@ -138,7 +138,7 @@ defmodule DirmoonWeb.LayoutsTest do
     assert banner_text =~ "TEST DATA"
 
     assert link_text(document, "#demo-data-services") ==
-             "Demo data instead of real data: Google searches and competition (DataForSEO), Search Console."
+             "Demo data instead of real data: language model (OpenAI), Google searches and competition (DataForSEO)."
   end
 
   test "the app layout has no TEST DATA strip when no service is on demo data" do

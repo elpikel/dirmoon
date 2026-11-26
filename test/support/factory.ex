@@ -22,6 +22,8 @@ defmodule Dirmoon.Factory do
   alias Dirmoon.Research.RunStep
   alias Dirmoon.Research.Steps
   alias Dirmoon.SearchConsole.Connection
+  alias Dirmoon.SiteScans.ScannedPage
+  alias Dirmoon.SiteScans.SiteScan
 
   def unique_user_email, do: sequence(:email, &"user#{&1}@example.com")
 
@@ -198,6 +200,24 @@ defmodule Dirmoon.Factory do
       url: fn page -> "https://#{page.domain}/cennik" end,
       outcome: :waiting,
       offers: []
+    }
+  end
+
+  def site_scan_factory do
+    %SiteScan{
+      run: build(:run, mode: :existing_site, domain: sequence(:site_domain, &"strona-testowa-#{&1}.example")),
+      status: :scanning,
+      facts: %{}
+    }
+  end
+
+  def scanned_page_factory do
+    %ScannedPage{
+      site_scan: build(:site_scan),
+      url: sequence(:scanned_page_url, &"https://strona-testowa.example/podstrona-#{&1}"),
+      http_status: 200,
+      facts: %{},
+      position: sequence(:scanned_page_position, & &1)
     }
   end
 

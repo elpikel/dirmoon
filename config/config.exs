@@ -30,6 +30,7 @@ config :dirmoon, Dirmoon.LLM.OpenAI,
   }
 
 config :dirmoon, Dirmoon.Mailer, adapter: Swoosh.Adapters.Local
+config :dirmoon, Dirmoon.PageSpeed.HTTP, base_url: "https://www.googleapis.com", req_options: []
 config :dirmoon, Dirmoon.Repo, types: Dirmoon.Repo.PostgrexTypes
 config :dirmoon, Dirmoon.SearchConsole.Client.Google, req_options: []
 config :dirmoon, Dirmoon.WebPage.HTTP, req_options: []
@@ -48,7 +49,7 @@ config :dirmoon, DirmoonWeb.Endpoint,
 config :dirmoon, Oban,
   engine: Oban.Engines.Basic,
   repo: Dirmoon.Repo,
-  queues: [pipeline: 5],
+  queues: [pipeline: 5, site_scan: 2],
   plugins: [Oban.Plugins.Pruner]
 
 config :dirmoon, :scopes,
@@ -68,12 +69,29 @@ config :dirmoon,
   llm_adapter: Dirmoon.LLM.NotConfigured,
   data_for_seo_adapter: Dirmoon.DataForSEO.NotConfigured,
   search_console_adapter: Dirmoon.SearchConsole.Client.NotConfigured,
+  page_speed_adapter: Dirmoon.PageSpeed.NotConfigured,
   web_page_adapter: Dirmoon.WebPage.HTTP,
   price_check_page_limit: 5,
+  site_scan_page_limit: 50,
+  site_scan_stale_after_minutes: 15,
   grouping_phrase_limit: 400,
   serp_phrase_limit: 30,
+  ranked_phrases_limit: 1000,
   # Per-request USD prices for the estimate on the new research screen (unverified, see notes-dataforseo.md).
-  cost_estimates: %{phrase_ideas: "0.09", search_volumes: "0.09", serp_top10: "0.002", llm_allowance: "0"},
+  # Ranked phrases (DataForSEO Labs): per request plus per returned phrase. The Site Scan's indexed
+  # page count (a `site:` search, five times a SERP request) and Business Profile lookup: per request.
+  cost_estimates: %{
+    phrase_ideas: "0.09",
+    search_volumes: "0.09",
+    serp_top10: "0.002",
+    llm_allowance: "0",
+    ranked_phrases_request: "0.012",
+    ranked_phrases_per_phrase: "0.00012",
+    indexed_page_count: "0.01",
+    business_profile: "0.0054",
+    linking_sites_request: "0.024",
+    linking_sites_per_domain: "0.000036"
+  },
   serp_max_age_days: 30,
   market_lists_max_age_days: 30,
   scoring_weights: %{volume: 0.4, cpc: 0.3, weakness: 0.3},

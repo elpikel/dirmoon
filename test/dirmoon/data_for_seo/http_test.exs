@@ -212,6 +212,413 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
     assert Decimal.equal?(cost, 0)
   end
 
+  test "ranked phrases return each organic phrase the domain ranks for with its position, address and volume" do
+    stub_json(ranked_body())
+
+    assert {:ok, %{rows: rows, raw: raw, cost: cost}} = HTTP.ranked_phrases(ranked_request())
+
+    assert rows == [
+             %{
+               phrase: "hotel dla psów gdańsk",
+               position: 3,
+               url: "https://hotel-dla-psow-testowy.example/gdansk",
+               search_volume: 320
+             },
+             %{
+               phrase: "opieka nad psem",
+               position: 14,
+               url: "https://hotel-dla-psow-testowy.example/opieka",
+               search_volume: nil
+             }
+           ]
+
+    assert raw == ranked_body()
+    assert Decimal.equal?(cost, Decimal.new("0.0144"))
+  end
+
+  test "ranked phrases post one organic-only task for the domain to the labs ranked keywords endpoint" do
+    stub_json(ranked_body())
+
+    HTTP.ranked_phrases(ranked_request())
+
+    assert_received {:request, %{method: "POST", path: path, body: body}}
+    assert path == "/v3/dataforseo_labs/google/ranked_keywords/live"
+
+    assert Jason.decode!(body) == [
+             %{
+               "target" => "hotel-dla-psow-testowy.example",
+               "location_code" => 2616,
+               "language_code" => "pl",
+               "item_types" => ["organic"],
+               "limit" => 100
+             }
+           ]
+  end
+
+  test "ranked phrases leave out items that are not organic or lack the phrase, position or address" do
+    complete = ranked_item(%{phrase: "hotel dla psów", position: 2, path: "/", search_volume: 90})
+
+    incomplete = [
+      put_in(complete, ["ranked_serp_element", "serp_item", "type"], "paid"),
+      update_in(complete, ["ranked_serp_element", "serp_item"], &Map.delete(&1, "type")),
+      update_in(complete, ["ranked_serp_element", "serp_item"], &Map.delete(&1, "rank_group")),
+      put_in(complete, ["ranked_serp_element", "serp_item", "url"], nil),
+      Map.delete(complete, "ranked_serp_element"),
+      put_in(complete, ["keyword_data", "keyword"], nil),
+      Map.delete(complete, "keyword_data"),
+      "not an item"
+    ]
+
+    stub_json(ranked_body_with_items([complete | incomplete]))
+
+    assert {:ok, %{rows: [%{phrase: "hotel dla psów", position: 2, search_volume: 90}]}} =
+             HTTP.ranked_phrases(ranked_request())
+  end
+
+  test "a ranked phrase without its volume info has no volume" do
+    item = ranked_item(%{phrase: "hotel dla psów", position: 2, path: "/", search_volume: 90})
+
+    stub_json(
+      ranked_body_with_items([
+        update_in(item, ["keyword_data"], &Map.delete(&1, "keyword_info")),
+        put_in(item, ["keyword_data", "keyword_info"], nil)
+      ])
+    )
+
+    assert {:ok, %{rows: [%{search_volume: nil}, %{search_volume: nil}]}} = HTTP.ranked_phrases(ranked_request())
+  end
+
+  test "a domain DataForSEO knows no ranked phrases for returns no rows" do
+    stub_json(ranked_body_with_items(nil))
+    assert {:ok, %{rows: []}} = HTTP.ranked_phrases(ranked_request())
+
+    stub_json(Map.update!(ranked_body(), "tasks", fn [task] -> [Map.put(task, "result", nil)] end))
+    assert {:ok, %{rows: []}} = HTTP.ranked_phrases(ranked_request())
+
+    stub_json(failed_task_body(%{status_code: 40_102, status_message: "No Search Results."}))
+    assert {:ok, %{rows: []}} = HTTP.ranked_phrases(ranked_request())
+  end
+
+  test "a failed ranked phrases task, whatever its status, is ranked phrases unavailable with its message, raw response and cost" do
+    for {status_code, status_message} <- [
+          {40_501, "Invalid Field: 'location_code'."},
+          {40_501, "Invalid Field: 'target'."},
+          {40_999, "Something DataForSEO never documented."}
+        ] do
+      body = %{failed_task_body(%{status_code: status_code, status_message: status_message}) | "cost" => 0.012}
+      stub_json(body)
+
+      assert {:error, {:ranked_phrases_unavailable, %{message: message, raw: ^body, cost: cost}}} =
+               HTTP.ranked_phrases(ranked_request())
+
+      assert message == "DataForSEO: " <> status_message
+      assert Decimal.equal?(cost, Decimal.new("0.012"))
+    end
+  end
+
+  test "a failed ranked phrases task without a message or a cost is unavailable with its status code at no cost" do
+    body = update_in(failed_task_body(%{status_code: 40_501, status_message: nil}), ["tasks"], &task_without_message/1)
+    stub_json(Map.delete(body, "cost"))
+
+    assert {:error, {:ranked_phrases_unavailable, %{message: "DataForSEO: status 40501", cost: cost}}} =
+             HTTP.ranked_phrases(ranked_request())
+
+    assert Decimal.equal?(cost, 0)
+  end
+
+  test "a ranked phrases task refused for the account's access or funds is an error to retry, not unavailable" do
+    for {status_code, status_message} <- [
+          {40_100, "You are not authorized to access this resource."},
+          {40_210, "Insufficient Funds."},
+          {40_202, "Rate limit per minute exceeded."}
+        ] do
+      stub_json(failed_task_body(%{status_code: status_code, status_message: status_message}))
+
+      assert HTTP.ranked_phrases(ranked_request()) == {:error, "DataForSEO: " <> status_message}
+    end
+  end
+
+  test "a ranked phrases or business profile task refused for want of a subscription to that API is unavailable" do
+    body = failed_task_body(%{status_code: 40_204, status_message: "Access denied. Activate your subscription."})
+    stub_json(body)
+
+    assert {:error, {:ranked_phrases_unavailable, %{message: "DataForSEO: Access denied. Activate your subscription."}}} =
+             HTTP.ranked_phrases(ranked_request())
+
+    assert {:error, {:business_profile_unavailable, %{raw: ^body}}} = HTTP.business_profile(business_request())
+  end
+
+  test "a ranked phrases or business profile task DataForSEO failed internally is an error to retry" do
+    stub_json(failed_task_body(%{status_code: 50_000, status_message: "Internal Error."}))
+
+    assert HTTP.ranked_phrases(ranked_request()) == {:error, "DataForSEO: Internal Error."}
+    assert HTTP.business_profile(business_request()) == {:error, "DataForSEO: Internal Error."}
+  end
+
+  test "ranked phrases that fail before DataForSEO answers for the task are an error to retry" do
+    stub_json(%{"status_code" => 40_100, "status_message" => "You are not authorized to access this resource."}, 401)
+
+    assert HTTP.ranked_phrases(ranked_request()) ==
+             {:error, "DataForSEO: You are not authorized to access this resource."}
+
+    stub_json(%{}, 500)
+    assert HTTP.ranked_phrases(ranked_request()) == {:error, "DataForSEO: HTTP 500"}
+  end
+
+  test "an unsupported location for another endpoint keeps DataForSEO's message" do
+    stub_json(failed_task_body(%{status_code: 40_501, status_message: "Invalid Field: 'location_code'."}))
+
+    assert HTTP.serp_top10(%{phrase: "hotel dla psów", location_code: 1, language_code: "pl"}) ==
+             {:error, "DataForSEO: Invalid Field: 'location_code'."}
+  end
+
+  test "the indexed page count is Google's result count for the domain's site search, with the raw response and cost" do
+    stub_json(site_search_body(%{"se_results_count" => 1_240}))
+
+    assert {:ok, %{count: 1_240, raw: raw, cost: cost}} = HTTP.indexed_page_count(indexed_request())
+
+    assert raw == site_search_body(%{"se_results_count" => 1_240})
+    assert Decimal.equal?(cost, Decimal.new("0.01"))
+  end
+
+  test "the indexed page count posts one site search with depth 10 to the organic live advanced endpoint" do
+    stub_json(site_search_body(%{"se_results_count" => 7}))
+
+    HTTP.indexed_page_count(indexed_request())
+
+    assert_received {:request, %{method: "POST", path: path, body: body}}
+    assert path == "/v3/serp/google/organic/live/advanced"
+
+    assert Jason.decode!(body) == [
+             %{
+               "keyword" => "site:hotel-dla-psow-testowy.example",
+               "location_code" => 1_011_700,
+               "language_code" => "pl",
+               "depth" => 10
+             }
+           ]
+  end
+
+  test "a site search with no results, or a missing or odd count, counts zero pages" do
+    for result <- [%{"se_results_count" => 0}, %{"se_results_count" => nil}, %{}, %{"se_results_count" => "12"}] do
+      stub_json(site_search_body(result))
+
+      assert {:ok, %{count: 0}} = HTTP.indexed_page_count(indexed_request())
+    end
+
+    stub_json(Map.update!(site_search_body(%{}), "tasks", fn [task] -> [Map.put(task, "result", nil)] end))
+    assert {:ok, %{count: 0}} = HTTP.indexed_page_count(indexed_request())
+
+    stub_json(failed_task_body(%{status_code: 40_102, status_message: "No Search Results."}))
+    assert {:ok, %{count: 0}} = HTTP.indexed_page_count(indexed_request())
+  end
+
+  test "a failed site search returns DataForSEO's message" do
+    stub_json(failed_task_body(%{status_code: 40_501, status_message: "Invalid Field: 'location_code'."}))
+
+    assert HTTP.indexed_page_count(indexed_request()) == {:error, "DataForSEO: Invalid Field: 'location_code'."}
+  end
+
+  test "a business profile returns the profile Google shows for the name, with the raw response and cost" do
+    body = business_info_body([business_item()])
+    stub_json(body)
+
+    assert {:ok, %{profile: profile, raw: ^body, cost: cost}} = HTTP.business_profile(business_request())
+
+    assert profile == %{
+             title: "Hotel dla psów Testowy",
+             address: "ul. Testowa 1, 80-001 Gdańsk",
+             phone: "+48 500 000 000",
+             url: "https://www.hotel-dla-psow-testowy.example/",
+             domain: "www.hotel-dla-psow-testowy.example",
+             rating: 4.6,
+             votes: 38,
+             claimed: true
+           }
+
+    assert Decimal.equal?(cost, Decimal.new("0.0054"))
+  end
+
+  test "a business profile posts one task with the name, location and language to the my business info endpoint" do
+    stub_json(business_info_body([business_item()]))
+
+    HTTP.business_profile(%{business_request() | name: "Hotel 100% dla psów"})
+
+    assert_received {:request, %{method: "POST", path: path, body: body}}
+    assert path == "/v3/business_data/google/my_business_info/live"
+
+    assert Jason.decode!(body) == [
+             %{"keyword" => "Hotel 100%25 dla psów", "location_code" => 1_011_700, "language_code" => "pl"}
+           ]
+  end
+
+  test "a business Google has no profile for, however DataForSEO says so, has no profile" do
+    for body <- [
+          business_info_body(nil),
+          business_info_body([]),
+          Map.update!(business_info_body([]), "tasks", fn [task] -> [Map.put(task, "result", nil)] end),
+          failed_task_body(%{status_code: 40_102, status_message: "No Search Results."})
+        ] do
+      stub_json(body)
+
+      assert {:ok, %{profile: nil}} = HTTP.business_profile(business_request())
+    end
+  end
+
+  test "a profile's missing or odd fields are left empty" do
+    item = %{"type" => "google_business_info", "title" => 7, "rating" => "4.5", "is_claimed" => "yes"}
+    stub_json(business_info_body([item]))
+
+    assert {:ok, %{profile: profile}} = HTTP.business_profile(business_request())
+
+    assert profile == %{
+             title: nil,
+             address: nil,
+             phone: nil,
+             url: nil,
+             domain: nil,
+             rating: nil,
+             votes: nil,
+             claimed: nil
+           }
+
+    stub_json(business_info_body([Map.put(item, "rating", %{"value" => "4.5", "votes_count" => 2.5})]))
+    assert {:ok, %{profile: %{rating: nil, votes: nil}}} = HTTP.business_profile(business_request())
+  end
+
+  test "a failed business profile task is business profile unavailable with its message, raw response and cost" do
+    body = %{
+      failed_task_body(%{status_code: 40_501, status_message: "Invalid Field: 'location_code'."})
+      | "cost" => 0.0054
+    }
+
+    stub_json(body)
+
+    assert {:error, {:business_profile_unavailable, %{message: message, raw: ^body, cost: cost}}} =
+             HTTP.business_profile(business_request())
+
+    assert message == "DataForSEO: Invalid Field: 'location_code'."
+    assert Decimal.equal?(cost, Decimal.new("0.0054"))
+  end
+
+  test "a business profile task refused for the account's access or funds is an error to retry, not unavailable" do
+    stub_json(failed_task_body(%{status_code: 40_210, status_message: "Insufficient Funds."}))
+
+    assert HTTP.business_profile(business_request()) == {:error, "DataForSEO: Insufficient Funds."}
+  end
+
+  test "linking sites are the distinct sites linking to each domain, matched by target whatever the order" do
+    body =
+      linking_sites_body([
+        linking_sites_item("drugi-hotel.example", 4),
+        linking_sites_item("www.hotel-dla-psow-testowy.example", 17)
+      ])
+
+    stub_json(body)
+
+    assert {:ok, %{rows: rows, raw: ^body, cost: cost}} =
+             HTTP.linking_sites(%{domains: ["hotel-dla-psow-testowy.example", "drugi-hotel.example"]})
+
+    assert rows == [
+             %{domain: "hotel-dla-psow-testowy.example", linking_sites: 17},
+             %{domain: "drugi-hotel.example", linking_sites: 4}
+           ]
+
+    assert Decimal.equal?(cost, Decimal.new("0.024072"))
+  end
+
+  test "linking sites post one task with every domain once, bare and without www., to the bulk referring domains endpoint" do
+    stub_json(linking_sites_body([]))
+
+    HTTP.linking_sites(%{domains: ["WWW.Hotel-Testowy.example", "hotel-testowy.example", " drugi-hotel.example "]})
+
+    assert_received {:request, %{method: "POST", path: path, body: body}}
+    assert path == "/v3/backlinks/bulk_referring_domains/live"
+    assert Jason.decode!(body) == [%{"targets" => ["hotel-testowy.example", "drugi-hotel.example"]}]
+  end
+
+  test "an international domain is sent and answered in its ASCII form, whichever form it was given in" do
+    stub_json(linking_sites_body([linking_sites_item("www.żółw.pl", 7)]))
+
+    assert {:ok, %{rows: [%{domain: "xn--w-uga1v8h.pl", linking_sites: 7}]}} =
+             HTTP.linking_sites(%{domains: ["Żółw.pl", "xn--w-uga1v8h.pl"]})
+
+    assert_received {:request, %{body: body}}
+    assert Jason.decode!(body) == [%{"targets" => ["xn--w-uga1v8h.pl"]}]
+  end
+
+  test "a domain the answer says nothing about, or gives no whole count for, has no row instead of zero" do
+    stub_json(
+      linking_sites_body([
+        linking_sites_item("pierwszy.example", nil),
+        linking_sites_item("drugi.example", "12"),
+        linking_sites_item("trzeci.example", -1),
+        %{"referring_main_domains" => 5},
+        linking_sites_item("obcy.example", 9)
+      ])
+    )
+
+    assert {:ok, %{rows: []}} =
+             HTTP.linking_sites(%{domains: ["pierwszy.example", "drugi.example", "trzeci.example", "czwarty.example"]})
+
+    for body <- [
+          Map.update!(linking_sites_body([]), "tasks", fn [task] -> [Map.put(task, "result", nil)] end),
+          Map.update!(linking_sites_body([]), "tasks", fn [task] -> [Map.put(task, "result", [%{"items" => nil}])] end),
+          failed_task_body(%{status_code: 40_102, status_message: "No Search Results."})
+        ] do
+      stub_json(body)
+
+      assert {:ok, %{rows: []}} = HTTP.linking_sites(%{domains: ["pierwszy.example"]})
+    end
+  end
+
+  test "no domain asks nothing and costs nothing; too many domains are refused before asking" do
+    Req.Test.stub(HTTP, fn _conn -> raise "no request expected" end)
+
+    assert {:ok, %{rows: [], raw: %{}, cost: cost}} = HTTP.linking_sites(%{domains: []})
+    assert Decimal.equal?(cost, 0)
+
+    domains = Enum.map(1..21, &"hotel-#{&1}.example")
+    assert HTTP.linking_sites(%{domains: domains}) == {:error, :too_many_domains}
+  end
+
+  test "linking sites refused for want of access, for the task or the whole request, are unavailable with the cost" do
+    task_refusal = %{
+      failed_task_body(%{status_code: 40_204, status_message: "Access denied. Visit Plans and Subscriptions."})
+      | "cost" => 0.024
+    }
+
+    request_refusal = %{"status_code" => 40_204, "status_message" => "Access denied.", "cost" => 0, "tasks" => nil}
+
+    stub_json(task_refusal)
+
+    assert {:error, {:linking_sites_unavailable, %{message: message, raw: ^task_refusal, cost: cost}}} =
+             HTTP.linking_sites(%{domains: ["hotel-testowy.example"]})
+
+    assert message == "DataForSEO: Access denied. Visit Plans and Subscriptions."
+    assert Decimal.equal?(cost, Decimal.new("0.024"))
+
+    stub_json(request_refusal)
+
+    assert {:error, {:linking_sites_unavailable, %{message: "DataForSEO: Access denied.", raw: ^request_refusal}}} =
+             HTTP.linking_sites(%{domains: ["hotel-testowy.example"]})
+  end
+
+  test "linking sites refused for the account's funds, or failed inside DataForSEO, are an error to retry" do
+    for {status_code, status_message} <- [{40_210, "Insufficient Funds."}, {50_000, "Internal Error."}] do
+      stub_json(failed_task_body(%{status_code: status_code, status_message: status_message}))
+
+      assert HTTP.linking_sites(%{domains: ["hotel-testowy.example"]}) == {:error, "DataForSEO: " <> status_message}
+    end
+  end
+
+  test "a whole request refused for want of access is still an error with its message for the other endpoints" do
+    stub_json(%{"status_code" => 40_204, "status_message" => "Access denied.", "cost" => 0, "tasks" => nil})
+
+    assert HTTP.serp_top10(%{phrase: "hotel dla psów", location_code: 2616, language_code: "pl"}) ==
+             {:error, "DataForSEO: Access denied."}
+  end
+
   test "a city is resolved to its location code from the country's city locations" do
     stub_json(locations_body())
 
@@ -669,6 +1076,149 @@ defmodule Dirmoon.DataForSEO.HTTPTest do
       "domain" => "strona-#{position}.example",
       "title" => "Wynik #{position}",
       "url" => "https://strona-#{position}.example/"
+    }
+  end
+
+  defp ranked_request do
+    %{domain: "hotel-dla-psow-testowy.example", location_code: 2616, language_code: "pl", limit: 100}
+  end
+
+  defp indexed_request do
+    %{domain: "hotel-dla-psow-testowy.example", location_code: 1_011_700, language_code: "pl"}
+  end
+
+  defp ranked_body do
+    ranked_body_with_items([
+      ranked_item(%{phrase: "hotel dla psów gdańsk", position: 3, path: "/gdansk", search_volume: 320}),
+      ranked_item(%{phrase: "opieka nad psem", position: 14, path: "/opieka", search_volume: nil})
+    ])
+  end
+
+  defp ranked_body_with_items(items) do
+    envelope(%{
+      cost: 0.0144,
+      task: %{
+        "status_code" => 20_000,
+        "status_message" => "Ok.",
+        "cost" => 0.0144,
+        "result_count" => 1,
+        "path" => ["v3", "dataforseo_labs", "google", "ranked_keywords", "live"],
+        "data" => %{"api" => "dataforseo_labs", "function" => "ranked_keywords", "se_type" => "google"},
+        "result" => [
+          %{
+            "target" => "hotel-dla-psow-testowy.example",
+            "location_code" => 2616,
+            "language_code" => "pl",
+            "total_count" => 2,
+            "items_count" => if(is_list(items), do: Enum.count(items), else: 0),
+            "items" => items
+          }
+        ]
+      }
+    })
+  end
+
+  defp ranked_item(%{phrase: phrase, position: position, path: path, search_volume: search_volume}) do
+    %{
+      "se_type" => "google",
+      "keyword_data" => %{"keyword" => phrase, "keyword_info" => %{"search_volume" => search_volume}},
+      "ranked_serp_element" => %{
+        "serp_item" => %{
+          "type" => "organic",
+          "rank_group" => position,
+          "rank_absolute" => position + 1,
+          "url" => "https://hotel-dla-psow-testowy.example" <> path,
+          "relative_url" => path,
+          "domain" => "hotel-dla-psow-testowy.example"
+        }
+      }
+    }
+  end
+
+  defp site_search_body(result_fields) do
+    envelope(%{
+      cost: 0.01,
+      task: %{
+        "status_code" => 20_000,
+        "status_message" => "Ok.",
+        "cost" => 0.01,
+        "result_count" => 1,
+        "path" => ["v3", "serp", "google", "organic", "live", "advanced"],
+        "data" => %{"api" => "serp", "se" => "google", "se_type" => "organic"},
+        "result" => [
+          Map.merge(
+            %{"keyword" => "site:hotel-dla-psow-testowy.example", "type" => "organic", "items_count" => 0, "items" => []},
+            result_fields
+          )
+        ]
+      }
+    })
+  end
+
+  defp linking_sites_body(items) do
+    envelope(%{
+      cost: 0.024072,
+      task: %{
+        "status_code" => 20_000,
+        "status_message" => "Ok.",
+        "cost" => 0.024072,
+        "result_count" => 1,
+        "path" => ["v3", "backlinks", "bulk_referring_domains", "live"],
+        "data" => %{"api" => "backlinks", "function" => "bulk_referring_domains"},
+        "result" => [%{"items_count" => length(items), "items" => items}]
+      }
+    })
+  end
+
+  defp linking_sites_item(target, referring_main_domains) do
+    %{
+      "target" => target,
+      "referring_domains" => referring_main_domains,
+      "referring_domains_nofollow" => 0,
+      "referring_main_domains" => referring_main_domains,
+      "referring_main_domains_nofollow" => 0
+    }
+  end
+
+  defp business_request do
+    %{name: "Hotel dla psów Testowy", location_code: 1_011_700, language_code: "pl"}
+  end
+
+  defp business_info_body(items) do
+    envelope(%{
+      cost: 0.0054,
+      task: %{
+        "status_code" => 20_000,
+        "status_message" => "Ok.",
+        "cost" => 0.0054,
+        "result_count" => 1,
+        "path" => ["v3", "business_data", "google", "my_business_info", "live"],
+        "data" => %{"api" => "business_data", "function" => "my_business_info", "se" => "google"},
+        "result" => [
+          %{
+            "keyword" => "Hotel dla psów Testowy",
+            "location_code" => 1_011_700,
+            "language_code" => "pl",
+            "item_types" => ["google_business_info"],
+            "items_count" => if(is_list(items), do: Enum.count(items), else: 0),
+            "items" => items
+          }
+        ]
+      }
+    })
+  end
+
+  defp business_item do
+    %{
+      "type" => "google_business_info",
+      "title" => "Hotel dla psów Testowy",
+      "category" => "Hotel dla zwierząt",
+      "address" => "ul. Testowa 1, 80-001 Gdańsk",
+      "phone" => "+48 500 000 000",
+      "url" => "https://www.hotel-dla-psow-testowy.example/",
+      "domain" => "www.hotel-dla-psow-testowy.example",
+      "rating" => %{"rating_type" => "Max5", "value" => 4.6, "votes_count" => 38, "rating_max" => nil},
+      "is_claimed" => true
     }
   end
 

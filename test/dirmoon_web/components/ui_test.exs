@@ -398,11 +398,18 @@ defmodule DirmoonWeb.UITest do
     end
   end
 
-  test "the landing page keeps the slate dark panel", %{conn: conn} do
-    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+  test "the dark panel keeps the slate colours" do
+    assigns = %{}
 
-    assert has_class?(document, "#journey-steps-report-panel[data-surface=dark]", "bg-slate")
-    assert has_class?(document, "#journey-steps-report-panel [data-part=top-bar]", "border-slate-line")
+    document =
+      parse(~H"""
+      <UI.dark_panel id="panel" context="example" note="note">
+        <p>Content</p>
+      </UI.dark_panel>
+      """)
+
+    assert has_class?(document, "#panel[data-surface=dark]", "bg-slate")
+    assert has_class?(document, "#panel [data-part=top-bar]", "border-slate-line")
     assert "lib/dirmoon_web/components/ui.ex" |> File.read!() |> String.match?(@slate_utility)
   end
 

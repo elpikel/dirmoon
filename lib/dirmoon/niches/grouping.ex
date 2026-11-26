@@ -29,6 +29,7 @@ defmodule Dirmoon.Niches.Grouping do
   alias Dirmoon.Research.Ledger
   alias Dirmoon.Research.Run
   alias Dirmoon.Spelling
+  alias Dirmoon.WebPage.HostName
 
   @no_phrases_error "No searches to sort into topics"
   @no_niche_error "The AI found no topic"
@@ -181,7 +182,9 @@ defmodule Dirmoon.Niches.Grouping do
     |> Enum.join("\n\n")
   end
 
-  defp mode_line(%Run{mode: :existing_site, domain: domain}), do: "Mode: existing site, domain: #{domain}."
+  defp mode_line(%Run{mode: :existing_site, domain: domain}),
+    do: "Mode: existing site, domain: #{HostName.to_unicode(domain)}."
+
   defp mode_line(%Run{mode: :new_idea}), do: "Mode: new idea, the business has no site yet."
 
   defp priority_services_line([]), do: nil

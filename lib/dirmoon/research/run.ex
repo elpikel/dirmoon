@@ -14,10 +14,14 @@ defmodule Dirmoon.Research.Run do
   alias Dirmoon.Markets.Language
   alias Dirmoon.Research.RunStep
   alias Dirmoon.Research.Steps
+  alias Dirmoon.WebPage.HostName
 
   @modes [:new_idea, :existing_site]
   @statuses [:running, :stopped, :failed, :awaiting_choice]
   @max_priority_services 5
+  @host_name_format ~r/^[^\x00-\x20\x7F-\x{10FFFF}.\/:@\\]+(\.[^\x00-\x20\x7F-\x{10FFFF}.\/:@\\]+)+$/u
+  @max_host_name_bytes 253
+  @scheme_prefix ~r/^[a-z][a-z0-9+.-]*:\/\//i
   @scoring_step Steps.number!(:scoring)
 
   schema "research_runs" do
@@ -70,8 +74,9 @@ defmodule Dirmoon.Research.Run do
   @doc """
   Validates a run's input as typed in the form: the chosen country and
   language codes are cast, and `put_market/2` checks them against the Market
-  lists; the domain is normalised to a bare host (`https://www.KKadwokat.pl/`
-  → `kkadwokat.pl`); blank Priority Services are dropped.
+  lists; the domain is normalised to a bare host in ASCII form
+  (`https://www.KKadwokat.pl/` → `kkadwokat.pl`, `żółw.pl` →
+  `xn--w-uga1v8h.pl`); blank Priority Services are dropped.
   """
   def changeset(run, attrs) do
     run
@@ -82,11 +87,49 @@ defmodule Dirmoon.Research.Run do
     |> update_change(:domain, &normalise_domain/1)
     |> validate_required([:description, :mode, :country_code, :language_code])
     |> validate_required_domain()
-    |> validate_format(:domain, ~r/^[^\s.\/]+(\.[^\s.\/]+)+$/u)
+    |> validate_change(:domain, &host_name_errors/2)
     |> validate_length(:priority_services, max: @max_priority_services)
     |> check_constraint(:priority_services, name: :research_runs_priority_services_at_most_five)
     |> check_constraint(:domain, name: :research_runs_domain_required_for_existing_site)
   end
+
+  @doc """
+  The bare host a typed site address names, by the rule the changeset uses:
+  the address is parsed as a URL (with or without a scheme) and only its
+  host is kept, so the scheme, user name and password, port, path, query
+  and fragment go, as do a trailing dot and a leading `www.`; the host is
+  lower-cased (`https://user:pw@www.KKadwokat.pl:8080/oferta` →
+  `kkadwokat.pl`). An international name is kept in its ASCII form
+  (`Dirmoon.WebPage.HostName`: `Żółw.pl` → `xn--w-uga1v8h.pl`), the form
+  the site is requested, looked up and compared in; full-width letters,
+  digits and dots become their ASCII spelling on the way.
+
+  Returns `{:ok, domain}`, or `:error` for a blank address or one that
+  names no host name: dot-separated ASCII labels without `:`, `@`, `\\`,
+  `/`, whitespace or control characters, at most 253 bytes, so an
+  international name that can't be encoded names none. An address with a
+  backslash anywhere names no host, since URL parsers disagree on where its
+  host ends.
+  """
+  def normalised_domain(address) when is_binary(address) do
+    case normalise_domain(address) do
+      nil -> :error
+      domain -> if host_name?(domain), do: {:ok, domain}, else: :error
+    end
+  end
+
+  def normalised_domain(_not_text), do: :error
+
+  @doc """
+  The run's domain in the form it is requested, looked up and compared in:
+  the bare host in ASCII form (`Dirmoon.WebPage.HostName.bare/1`). Runs
+  stored before domains were kept in ASCII form may hold the Unicode form
+  (`żółw.pl`); this gives `xn--w-uga1v8h.pl` for those too. `nil` for a run
+  without a domain.
+  """
+  @spec ascii_domain(%__MODULE__{}) :: String.t() | nil
+  def ascii_domain(%__MODULE__{domain: domain}) when is_binary(domain), do: HostName.bare(domain)
+  def ascii_domain(%__MODULE__{domain: nil}), do: nil
 
   @doc """
   Puts the chosen Market on a run's changeset: the stored country (its
@@ -123,19 +166,46 @@ defmodule Dirmoon.Research.Run do
     |> Enum.reject(&(&1 == ""))
   end
 
-  defp normalise_domain(domain) do
-    domain
-    |> String.trim()
-    |> String.downcase()
-    |> String.replace(~r/^[a-z][a-z0-9+.-]*:\/\//, "")
-    |> String.split(["/", "?", "#"], parts: 2)
-    |> hd()
-    |> String.replace_prefix("www.", "")
-    |> blank_to_nil()
+  defp normalise_domain(address) do
+    typed = String.trim(address)
+
+    if typed |> String.replace(@scheme_prefix, "") |> String.trim() == "" do
+      nil
+    else
+      typed
+      |> host_of()
+      |> ascii_or_as_typed()
+      |> String.downcase()
+      |> String.trim_trailing(".")
+      |> String.replace_prefix("www.", "")
+    end
   end
 
-  defp blank_to_nil(""), do: nil
-  defp blank_to_nil(value), do: value
+  defp host_of(typed) do
+    with false <- String.contains?(typed, "\\"),
+         %URI{host: host} when is_binary(host) and host != "" <- typed |> with_scheme() |> URI.parse() do
+      host
+    else
+      _no_host -> typed
+    end
+  end
+
+  defp ascii_or_as_typed(host) do
+    case HostName.to_ascii(host) do
+      {:ok, ascii} -> ascii
+      :error -> host
+    end
+  end
+
+  defp with_scheme(typed) do
+    if Regex.match?(@scheme_prefix, typed), do: typed, else: "//" <> typed
+  end
+
+  defp host_name?(domain), do: byte_size(domain) <= @max_host_name_bytes and Regex.match?(@host_name_format, domain)
+
+  defp host_name_errors(:domain, domain) do
+    if host_name?(domain), do: [], else: [domain: "has invalid format"]
+  end
 
   defp validate_required_domain(changeset) do
     case get_field(changeset, :mode) do

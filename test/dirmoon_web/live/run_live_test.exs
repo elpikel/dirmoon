@@ -8,6 +8,7 @@ defmodule DirmoonWeb.RunLiveTest do
   alias Dirmoon.Research
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
+  alias Dirmoon.SiteScans
   alias Dirmoon.Workers.ExpandPhrases
 
   test "the eight Steps show with their number, name, result and status", %{conn: conn} do
@@ -50,7 +51,7 @@ defmodule DirmoonWeb.RunLiveTest do
        "How many times a month people type each search, and what businesses pay Google for one ad click"},
       {"Topics", "I leave out searches that aren't about the business and sort the rest by what customers want"},
       {"Google's first page", "Who is on Google's first page for the searches people type most"},
-      {"Where your site shows up", "Where your site already shows up on Google, from Search Console"},
+      {"Where your site shows up", "Where your site already shows up on Google"},
       {"Rating",
        "I rate each topic out of 10: how often people search, the ad click price and how easy it is to get onto Google's first page"},
       {"Brief", "After you choose a topic, I write the plan and the text for one page about it"}
@@ -485,6 +486,56 @@ defmodule DirmoonWeb.RunLiveTest do
       },
       overrides
     )
+  end
+
+  test "an Existing Site run says where the reading of its site stands and links to \"Your site\"", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+
+    run =
+      insert(:run,
+        account: scope.account,
+        mode: :existing_site,
+        domain: "strona-testowa.example",
+        steps: build_run_steps(%{1 => :running})
+      )
+
+    site_scan = insert(:site_scan, run: run, status: :scanning, pages_read: 3)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+
+    assert has_element?(view, "#run-site-scan", "I'm reading strona-testowa.example: 3 pages so far.")
+    assert has_element?(view, ~s(#run-site-scan-link[href="/app/runs/#{run.id}/site"]), "Your site")
+
+    site_scan |> Ecto.Changeset.change(status: :done, pages_read: 9) |> Repo.update!() |> SiteScans.broadcast_updated()
+
+    assert has_element?(view, "#run-site-scan", "I read 9 pages of strona-testowa.example.")
+  end
+
+  test "the progress of the scan names an international site in its Unicode form", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+
+    run =
+      insert(:run,
+        account: scope.account,
+        mode: :existing_site,
+        domain: "xn--w-uga1v8h.pl",
+        steps: build_run_steps(%{1 => :running})
+      )
+
+    insert(:site_scan, run: run, status: :scanning, pages_read: 3)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+
+    assert has_element?(view, "#run-site-scan", "I'm reading żółw.pl: 3 pages so far.")
+  end
+
+  test "a New Idea run says nothing about a site", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, steps: build_run_steps(%{1 => :running}))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}")
+
+    refute has_element?(view, "#run-site-scan")
   end
 
   defp finish_step(run, number, result) do

@@ -4,7 +4,10 @@ defmodule Dirmoon.LLM.Demo do
   the request's `input`, at no cost. Used in dev while no provider is chosen.
   Free text starts with the Demo Data marker, `Dirmoon.demo_marker/0`; it never refers to an id it wasn't given and
   never writes a phone number, price, e-mail or address: it finds no
-  Competitor Offers on any page.
+  Competitor Offers on any page. It does not match a site's pages to
+  Niches nor describe a site from its home page (both
+  `{:error, :not_in_demo_data}`): any answer, even "no page matches", would
+  read as a fact about the owner's real site.
 
   What the owner reads (Niche names, intents, Readings, rejection reasons)
   is English; Seeds, questions and Brief text are Polish whatever the run's
@@ -30,6 +33,8 @@ defmodule Dirmoon.LLM.Demo do
   def structured(%{task: :label_serp, input: input}), do: answer(label_serp(input))
   def structured(%{task: :brief, input: input}), do: answer(brief(input))
   def structured(%{task: :competitor_prices}), do: answer(%{"offers" => []})
+  def structured(%{task: :match_pages}), do: {:error, :not_in_demo_data}
+  def structured(%{task: :describe_site}), do: {:error, :not_in_demo_data}
   def structured(%{task: task}), do: {:error, {:unknown_llm_task, task}}
 
   defp answer(output), do: {:ok, output, Decimal.new(0)}

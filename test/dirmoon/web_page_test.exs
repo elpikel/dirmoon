@@ -14,6 +14,14 @@ defmodule Dirmoon.WebPageTest do
              WebPage.fetch_text("https://lodowisko-testowe.example/")
   end
 
+  test "a page is read raw by the configured adapter" do
+    page = %{url: "https://lodowisko-testowe.example/", status: 404, redirects: [], content_type: "text/html", body: ""}
+
+    expect(Dirmoon.WebPageMock, :fetch, 1, fn "https://lodowisko-testowe.example/" -> {:ok, page} end)
+
+    assert {:ok, ^page} = WebPage.fetch("https://lodowisko-testowe.example/")
+  end
+
   test "dev and production read pages with the real adapter, no credentials needed" do
     for env <- [:dev, :prod] do
       config = Config.Reader.read!("config/config.exs", env: env)

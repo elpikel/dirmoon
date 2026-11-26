@@ -19,13 +19,13 @@ defmodule Dirmoon.LLM do
 
   @callback structured(request()) :: {:ok, map(), Decimal.t()} | {:error, term()}
 
-  @tasks [:seeds, :filter_and_group, :label_serp, :brief, :competitor_prices]
+  @tasks [:seeds, :filter_and_group, :label_serp, :brief, :competitor_prices, :match_pages, :describe_site]
 
   @doc "Sends the request to the configured adapter."
   @spec structured(request()) :: {:ok, map(), Decimal.t()} | {:error, term()}
   def structured(request), do: adapter().structured(request)
 
-  @doc "The tasks a Step or a Price Check may ask the LLM for."
+  @doc "The tasks a Step, a Price Check, a Site Scan or the new research screen's draft may ask the LLM for."
   def tasks, do: @tasks
 
   defp adapter, do: Application.fetch_env!(:dirmoon, :llm_adapter)

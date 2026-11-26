@@ -2,10 +2,19 @@ defmodule Dirmoon.PriceChecks.Checker do
   @moduledoc """
   Reads a Price Check's waiting Competitor Pages one by one:
 
-    * the page is read through the web page seam (`Dirmoon.WebPage`), via
-      the run's ledger at no cost, so a page already read is replayed;
-    * a page that could not be opened is `:unreadable`, and the check goes
-      on with the next page;
+    * the page is read once, raw, through the web page seam
+      (`Dirmoon.WebPage.fetch/1`), via the run's ledger at no cost, so a
+      page already read is replayed. The ledger keeps what the price lookup
+      needs, not the HTML: the visible text and the address read
+      (`Dirmoon.WebPage.text_page/1`, as `fetch_text/1` gives them, under
+      the operation `"fetch_text"` as before) and, for an HTML page, the
+      Page Facts that compare it with the site's own page
+      (`Dirmoon.WebPage.PageFacts.comparison/1`), stored on the Competitor
+      Page. A page read before the facts were kept is replayed without
+      them, so its facts stay nil;
+    * a page that could not be opened (no answer, a status other than 200,
+      not HTML or plain text) is `:unreadable`, and the check goes on with
+      the next page;
     * the LLM lists the offers it finds in the page text, through the
       run's ledger, so the request is paid once and counts in the run's API
       Cost; a blank page is not sent;
@@ -15,6 +24,13 @@ defmodule Dirmoon.PriceChecks.Checker do
 
   Each page's outcome is stored as soon as it is known, so a retry goes on
   where the last attempt stopped.
+
+  For an Existing Site run, before the pages are read, one request asks how
+  many other sites link to each Competitor Page's domain
+  (`Dirmoon.SiteScans.LinkingSites`, through the run's ledger, so a retry
+  replays it), for the comparison with the site. It never fails the check:
+  a refusal, an error or a crash leaves the counts nil. A New Idea run has
+  no site to compare, so it buys none.
 
   Prices and quotes stay exactly as the page writes them, in its language;
   the model names each offer in English for the owner.
@@ -27,7 +43,10 @@ defmodule Dirmoon.PriceChecks.Checker do
   alias Dirmoon.PriceChecks.CompetitorPage
   alias Dirmoon.PriceChecks.PriceCheck
   alias Dirmoon.Research.Ledger
+  alias Dirmoon.Research.Run
+  alias Dirmoon.SiteScans.LinkingSites
   alias Dirmoon.WebPage
+  alias Dirmoon.WebPage.PageFacts
 
   @phrase_limit 10
   @offer_limit 15
@@ -67,6 +86,7 @@ defmodule Dirmoon.PriceChecks.Checker do
   read before the error keep their outcome.
   """
   def check(%PriceCheck{competitor_pages: pages} = price_check) do
+    record_linking_sites(price_check)
     context = %{price_check: price_check, phrases: phrase_texts(price_check)}
 
     pages
@@ -83,25 +103,44 @@ defmodule Dirmoon.PriceChecks.Checker do
     end)
   end
 
+  defp record_linking_sites(%PriceCheck{run: %Run{mode: :existing_site} = run, competitor_pages: pages} = price_check) do
+    case LinkingSites.count(run, Enum.map(pages, & &1.domain)) do
+      {:ok, counts} -> PriceChecks.record_linking_sites(price_check, counts)
+      {:error, _unavailable_or_failed} -> :ok
+    end
+  rescue
+    _exception -> :ok
+  catch
+    _kind, _reason -> :ok
+  end
+
+  defp record_linking_sites(%PriceCheck{}), do: :ok
+
   defp read_page(page, %{price_check: price_check} = context) do
     case Ledger.fetch(price_check.run, %{service: "web_page", operation: "fetch_text", request: %{url: page.url}}, fn ->
-           fetch_text(page.url)
+           read_competitor_page(page.url)
          end) do
-      {:ok, %{"text" => text, "url" => read_url}} ->
-        find_offers(page, Map.merge(context, %{text: text, read_url: read_url}))
+      {:ok, %{"text" => text, "url" => read_url} = answer} ->
+        find_offers(page, Map.merge(context, %{text: text, read_url: read_url, facts: answer["facts"]}))
 
       {:error, _reason} ->
         {:ok, %{outcome: :unreadable}}
     end
   end
 
-  defp fetch_text(url) do
-    with {:ok, %{text: text, url: read_url}} <- WebPage.fetch_text(url) do
-      {:ok, %{"text" => text, "url" => read_url}, Decimal.new(0)}
+  defp read_competitor_page(url) do
+    with {:ok, raw_page} <- WebPage.fetch(url),
+         {:ok, %{text: text, url: read_url}} <- WebPage.text_page(raw_page) do
+      {:ok, %{"text" => text, "url" => read_url, "facts" => comparison_facts(raw_page)}, Decimal.new(0)}
     end
   end
 
-  defp find_offers(_page, %{text: "", read_url: read_url}), do: {:ok, %{outcome: :no_prices, read_url: read_url}}
+  defp comparison_facts(%{body: body, url: url} = raw_page) do
+    if WebPage.html?(raw_page), do: body |> PageFacts.from_html(url) |> PageFacts.comparison()
+  end
+
+  defp find_offers(_page, %{text: "", read_url: read_url, facts: facts}),
+    do: {:ok, %{outcome: :no_prices, read_url: read_url, facts: facts}}
 
   defp find_offers(%CompetitorPage{}, %{price_check: price_check, text: text, read_url: read_url} = context) do
     request = offers_request(%{niche_name: price_check.niche.name, phrases: context.phrases, url: read_url, text: text})
@@ -112,7 +151,7 @@ defmodule Dirmoon.PriceChecks.Checker do
            end) do
       offers = CompetitorOffer.verified(answer_offers, %{page_text: text, limit: @offer_limit})
       outcome = if offers == [], do: :no_prices, else: :prices_found
-      {:ok, %{outcome: outcome, offers: offers, read_url: read_url}}
+      {:ok, %{outcome: outcome, offers: offers, read_url: read_url, facts: context.facts}}
     end
   end
 

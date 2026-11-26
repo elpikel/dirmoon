@@ -16,6 +16,18 @@ defmodule Dirmoon.DataForSEO.NotConfigured do
   def serp_top10(_request), do: not_configured()
 
   @impl Dirmoon.DataForSEO
+  def ranked_phrases(_request), do: not_configured()
+
+  @impl Dirmoon.DataForSEO
+  def indexed_page_count(_request), do: not_configured()
+
+  @impl Dirmoon.DataForSEO
+  def business_profile(_request), do: not_configured()
+
+  @impl Dirmoon.DataForSEO
+  def linking_sites(_request), do: not_configured()
+
+  @impl Dirmoon.DataForSEO
   def find_location(_request), do: not_configured()
 
   @impl Dirmoon.DataForSEO

@@ -2,7 +2,9 @@ defmodule Dirmoon.SearchConsole.Client do
   @moduledoc """
   The seam to Google: the OAuth consent URL, the code exchange, access token
   refresh and the Search Analytics query. The adapter is chosen by
-  `config :dirmoon, :search_console_adapter`.
+  `config :dirmoon, :search_console_adapter`: `Client.Google` when Google
+  OAuth credentials are set, otherwise `Client.NotConfigured`. There is no
+  demo adapter, so no Current Positions are ever made up.
 
   Adapters never put a client secret, code or token into an error reason.
   """

@@ -36,4 +36,36 @@ defmodule Dirmoon.WebPage.VisibleTextTest do
   test "bytes that are not UTF-8 do not break the text" do
     assert VisibleText.from_html(<<"Cena 10 z", 0xB3>>, 100) == "Cena 10 z"
   end
+
+  test "every named character reference is decoded" do
+    assert VisibleText.from_html("<p>Caf&eacute; &Uuml;ber &frac12;</p>", 100) == "Café Über ½"
+  end
+
+  test "a hidden element whose closing tag never comes hides the rest of the page, quickly" do
+    for tag <- ["<script>", "<style>", "<head>"] do
+      html = "<p>Pokoje</p>" <> String.duplicate(tag, div(1_000_000, byte_size(tag)))
+
+      {microseconds, text} = :timer.tc(fn -> VisibleText.from_html(html, 1_000) end)
+
+      assert text == "Pokoje"
+      assert microseconds < 2_000_000
+    end
+  end
+
+  test "hidden elements opened inside each other without end give no text, quickly" do
+    for tag <- ["<noscript>", "<template>", "<svg>"] do
+      html = "<p>Pokoje</p>" <> String.duplicate(tag, div(1_000_000, byte_size(tag)))
+
+      {microseconds, text} = :timer.tc(fn -> VisibleText.from_html(html, 1_000) end)
+
+      assert text == ""
+      assert microseconds < 2_000_000
+    end
+  end
+
+  test "the text of parsed elements leaves out hidden elements and comments" do
+    tree = [{"h1", [], ["Pokoje ", {:comment, "ukryte"}, {"script", [], ["var a;"]}, {"em", [], ["nad\njeziorem"]}]}]
+
+    assert VisibleText.from_tree(tree, 100) == "Pokoje nad jeziorem"
+  end
 end

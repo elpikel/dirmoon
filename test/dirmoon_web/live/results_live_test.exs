@@ -11,6 +11,7 @@ defmodule DirmoonWeb.ResultsLiveTest do
   alias Dirmoon.Repo
   alias Dirmoon.Research
   alias Dirmoon.Research.RunStep
+  alias Dirmoon.SiteScans
   alias Dirmoon.Workers.CheckCompetitorPrices
   alias Dirmoon.Workers.WriteBrief
 
@@ -429,6 +430,132 @@ defmodule DirmoonWeb.ResultsLiveTest do
     assert has_element?(view, "#niche-phrases-#{ranked.id}", "13.7")
     refute has_element?(view, "#niche-stat-competitors")
     assert has_element?(view, "#run-parameters", "strona-testowa.pl")
+  end
+
+  test "international domains are shown in their Unicode form: the site's, Google's results' and competitors'", %{
+    conn: conn
+  } do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope, %{mode: :existing_site, domain: "xn--w-uga1v8h.pl"})
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+    checked = phrase_in_niche(run, niche, %{volume: 900, cpc: nil})
+
+    results = [
+      %{
+        "position" => 1,
+        "url" => "https://xn--mnchen-3ya.de/hotel",
+        "domain" => "xn--mnchen-3ya.de",
+        "title" => "Hotel"
+      }
+    ]
+
+    insert(:serp_assessment,
+      run: run,
+      phrase: checked.phrase,
+      serp_snapshot: build(:serp_snapshot, phrase: checked.phrase, results: results),
+      labels: [%{"position" => 1, "page_type" => "direct_competitor"}]
+    )
+
+    price_check = insert(:price_check, run: run, niche: niche, status: :done)
+
+    competitor =
+      insert(:competitor_page,
+        price_check: price_check,
+        domain: "xn--r8jz45g.jp",
+        url: "https://xn--r8jz45g.jp/",
+        outcome: :no_prices,
+        facts: comparison_facts(%{})
+      )
+
+    site_scan = insert(:site_scan, run: run, status: :done, facts: %{"matching" => %{"done" => true}})
+    insert(:scanned_page, site_scan: site_scan, url: "https://xn--w-uga1v8h.pl/", cluster_id: niche.id)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#run-parameters", "żółw.pl")
+    assert has_element?(view, "#first-page-#{checked.id} li:nth-child(1) a", "münchen.de")
+    assert has_element?(view, "#page-type-direct_competitor [data-part=site] a", "münchen.de")
+    assert has_element?(view, "#competitor-page-#{competitor.id} [data-part=domain]", "例え.jp")
+    assert has_element?(view, "#page-comparison-competitor-#{competitor.id} [data-part=domain]", "例え.jp")
+  end
+
+  test "an Existing Site run's views lead to \"Your site\" with a one-line hint", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope, %{mode: :existing_site, domain: "strona-testowa.pl"})
+    insert(:niche, run: run, score: Decimal.new("5.5"))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, ~s(#results-views #view-site[href="/app/runs/#{run.id}/site"]), "Your site")
+    assert has_element?(view, "#view-site [data-part=hint]", "What I found on your own site, and what to fix.")
+  end
+
+  test "a New Idea run's views have no \"Your site\"", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    insert(:niche, run: run, score: Decimal.new("5.5"))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    refute has_element?(view, "#view-site")
+    refute has_element?(view, "[data-part=site-page]")
+    refute has_element?(view, "#niche-site-page")
+  end
+
+  test "once the site's pages are matched each topic says whether the site has a page for it", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope, %{mode: :existing_site, domain: "strona-testowa.pl"})
+    with_page = insert(:niche, run: run, score: Decimal.new("6.5"))
+    without_page = insert(:niche, run: run, score: Decimal.new("5.5"))
+    site_scan = insert(:site_scan, run: run, status: :done, facts: %{"matching" => %{"done" => true}})
+    page = insert(:scanned_page, site_scan: site_scan, cluster_id: with_page.id, facts: %{"word_count" => 300})
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?#{[view: "niches", niche: with_page.id]}")
+
+    assert has_element?(view, "#niche-row-#{with_page.id}-site-page", "You have a page: #{page.url}")
+    assert has_element?(view, "#niche-row-#{without_page.id}-site-page", "No page yet")
+
+    assert has_element?(
+             view,
+             ~s(#niche-site-page a[href="#{page.url}"][target=_blank][rel="noopener noreferrer nofollow"]),
+             page.url
+           )
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?#{[view: "niches", niche: without_page.id]}")
+
+    assert has_element?(view, "#niche-site-page", "No page yet: your site has no page about this topic.")
+  end
+
+  test "a matched page whose address is not a web address is shown as text, never as a link", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope, %{mode: :existing_site, domain: "strona-testowa.pl"})
+    niche = insert(:niche, run: run, score: Decimal.new("6.5"))
+    site_scan = insert(:site_scan, run: run, status: :done, facts: %{"matching" => %{"done" => true}})
+
+    insert(:scanned_page,
+      site_scan: site_scan,
+      url: "javascript:alert(1)",
+      cluster_id: niche.id,
+      facts: %{"word_count" => 300}
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#niche-site-page", "You have a page: javascript:alert(1)")
+    refute has_element?(view, "#niche-site-page a")
+  end
+
+  test "topics say nothing about the site's pages until they are matched", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope, %{mode: :existing_site, domain: "strona-testowa.pl"})
+    niche = insert(:niche, run: run, score: Decimal.new("6.5"))
+    site_scan = insert(:site_scan, run: run, status: :done, facts: %{})
+    insert(:scanned_page, site_scan: site_scan, cluster_id: niche.id, facts: %{"word_count" => 300})
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    refute has_element?(view, "[data-part=site-page]")
+    refute has_element?(view, "#niche-site-page")
   end
 
   test "an Existing Site run marks the Niche's Quick Wins next to their position and counts them in the summary line",
@@ -1063,7 +1190,9 @@ defmodule DirmoonWeb.ResultsLiveTest do
     {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
     view |> element("#check-prices") |> render_click()
 
-    Mox.stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: "Doba 80 zł", url: url}} end)
+    Mox.stub(Dirmoon.WebPageMock, :fetch, fn url ->
+      {:ok, %{url: url, status: 200, redirects: [], content_type: "text/html", body: "<p>Doba 80 zł</p>"}}
+    end)
 
     Mox.stub(Dirmoon.LLMMock, :structured, fn _request ->
       {:ok, %{"offers" => [%{"name" => "Doba", "price" => "80 zł", "quote" => "Doba 80 zł"}]}, Decimal.new("0.001")}
@@ -1160,9 +1289,317 @@ defmodule DirmoonWeb.ResultsLiveTest do
     refute_enqueued(worker: CheckCompetitorPrices)
   end
 
+  test "an Existing Site's Price Check compares my matched page with each competitor's page, with the sites linking to each",
+       %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    %{run: run, niche: niche} = existing_site_niche(scope)
+
+    site_scan =
+      insert(:site_scan,
+        run: run,
+        status: :done,
+        facts: %{"matching" => %{"done" => true}, "linking_sites" => %{"checked" => true, "count" => 1_250}}
+      )
+
+    my_page =
+      insert(:scanned_page,
+        site_scan: site_scan,
+        url: "https://strona-testowa.pl/hotel",
+        cluster_id: niche.id,
+        facts: %{
+          "word_count" => 420,
+          "main_headings" => ["Hotel dla psów"],
+          "sub_headings" => [%{"level" => 2, "text" => "Cennik"}],
+          "structured_data_types" => [],
+          "ways_to_act" => %{"phone_links" => 0, "email_links" => 0, "forms" => 0, "button_links" => 1}
+        }
+      )
+
+    price_check = insert(:price_check, run: run, niche: niche, status: :done)
+
+    competitor =
+      insert(:competitor_page,
+        price_check: price_check,
+        domain: "hotel-a.example",
+        url: "https://hotel-a.example/",
+        read_url: "https://hotel-a.example/cennik",
+        outcome: :prices_found,
+        linking_sites: 31,
+        facts: comparison_facts(%{"word_count" => 1_900, "structured_data_types" => ["LocalBusiness", "Offer"]})
+      )
+
+    without_prices =
+      insert(:competitor_page,
+        price_check: price_check,
+        domain: "hotel-b.example",
+        outcome: :no_prices,
+        facts: comparison_facts(%{"ways_to_act" => %{"phone_links" => 0, "email_links" => 0, "forms" => 0}})
+      )
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#page-comparison h3", "Your page against theirs")
+    assert has_element?(view, "#page-comparison-site[data-state=page] th", "Your page")
+
+    assert has_element?(
+             view,
+             ~s(#page-comparison-site a[data-part=address][href="#{my_page.url}"][target=_blank][rel="noopener noreferrer nofollow"])
+           )
+
+    assert has_element?(view, "#page-comparison-site [data-part=words]", "420")
+    assert has_element?(view, "#page-comparison-site [data-part=headings]", "1 main, 1 smaller")
+    assert has_element?(view, "#page-comparison-site [data-part=structured-data]", "No")
+    assert has_element?(view, "#page-comparison-site [data-part=states-price]", "—")
+    assert has_element?(view, "#page-comparison-site [data-part=contact]", "None")
+    assert has_element?(view, "#page-comparison-site [data-part=linking-sites]", "1,250")
+    refute has_element?(view, "#page-comparison-site [data-part=note]")
+
+    row = "#page-comparison-competitor-#{competitor.id}"
+
+    assert has_element?(
+             view,
+             ~s(#{row} a[data-part=domain][href="https://hotel-a.example/cennik"][rel="noopener noreferrer nofollow"]),
+             "hotel-a.example"
+           )
+
+    assert has_element?(view, "#{row} [data-part=words]", "1,900")
+    assert has_element?(view, "#{row} [data-part=headings]", "1 main, 4 smaller")
+    assert has_element?(view, "#{row} [data-part=structured-data]", "Yes")
+    assert has_element?(view, ~s(#{row} [data-part=structured-data] [title="LocalBusiness, Offer"]))
+    assert has_element?(view, "#{row} [data-part=types]", "LocalBusiness, Offer")
+    assert has_element?(view, "#{row} [data-part=states-price]", "Yes")
+    assert has_element?(view, "#{row} [data-part=contact]", "Phone, e-mail, form")
+    assert has_element?(view, "#{row} [data-part=linking-sites]", "31")
+
+    other = "#page-comparison-competitor-#{without_prices.id}"
+    assert has_element?(view, "#{other} [data-part=states-price]", "No")
+    assert has_element?(view, "#{other} [data-part=contact]", "None")
+    assert has_element?(view, "#{other} [data-part=linking-sites]", "—")
+
+    assert has_element?(view, "#page-comparison-legend dt", "Structured data")
+
+    assert has_element?(
+             view,
+             "#page-comparison-legend dd",
+             "Labels in the page code that tell Google your name, address and prices."
+           )
+
+    assert has_element?(view, "#page-comparison-legend dd", "third-party index of links, so it is approximate")
+  end
+
+  test "the comparison scrolls inside its own box on a narrow screen", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    %{run: run, niche: niche} = existing_site_niche(scope)
+    insert(:site_scan, run: run, status: :done, facts: %{"matching" => %{"done" => true}})
+    read_competitor_page(run, niche)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#page-comparison > div.overflow-x-auto > table.w-full")
+    assert has_element?(view, "#page-comparison-legend.grid")
+  end
+
+  test "a topic I have no page for says so in my row, with a nudge to its brief", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    %{run: run, niche: niche} = existing_site_niche(scope)
+
+    insert(:site_scan,
+      run: run,
+      status: :done,
+      facts: %{"matching" => %{"done" => true}, "linking_sites" => %{"checked" => true, "count" => 0}}
+    )
+
+    read_competitor_page(run, niche)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(
+             view,
+             "#page-comparison-site[data-state=no_page] [data-part=message]",
+             "You have no page for this topic yet. Choose this topic below and the brief I write"
+           )
+
+    assert has_element?(view, "#page-comparison-site [data-part=linking-sites]", "0")
+    refute has_element?(view, "#page-comparison-site [data-part=words]")
+  end
+
+  test "my row says why there is nothing of mine to compare yet", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+
+    for {scan, state, message} <- [
+          {nil, "no_scan", "I haven't read your site"},
+          {%{status: :scanning, facts: %{}}, "scanning", "I'm still reading your site."},
+          {%{status: :failed, facts: %{}}, "failed", "I couldn't read your site"},
+          {%{status: :done, facts: %{}}, "not_matched", "I haven't matched your pages to the topics yet."},
+          {%{status: :done, facts: %{"matching" => %{"done" => false, "reason" => "failed"}}}, "not_matched",
+           "I haven't matched"}
+        ] do
+      %{run: run, niche: niche} = existing_site_niche(scope)
+      if scan, do: insert(:site_scan, Map.put(scan, :run, run))
+      read_competitor_page(run, niche)
+
+      {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+      assert has_element?(view, "#page-comparison-site[data-state=#{state}] [data-part=message]", message)
+      assert has_element?(view, "#page-comparison-site [data-part=linking-sites]", "—")
+    end
+  end
+
+  test "my row follows the scan: once my pages are read and matched it shows my page, without reloading", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    %{run: run, niche: niche} = existing_site_niche(scope)
+    site_scan = insert(:site_scan, run: run, status: :scanning, facts: %{})
+    read_competitor_page(run, niche)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+    assert has_element?(view, "#page-comparison-site[data-state=scanning]")
+
+    insert(:scanned_page, site_scan: site_scan, cluster_id: niche.id, facts: %{"word_count" => 300})
+
+    site_scan
+    |> Ecto.Changeset.change(status: :done, facts: %{"matching" => %{"done" => true}})
+    |> Repo.update!()
+    |> SiteScans.broadcast_updated()
+
+    assert has_element?(view, "#page-comparison-site[data-state=page] [data-part=words]", "300")
+  end
+
+  test "with several pages of mine for a topic, my row shows the first one read and says it is 1 of them", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    %{run: run, niche: niche} = existing_site_niche(scope)
+    site_scan = insert(:site_scan, run: run, status: :done, facts: %{"matching" => %{"done" => true}})
+
+    insert(:scanned_page,
+      site_scan: site_scan,
+      position: 2,
+      url: "https://strona-testowa.pl/druga",
+      cluster_id: niche.id,
+      facts: %{"word_count" => 90}
+    )
+
+    insert(:scanned_page,
+      site_scan: site_scan,
+      position: 1,
+      url: "https://strona-testowa.pl/pierwsza",
+      cluster_id: niche.id,
+      facts: %{"word_count" => 300}
+    )
+
+    read_competitor_page(run, niche)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#page-comparison-site [data-part=address]", "https://strona-testowa.pl/pierwsza")
+    assert has_element?(view, "#page-comparison-site [data-part=note]", "1 of 2 pages about this topic")
+    assert has_element?(view, "#page-comparison-site [data-part=words]", "300")
+    assert has_element?(view, "#page-comparison-site [data-part=headings]", "—")
+  end
+
+  test "addresses that are not web addresses are shown as text in the comparison, never as links", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    %{run: run, niche: niche} = existing_site_niche(scope)
+    site_scan = insert(:site_scan, run: run, status: :done, facts: %{"matching" => %{"done" => true}})
+
+    insert(:scanned_page,
+      site_scan: site_scan,
+      url: "javascript:alert(1)",
+      cluster_id: niche.id,
+      facts: %{"word_count" => 300}
+    )
+
+    price_check = insert(:price_check, run: run, niche: niche, status: :done)
+
+    competitor =
+      insert(:competitor_page,
+        price_check: price_check,
+        url: "javascript:alert(2)",
+        read_url: nil,
+        outcome: :unreadable
+      )
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#page-comparison-site span[data-part=address]", "javascript:alert(1)")
+    refute has_element?(view, "#page-comparison-site a")
+
+    row = "#page-comparison-competitor-#{competitor.id}"
+    assert has_element?(view, "#{row} span[data-part=domain]", competitor.domain)
+    refute has_element?(view, "#{row} a")
+    refute has_element?(view, "#competitor-page-#{competitor.id} a")
+    assert has_element?(view, "#competitor-page-#{competitor.id} span[data-part=domain]", competitor.domain)
+    assert has_element?(view, "#{row} [data-part=note]", "This page could not be opened")
+    assert has_element?(view, "#{row} [data-part=words]", "—")
+    assert has_element?(view, "#{row} [data-part=structured-data]", "—")
+    assert has_element?(view, "#{row} [data-part=states-price]", "—")
+    assert has_element?(view, "#{row} [data-part=contact]", "—")
+  end
+
+  test "there is no comparison before the Price Check has read a page, nor for a New Idea", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    %{run: run, niche: niche} = existing_site_niche(scope)
+    insert(:site_scan, run: run, status: :done, facts: %{"matching" => %{"done" => true}})
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+    refute has_element?(view, "#page-comparison")
+
+    price_check = insert(:price_check, run: run, niche: niche, status: :checking)
+    insert(:competitor_page, price_check: price_check, outcome: :waiting)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+    refute has_element?(view, "#page-comparison")
+
+    new_idea = scored_run(scope)
+    new_idea_niche = insert(:niche, run: new_idea, score: Decimal.new("6.0"))
+    read_competitor_page(new_idea, new_idea_niche)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{new_idea}/results")
+    assert has_element?(view, "#competitor-prices-list")
+    refute has_element?(view, "#page-comparison")
+  end
+
+  test "for an Existing Site the Price Check button says it also compares the pages and counts the linking sites' request",
+       %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope, %{mode: :existing_site, domain: "strona-testowa.pl"})
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+    checked = phrase_in_niche(run, niche, %{volume: 100, cpc: nil})
+    insert(:serp_assessment, run: run, phrase: checked.phrase, labels: labels(%{"direct_competitor" => 2, "blog" => 8}))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#check-prices", "Check competitor prices and pages")
+    assert has_element?(view, "#check-prices-note", "compare their pages with yours")
+    assert has_element?(view, "#check-prices-note", "counting the sites that link to them is one more request")
+  end
+
   defp scored_run(%{account: account}, attrs \\ %{}) do
     steps = build_run_steps(Map.new(1..7, &{&1, :done}))
     insert(:run, Map.merge(%{account: account, status: :awaiting_choice, steps: steps}, attrs))
+  end
+
+  defp existing_site_niche(scope) do
+    run = scored_run(scope, %{mode: :existing_site, domain: "strona-testowa.pl"})
+    %{run: run, niche: insert(:niche, run: run, score: Decimal.new("6.0"))}
+  end
+
+  defp read_competitor_page(run, niche) do
+    price_check = insert(:price_check, run: run, niche: niche, status: :done)
+    insert(:competitor_page, price_check: price_check, outcome: :no_prices, facts: comparison_facts(%{}))
+  end
+
+  defp comparison_facts(facts) do
+    Map.merge(
+      %{
+        "word_count" => 800,
+        "main_heading_count" => 1,
+        "sub_heading_count" => 4,
+        "structured_data_types" => [],
+        "images" => 3,
+        "title_length" => 40,
+        "ways_to_act" => %{"phone_links" => 2, "email_links" => 1, "forms" => 1, "button_links" => 0}
+      },
+      facts
+    )
   end
 
   defp phrase_in_niche(run, niche, metrics) do

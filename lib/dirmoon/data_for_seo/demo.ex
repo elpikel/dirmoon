@@ -6,7 +6,10 @@ defmodule Dirmoon.DataForSEO.Demo do
   Volumes, CPC and trends come from `:erlang.phash2/2` of the phrase and
   location, so the same phrase always gets the same numbers. Any city
   resolves to one demo location whose volumes are a tenth of the country's.
-  SERP results sit on `.example` domains. The countries and languages are a
+  SERP results sit on `.example` domains. A domain's ranked phrases, its
+  indexed page count, a business's Google Business Profile and the sites
+  linking to a domain have no demo answer (`{:error, :not_in_demo_data}`): any answer, even none, would read
+  as a fact about the owner's real site or business, so none is invented. The countries and languages are a
   short real list (the United States, the United Kingdom and Poland; English
   and Polish), so a run can be started without credentials.
   """
@@ -87,6 +90,18 @@ defmodule Dirmoon.DataForSEO.Demo do
     end)
     |> answer()
   end
+
+  @impl DataForSEO
+  def ranked_phrases(%{domain: _domain}), do: {:error, :not_in_demo_data}
+
+  @impl DataForSEO
+  def indexed_page_count(%{domain: _domain}), do: {:error, :not_in_demo_data}
+
+  @impl DataForSEO
+  def business_profile(%{name: _name}), do: {:error, :not_in_demo_data}
+
+  @impl DataForSEO
+  def linking_sites(%{domains: _domains}), do: {:error, :not_in_demo_data}
 
   @impl DataForSEO
   def find_location(%{city: city}) do

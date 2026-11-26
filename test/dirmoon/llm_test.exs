@@ -22,8 +22,16 @@ defmodule Dirmoon.LLMTest do
     assert {:error, :timeout} = LLM.structured(seeds_request())
   end
 
-  test "the known tasks are seeds, filter and group, label serp, brief and competitor prices" do
-    assert LLM.tasks() == [:seeds, :filter_and_group, :label_serp, :brief, :competitor_prices]
+  test "the known tasks are seeds, filter and group, label serp, brief, competitor prices, page matching and site description" do
+    assert LLM.tasks() == [
+             :seeds,
+             :filter_and_group,
+             :label_serp,
+             :brief,
+             :competitor_prices,
+             :match_pages,
+             :describe_site
+           ]
   end
 
   test "without a provider the production config uses the not-configured adapter" do

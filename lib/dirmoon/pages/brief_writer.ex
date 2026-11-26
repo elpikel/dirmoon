@@ -24,6 +24,7 @@ defmodule Dirmoon.Pages.BriefWriter do
   alias Dirmoon.Research.Ledger
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.Steps
+  alias Dirmoon.WebPage.HostName
 
   @no_page_result "No page to write"
   @invalid_brief_error "The model returned an invalid brief"
@@ -144,7 +145,7 @@ defmodule Dirmoon.Pages.BriefWriter do
   end
 
   defp mode_line(%Run{mode: :existing_site, domain: domain}) do
-    "Mode: existing site, domain: #{domain}. The page will go on this domain. " <>
+    "Mode: existing site, domain: #{HostName.to_unicode(domain)}. The page will go on this domain. " <>
       "The business owner will check legal, medical and financial answers before publishing."
   end
 

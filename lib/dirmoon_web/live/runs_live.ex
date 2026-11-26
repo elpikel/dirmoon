@@ -13,6 +13,7 @@ defmodule DirmoonWeb.RunsLive do
   alias Dirmoon.Research
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunsStatusLine
+  alias Dirmoon.WebPage.HostName
   alias DirmoonWeb.RunDisplay
 
   @impl true
@@ -113,6 +114,6 @@ defmodule DirmoonWeb.RunsLive do
     }
   end
 
-  defp site_domain(%Run{mode: :existing_site, domain: domain}), do: domain
+  defp site_domain(%Run{mode: :existing_site, domain: domain}), do: HostName.to_unicode(domain)
   defp site_domain(_new_idea_run), do: nil
 end

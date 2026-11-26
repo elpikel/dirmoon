@@ -268,7 +268,7 @@ defmodule Dirmoon.PhrasesTest do
     query = "  " <> String.upcase(phrase.phrase) <> "  "
 
     assert {:ok, %{matched: 1, quick_wins: 1}} =
-             Phrases.store_current_positions(run, [%{query: query, position: 9.46}])
+             Phrases.store_current_positions(run, [%{phrase: query, position: 9.46}])
 
     assert Decimal.equal?(Repo.get!(RunPhrase, run_phrase.id).current_position, Decimal.new("9.5"))
     assert Repo.get!(RunPhrase, other.id).current_position == nil
@@ -279,10 +279,10 @@ defmodule Dirmoon.PhrasesTest do
     [top, low_edge, high_edge, far] = Enum.map(1..4, fn _index -> insert(:run_phrase, run: run) end)
 
     rows = [
-      %{query: top.phrase.phrase, position: 7.9},
-      %{query: low_edge.phrase.phrase, position: 8},
-      %{query: high_edge.phrase.phrase, position: 20.0},
-      %{query: far.phrase.phrase, position: 20.6}
+      %{phrase: top.phrase.phrase, position: 7.9},
+      %{phrase: low_edge.phrase.phrase, position: 8},
+      %{phrase: high_edge.phrase.phrase, position: 20.0},
+      %{phrase: far.phrase.phrase, position: 20.6}
     ]
 
     assert Phrases.store_current_positions(run, rows) == {:ok, %{matched: 4, quick_wins: 2}}
@@ -304,11 +304,36 @@ defmodule Dirmoon.PhrasesTest do
 
     assert {:ok, %{matched: 1}} =
              Phrases.store_current_positions(run, [
-               %{query: text, position: 14.0},
-               %{query: String.upcase(text), position: 6.0}
+               %{phrase: text, position: 14.0},
+               %{phrase: String.upcase(text), position: 6.0}
              ])
 
     assert Decimal.equal?(Repo.get!(RunPhrase, run_phrase.id).current_position, Decimal.new("6.0"))
+  end
+
+  test "a phrase listed twice keeps the address of its best position" do
+    run = insert(:run)
+    run_phrase = insert(:run_phrase, run: run)
+    text = run_phrase.phrase.phrase
+
+    assert {:ok, %{matched: 1}} =
+             Phrases.store_current_positions(run, [
+               %{phrase: text, position: 4, url: "https://strona-testowa.example/lepsza"},
+               %{phrase: text, position: 9, url: "https://strona-testowa.example/gorsza"}
+             ])
+
+    assert Repo.get!(RunPhrase, run_phrase.id).current_position_url == "https://strona-testowa.example/lepsza"
+  end
+
+  test "storing current positions clears a stale address" do
+    run = insert(:run)
+
+    stale =
+      insert(:run_phrase, run: run, current_position: Decimal.new("12.0"), current_position_url: "https://a.example/")
+
+    assert {:ok, %{matched: 0}} = Phrases.store_current_positions(run, [])
+
+    assert Repo.get!(RunPhrase, stale.id).current_position_url == nil
   end
 
   test "storing current positions clears the run's stale positions and leaves other runs alone" do

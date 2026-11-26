@@ -10,82 +10,33 @@ defmodule DirmoonWeb.PageHTML do
   database, 24 Nov 2026, market Poland) with the Niche names translated:
   every figure in it is what the keyword API returned, none is invented.
 
+  The section for an owner who already has a website lists, in the
+  report's order, what the Site Scan tells them. It quotes no figure: there
+  is no real scan to quote.
+
   See the `page_html` directory for all templates available.
   """
   use DirmoonWeb, :html
+
+  alias Dirmoon.SiteScans
 
   embed_templates "page_html/*"
 
   @sign_up_form_names [:hero, :closing]
 
   @example %{
-    description: "Ice skate rental",
-    city: "Gdańsk, Poland",
-    niche_count: 7,
-    low_niche_count: 5,
-    other_niche_count: 4,
-    niches: [
-      %{
-        name: "Skate rental",
-        verdict: :hard,
-        score: "7.7",
-        figures: "Typed 1,090 times a month · $6.79 per ad click",
-        first_page: "On page one today: businesses like yours and big portals."
-      },
-      %{
-        name: "Ice rinks with skate rental",
-        verdict: :hard,
-        score: "5.6",
-        figures: "Typed 40 times a month · $4.10 per ad click",
-        first_page: "On page one today: businesses like yours, guides and blogs."
-      },
-      %{
-        name: "Skates for kids",
-        verdict: :low,
-        score: "2.3",
-        figures: "No measurable searches · nobody pays for ads",
-        first_page: "On page one today: business directories and big portals."
-      }
-    ]
+    best_niche_typed_per_month: "1,090",
+    best_niche_typed_per_day: "36",
+    best_niche_click_price: "$6.79",
+    best_niche_score: "7.7"
   }
 
-  @verdict_labels %{hard: "Worth it, but hard", low: "Probably not worth it"}
-  @verdict_classes %{hard: "text-warn", low: "text-on-slate-muted"}
-
-  @sources [
-    %{
-      question: "Where do the numbers come from?",
-      answer:
-        "From Google's own search and ad data. dirmoon looks up what people actually type into Google about your idea, how many times a month they type it, what an ad click costs and who is on Google's first page today."
-    },
-    %{
-      question: "Does an AI make any of it up?",
-      answer:
-        "No. The AI only suggests where to look and sorts what was found by what customers want. Every search and every number comes from Google's data, never from an AI's guess."
-    }
-  ]
-
-  @answers [
-    %{
-      question: "How do I know if people are searching for my business idea?",
-      answer:
-        "You see how many times a month people type each search into Google. Here: \"skate rental\" is typed 1,090 times a month. The other topics get 40 or fewer, and several get none that Google can measure."
-    },
-    %{
-      question: "What would a Google Ads click cost for my idea?",
-      answer:
-        "Businesses pay Google $6.79 for a single click on an ad for skate rental. Nobody pays for ads on the searches few people make. The higher the click price, the more a customer is worth."
-    },
-    %{
-      question: "Who is on the first page of Google, and is the competition too strong?",
-      answer:
-        "Page one is held by businesses like yours and big portals, so it will be a fight. The report lists every site on page one, with a link to each and what kind of site it is."
-    },
-    %{
-      question: "What do my competitors charge?",
-      answer:
-        "Ask for it on any topic: dirmoon opens the competitors' pages and lists the prices they publish, each with a link to the page it came from. It never guesses a price that is not written there."
-    }
+  @site_scan_findings [
+    "Which topics people search for that your site has no page for",
+    "Whether Google can find and read your pages",
+    "Whether each page says clearly what it offers",
+    "Whether it loads fast and works on a phone",
+    "Whether Google can see you are a real business"
   ]
 
   @doc """
@@ -97,9 +48,8 @@ defmodule DirmoonWeb.PageHTML do
       sign_up_forms: sign_up_forms,
       page_title: "Validate your business idea with Google search data",
       meta_description:
-        "Test a business idea before you build it. dirmoon finds what people search on Google, the monthly search volume " <>
-          "(how often they search), the ad click cost and the keyword competition (who holds Google's first page), " <>
-          "and tells you which topics are worth going after."
+        "Niche finder: test a business idea with real monthly search volume and keyword competition. " <>
+          "Or paste your site and get a plain-English list of what to fix."
     ]
   end
 
@@ -169,11 +119,11 @@ defmodule DirmoonWeb.PageHTML do
     >
       <input type="hidden" name="form" value={@name} />
       <.prompt_box class={[
-        "flex w-full flex-wrap items-start gap-3 p-3 pl-5 max-sm:pl-4",
+        "flex w-full items-center gap-2 p-2 pl-4 sm:gap-3 sm:p-3 sm:pl-5",
         "has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-4 has-[input:focus-visible]:outline-ink"
       ]}>
         <label for={@email_input_id} class="sr-only">Email address</label>
-        <div class="min-w-0 flex-[1_1_240px] *:mb-0">
+        <div class="min-w-0 flex-1 *:mb-0">
           <.input
             field={@form[:email]}
             id={@email_input_id}
@@ -182,10 +132,15 @@ defmodule DirmoonWeb.PageHTML do
             autocomplete="email"
             spellcheck="false"
             required
-            class="min-h-12 w-full border-0 bg-transparent p-0 text-[19px] font-medium tracking-[-0.01em] text-ink placeholder:text-body-muted focus-visible:outline-none"
+            class="min-h-11 w-full border-0 bg-transparent p-0 text-[16px] font-medium sm:min-h-12 sm:text-[19px] tracking-[-0.01em] text-ink placeholder:text-body-muted focus-visible:outline-none"
           />
         </div>
-        <.button variant="dark" size="large" type="submit" class="flex-none max-sm:w-full">
+        <.button
+          variant="dark"
+          size="large"
+          type="submit"
+          class="flex-none max-sm:min-h-11 max-sm:px-3.5"
+        >
           Create account
         </.button>
       </.prompt_box>
@@ -197,137 +152,84 @@ defmodule DirmoonWeb.PageHTML do
   attr :id, :string, required: true
 
   defp journey(assigns) do
-    assigns =
-      assign(assigns,
-        example: @example,
-        verdict_labels: @verdict_labels,
-        verdict_classes: @verdict_classes,
-        answers: @answers,
-        sources: @sources
-      )
+    assigns = assign(assigns, :example, @example)
 
     ~H"""
-    <div
-      id={@id}
-      class="grid w-full grid-cols-[36px_minmax(0,1fr)] gap-x-4 text-left sm:grid-cols-[56px_minmax(0,1fr)] sm:gap-x-8"
-    >
-      <div data-part="flight-path" aria-hidden="true" class="relative">
+    <div id={@id} class="relative mx-auto w-full max-w-[760px] text-left">
+      <div
+        data-part="flight-path"
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-y-0 left-0 w-14 max-sm:hidden"
+      >
         <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l-[3px] border-dotted border-accent">
-        </div>
-        <div class="sticky top-[40vh] flex justify-center">
-          <.rocket class="size-9 rotate-180 sm:size-12" />
         </div>
       </div>
 
-      <ol class="m-0 flex list-none flex-col gap-20 p-0 pb-4">
-        <.journey_step id={"#{@id}-idea"} number="01" title="You start with a question">
+      <ol class="m-0 flex list-none flex-col gap-12 p-0 pb-4 sm:gap-20 sm:pl-[88px]">
+        <.journey_stop
+          id={"#{@id}-launch"}
+          number="01"
+          marker="launch"
+          title="How do I validate my business idea?"
+        >
           <:lead>
-            You want to open a business or add a service, and you are about to put time and money into it. First you need to know whether anyone is looking for it. Describe the idea in one sentence. No lists of search terms, no marketing knowledge.
+            Describe it in one sentence. dirmoon checks it against what people really search for on Google.
           </:lead>
-          <blockquote
-            data-part="example-idea"
-            class="m-0 flex flex-col gap-3 border-l-[3px] border-accent pl-5"
-          >
-            <p
-              data-part="description"
-              class="m-0 text-[clamp(24px,2.8vw,34px)] leading-tight font-extrabold tracking-[-0.03em] text-ink"
-            >
-              “{@example.description}”
-            </p>
-            <span
-              data-part="city"
-              class="inline-flex items-center gap-1.5 font-mono text-[13px] text-body-muted"
-            >
-              <.icon name="hero-map-pin" class="size-4" />{@example.city}
-            </span>
-          </blockquote>
-          <div class="flex flex-col gap-3">
-            <span class="font-mono text-xs uppercase tracking-[0.1em] text-body-muted">What you want to know</span>
-            <ul
-              data-part="questions"
-              class="m-0 flex list-none flex-col gap-2 p-0 text-[17px] leading-normal text-ink"
-            >
-              <li :for={entry <- @answers} class="flex items-start gap-2.5">
-                <.icon name="hero-question-mark-circle" class="mt-1 size-5 shrink-0 text-body-muted" />
-                <span>{entry.question}</span>
-              </li>
-            </ul>
-          </div>
-        </.journey_step>
+        </.journey_stop>
 
-        <.journey_step id={"#{@id}-research"} number="02" title="dirmoon checks real search data">
+        <.journey_stop
+          id={"#{@id}-demand"}
+          number="02"
+          title="How do I know if people are searching for my business idea?"
+        >
           <:lead>
-            You wait while dirmoon does the looking up. It does not guess.
+            dirmoon shows how many times a month people type it into Google. In the example, people look for skate rental <strong class="font-semibold text-ink">{@example.best_niche_typed_per_month} times a month</strong>: about {@example.best_niche_typed_per_day} times a day.
           </:lead>
-          <dl id={"#{@id}-sources"} class="m-0 flex flex-col gap-6">
-            <div
-              :for={entry <- @sources}
-              data-part="source"
-              class="flex flex-col gap-1.5 border-l-2 border-accent pl-4"
-            >
-              <dt class="text-[17px] font-bold tracking-[-0.01em] text-ink">{entry.question}</dt>
-              <dd class="m-0 max-w-[720px] text-[16px] leading-[1.55] text-body">{entry.answer}</dd>
-            </div>
-          </dl>
-        </.journey_step>
+        </.journey_stop>
 
-        <.journey_step id={"#{@id}-report"} number="03" title="You get a ranked report">
+        <.journey_stop
+          id={"#{@id}-click-price"}
+          number="03"
+          title="What would a Google Ads click cost for my idea?"
+        >
           <:lead>
-            The searches are sorted into topics, the best one first. People ask Google for the same thing in many different words. A topic is those searches put together. Each topic gets a verdict in plain words and the numbers behind it. Together they answer the questions you came with.
+            dirmoon shows what businesses pay Google for one ad click. For skate rental it is <strong class="font-semibold text-ink">{@example.best_niche_click_price}</strong>. A high price means a customer is worth money.
           </:lead>
-          <figure class="m-0 flex flex-col gap-3">
-            <.dark_panel
-              id={"#{@id}-report-panel"}
-              context={String.downcase(@example.description)}
-              note={"#{@example.niche_count} topics"}
-            >
-              <ol class="m-0 flex list-none flex-col divide-y divide-slate-line p-0">
-                <li
-                  :for={niche <- @example.niches}
-                  data-part="niche"
-                  class="flex flex-col gap-2 px-5 py-5 sm:px-6"
-                >
-                  <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <span data-part="name" class="text-[17px] font-bold tracking-[-0.01em]">{niche.name}</span>
-                    <span
-                      data-part="verdict"
-                      class={["text-sm font-semibold", Map.fetch!(@verdict_classes, niche.verdict)]}
-                    >
-                      {Map.fetch!(@verdict_labels, niche.verdict)} · rating {niche.score} out of 10
-                    </span>
-                  </div>
-                  <span data-part="figures" class="font-mono text-[13px] text-on-slate-2">{niche.figures}</span>
-                  <span data-part="first-page" class="text-sm text-on-slate-muted">{niche.first_page}</span>
-                </li>
-                <li data-part="more" class="px-5 py-4 text-sm text-on-slate-muted sm:px-6">
-                  And {@example.other_niche_count} more topics, ranked the same way.
-                </li>
-              </ol>
-            </.dark_panel>
-            <figcaption class="font-mono text-xs leading-relaxed text-body-muted">
-              A real research from 24 Nov 2026. Market: Poland, names translated from Polish.
-            </figcaption>
-          </figure>
-          <dl id={"#{@id}-answers"} class="m-0 flex flex-col gap-6">
-            <div
-              :for={entry <- @answers}
-              data-part="answer"
-              class="flex flex-col gap-1.5 border-l-2 border-accent pl-4"
-            >
-              <dt class="text-[17px] font-bold tracking-[-0.01em] text-ink">{entry.question}</dt>
-              <dd class="m-0 max-w-[720px] text-[16px] leading-[1.55] text-body">{entry.answer}</dd>
-            </div>
-          </dl>
-        </.journey_step>
+        </.journey_stop>
 
-        <.journey_step id={"#{@id}-value"} number="04" title="You decide with numbers, not hope">
+        <.journey_stop
+          id={"#{@id}-competition"}
+          number="04"
+          title="Who is on the first page of Google, and is the competition too strong?"
+        >
           <:lead>
-            Here {@example.low_niche_count} of {@example.niche_count} topics turned out not worth a page, and the best one will be a fight. That is cheaper to learn now than after you build.
+            dirmoon lists every site on Google's first page and tells you how hard it is to get there. For skate rental: businesses like yours and big portals, so it will be a fight.
           </:lead>
-          <p class="m-0 max-w-[640px] text-[17px] leading-normal text-body">
-            Pick the topic you want and dirmoon writes its brief: the plan and the text for one page about that topic, with the title, headings, sections and the searches to cover. You hand it to whoever builds your site.
+        </.journey_stop>
+
+        <.journey_stop
+          id={"#{@id}-competitor-prices"}
+          number="05"
+          title="What do my competitors charge?"
+        >
+          <:lead>
+            Ask, and dirmoon opens your competitors' pages and lists the prices they publish, each with a link.
+          </:lead>
+        </.journey_stop>
+
+        <.journey_stop
+          id={"#{@id}-arrival"}
+          number="06"
+          marker="arrival"
+          title="What are my chances of a successful business?"
+        >
+          <:lead>
+            dirmoon gives your idea a score from 0 to 10 and a plain verdict: worth a try, worth it but hard, or probably not worth it. Skate rental scored <strong class="font-semibold text-ink">{@example.best_niche_score} out of 10</strong>: worth it, but hard.
+          </:lead>
+          <p data-part="decision" class="m-0 max-w-[640px] text-[17px] leading-normal text-body">
+            Then dirmoon writes the plan and the text for your page, ready to hand to whoever builds your site.
           </p>
-        </.journey_step>
+        </.journey_stop>
       </ol>
     </div>
     """
@@ -336,26 +238,106 @@ defmodule DirmoonWeb.PageHTML do
   attr :id, :string, required: true
   attr :number, :string, required: true
   attr :title, :string, required: true
-  slot :lead, required: true
-  slot :inner_block, required: true
 
-  defp journey_step(assigns) do
+  attr :marker, :string,
+    default: "question",
+    values: ~w(launch question arrival),
+    doc: "launch is the launch pad, arrival the destination flag, question every stop between"
+
+  slot :lead, required: true
+  slot :inner_block
+
+  defp journey_stop(assigns) do
     ~H"""
-    <li id={@id} data-part="step" class="flex flex-col gap-5">
+    <li id={@id} data-part="step" class="flex flex-col gap-4">
       <div class="flex flex-col gap-3">
-        <span
-          data-part="number"
-          class="self-start rounded-chip bg-ink px-2.5 py-1 font-mono text-xs tracking-[0.1em] text-accent"
+        <div class="relative">
+          <.journey_marker number={@number} kind={@marker} />
+          <h3 class="m-0 text-[clamp(22px,2.4vw,30px)] leading-[1.1] font-extrabold tracking-[-0.03em] text-balance text-ink">
+            {@title}
+          </h3>
+        </div>
+        <p
+          data-part="lead"
+          class="m-0 max-w-[640px] text-[16px] leading-normal text-body sm:text-[17px]"
         >
-          {@number}
-        </span>
-        <h3 class="m-0 text-[clamp(22px,2.4vw,30px)] leading-[1.1] font-extrabold tracking-[-0.03em] text-ink">
-          {@title}
-        </h3>
-        <p class="m-0 max-w-[640px] text-[17px] leading-normal text-body">{render_slot(@lead)}</p>
+          {render_slot(@lead)}
+        </p>
       </div>
       {render_slot(@inner_block)}
     </li>
     """
   end
+
+  attr :number, :string, required: true
+  attr :kind, :string, required: true
+
+  defp journey_marker(assigns) do
+    ~H"""
+    <div
+      data-part="marker"
+      data-marker={@kind}
+      class="mb-3 flex sm:absolute sm:-top-1 sm:-left-[88px] sm:mb-0 sm:w-14 sm:justify-center"
+    >
+      <span
+        data-part="number"
+        class={[
+          "flex size-9 items-center justify-center rounded-pill font-mono text-xs font-semibold tracking-[0.05em]",
+          marker_class(@kind)
+        ]}
+      >
+        {@number}
+      </span>
+    </div>
+    """
+  end
+
+  attr :id, :string, required: true
+
+  defp site_scan_section(assigns) do
+    assigns = assign(assigns, page_limit: SiteScans.page_limit(), findings: @site_scan_findings)
+
+    ~H"""
+    <div class="flex w-full flex-col items-center gap-10">
+      <p
+        data-part="intro"
+        class="m-0 max-w-[680px] text-[17px] leading-normal text-pretty text-body"
+      >
+        dirmoon reads up to {@page_limit} pages of your site and tells you in plain words what to fix first.
+      </p>
+
+      <div class="flex w-full max-w-[880px] flex-col gap-4 text-left">
+        <span
+          data-part="findings-lead"
+          class="font-mono text-xs uppercase tracking-[0.1em] text-body-muted"
+        >
+          It tells you:
+        </span>
+        <ul
+          id={"#{@id}-findings"}
+          class="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          <li
+            :for={finding <- @findings}
+            data-part="finding"
+            class="flex items-start gap-3 rounded-tile border border-line bg-white px-5 py-4"
+          >
+            <.icon name="hero-check-circle" class="mt-0.5 size-5 shrink-0 text-ink" />
+            <span class="text-[16px] leading-snug font-semibold text-ink">{finding}</span>
+          </li>
+        </ul>
+      </div>
+
+      <p
+        id={"#{@id}-next"}
+        class="m-0 max-w-[680px] text-[17px] leading-normal text-pretty text-body"
+      >
+        A topic with no page? Ask for its brief: the plan and the text for that page. dirmoon also sets your page beside your competitors' pages.
+      </p>
+    </div>
+    """
+  end
+
+  defp marker_class("question"), do: "border-2 border-accent bg-ink text-accent"
+  defp marker_class(_launch_or_arrival), do: "bg-accent text-ink ring-2 ring-ink"
 end

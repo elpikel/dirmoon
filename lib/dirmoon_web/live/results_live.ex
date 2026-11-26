@@ -6,7 +6,13 @@ defmodule DirmoonWeb.ResultsLive do
   parameters; the list of the chosen view; and the
   selected Niche with its stat tiles, its Phrases and the actions to choose
   or reject it. The view and the selected Niche live in the URL
-  (`?view=niches|phrases|rejected&niche=<id>`).
+  (`?view=niches|phrases|rejected&niche=<id>`). An Existing Site run's
+  views also lead to "Your site" (`DirmoonWeb.SiteScanLive`), and once its
+  Site Scan's pages are matched to the Niches each topic says whether the
+  site has a page for it; once a Price Check has read a Niche's Competitor
+  Pages, the Niche compares the site's page with them
+  (`DirmoonWeb.PageComparison`). The screen follows the run, its Price
+  Checks and, for an Existing Site, its Site Scan live.
 
   Before Step 7 has finished (`Run.results_ready?/1`) it shows the Phrases so
   far without any Niche choice, and turns into the full results when the run
@@ -27,7 +33,11 @@ defmodule DirmoonWeb.ResultsLive do
   alias Dirmoon.Research
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.StatusLine
+  alias Dirmoon.SiteScans
+  alias Dirmoon.WebPage.HostName
+  alias Dirmoon.WebPage.WebAddress
   alias DirmoonWeb.NicheAdvice
+  alias DirmoonWeb.PageComparison
   alias DirmoonWeb.PageDisplay
   alias DirmoonWeb.ResultsHeadline
   alias DirmoonWeb.RunDisplay
@@ -105,6 +115,14 @@ defmodule DirmoonWeb.ResultsLive do
               active={@view == :rejected}
               patch={@ready? && view_path(@run, %{view: "rejected", niche: @selected_id})}
             />
+            <.view_link
+              :if={@run.mode == :existing_site}
+              id="view-site"
+              label="Your site"
+              hint="What I found on your own site, and what to fix."
+              active={false}
+              navigate={~p"/app/runs/#{@run}/site"}
+            />
           </nav>
           <div id="run-parameters" class="flex flex-col gap-2.5 px-3 text-xs">
             <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-on-app-muted">
@@ -118,7 +136,9 @@ defmodule DirmoonWeb.ResultsLive do
             </p>
             <span class="font-mono text-on-app-2">{RunDisplay.market(@run)}</span>
             <span :if={@run.city} class="font-mono text-on-app-2">{@run.city}</span>
-            <span :if={@run.mode == :existing_site} class="font-mono text-on-app-2">{@run.domain}</span>
+            <span :if={@run.mode == :existing_site} class="font-mono text-on-app-2">{HostName.to_unicode(
+              @run.domain
+            )}</span>
             <span :if={@run.priority_services != []} id="run-services" class="text-on-app-2">
               Services: {Enum.join(@run.priority_services, ", ")}
             </span>
@@ -186,6 +206,8 @@ defmodule DirmoonWeb.ResultsLive do
             show_all_niche_phrases={@show_all_niche_phrases}
             price_check={@price_check}
             competitor_page_count={@competitor_page_count}
+            page_comparison={@page_comparison}
+            site_page={site_page(@site_pages, @selected.niche.id)}
           />
         </div>
       </section>
@@ -197,10 +219,7 @@ defmodule DirmoonWeb.ResultsLive do
   def mount(%{"id" => id}, _session, socket) do
     case Research.get_run(socket.assigns.current_scope, id) do
       %Run{} = run ->
-        if connected?(socket) do
-          Research.subscribe(run)
-          PriceChecks.subscribe(run)
-        end
+        if connected?(socket), do: subscribe(run)
 
         {:ok,
          socket
@@ -238,6 +257,8 @@ defmodule DirmoonWeb.ResultsLive do
   def handle_info({:run_progress, _run_id, _progress}, socket), do: {:noreply, socket}
 
   def handle_info({:price_check_updated, _niche_id}, socket), do: {:noreply, load_results(socket)}
+
+  def handle_info({:site_scan_updated, _run_id}, socket), do: {:noreply, load_results(socket)}
 
   @impl true
   def handle_event("choose", _params, %{assigns: %{choosable?: true, selected: %{niche: %Niche{id: niche_id}}}} = socket) do
@@ -307,9 +328,26 @@ defmodule DirmoonWeb.ResultsLive do
   attr :id, :string, required: true
   attr :label, :string, required: true
   attr :hint, :string, required: true, doc: "one line saying what the view holds"
-  attr :count, :integer, required: true
+  attr :count, :integer, default: nil, doc: "how many items the view holds"
   attr :active, :boolean, required: true
-  attr :patch, :any, required: true, doc: "where the view leads, false when it isn't available yet"
+  attr :patch, :any, default: nil, doc: "where the view leads, false when it isn't available yet"
+  attr :navigate, :string, default: nil, doc: "another screen the link leads to, instead of a view of this one"
+
+  defp view_link(%{navigate: navigate} = assigns) when is_binary(navigate) do
+    ~H"""
+    <.link
+      id={@id}
+      navigate={@navigate}
+      class="flex min-h-target-min items-start justify-between gap-3 rounded-[8px] px-3 py-2.5 text-sm font-medium text-on-app-muted no-underline transition-colors duration-150 hover:bg-app-raised hover:text-on-app"
+    >
+      <span class="flex flex-col gap-0.5">
+        <span>{@label}</span>
+        <span data-part="hint" class="text-xs leading-snug font-normal text-on-app-muted">{@hint}</span>
+      </span>
+      <.icon name="hero-arrow-right-mini" class="size-4 flex-none" />
+    </.link>
+    """
+  end
 
   defp view_link(%{patch: false} = assigns) do
     ~H"""
@@ -388,6 +426,14 @@ defmodule DirmoonWeb.ResultsLive do
             {row.name}
           </span>
           <span data-part="figures" class="text-xs text-on-app-muted">{row.figures}</span>
+          <span
+            :if={row.site_page != :unknown}
+            id={"#{dom_id}-site-page"}
+            data-part="site-page"
+            class="min-w-0 text-xs break-all text-on-app-2"
+          >
+            {if(row.site_page, do: "You have a page: #{row.site_page}", else: "No page yet")}
+          </span>
         </.link>
       </li>
     </ul>
@@ -472,6 +518,8 @@ defmodule DirmoonWeb.ResultsLive do
   attr :show_all_niche_phrases, :boolean, required: true
   attr :price_check, PriceCheck, default: nil
   attr :competitor_page_count, :integer, required: true
+  attr :page_comparison, :map, default: nil
+  attr :site_page, :any, required: true, doc: "the address of the site's page for the topic, nil for none, :unknown"
 
   defp niche_detail(assigns) do
     %{detail: %{page: page}, phrase_total: phrase_total, selected: %{niche: niche}} = assigns
@@ -495,6 +543,28 @@ defmodule DirmoonWeb.ResultsLive do
         </h2>
         <p :if={@selected.niche.reading} class="m-0 text-[15px] leading-[1.55] text-on-app-muted">
           {@selected.niche.reading}
+        </p>
+        <p
+          :if={@site_page != :unknown}
+          id="niche-site-page"
+          class="m-0 min-w-0 text-sm leading-normal break-all text-on-app-2"
+        >
+          <%= cond do %>
+            <% is_nil(@site_page) -> %>
+              No page yet: your site has no page about this topic.
+            <% WebAddress.acceptable?(@site_page) -> %>
+              You have a page:
+              <.link
+                href={@site_page}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                class="text-on-app underline decoration-app-line-strong underline-offset-2 transition-colors duration-150 hover:decoration-accent"
+              >
+                {@site_page}
+              </.link>
+            <% true -> %>
+              You have a page: {@site_page}
+          <% end %>
         </p>
       </div>
 
@@ -706,9 +776,11 @@ defmodule DirmoonWeb.ResultsLive do
                   rel="noopener noreferrer nofollow"
                   class="font-medium break-all text-on-app underline decoration-app-line-strong underline-offset-2 transition-colors duration-150 hover:decoration-accent"
                 >
-                  {result.domain}
+                  {HostName.to_unicode(result.domain)}
                 </.link>
-                <span :if={not web_url?(result.url)} class="font-medium break-all">{result.domain}</span>
+                <span :if={not web_url?(result.url)} class="font-medium break-all">{HostName.to_unicode(
+                  result.domain
+                )}</span>
                 <span :if={result.title} class="text-xs break-words text-on-app-muted">{result.title}</span>
               </span>
               <span :if={result.page_type_name} data-part="page-type" class="text-xs text-on-app-2">
@@ -739,9 +811,9 @@ defmodule DirmoonWeb.ResultsLive do
                 rel="noopener noreferrer nofollow"
                 class="text-on-app underline decoration-app-line-strong underline-offset-2 transition-colors duration-150 hover:decoration-accent"
               >
-                {site.domain}
+                {HostName.to_unicode(site.domain)}
               </.link>
-              <span :if={not web_url?(site.url)}>{site.domain}</span>
+              <span :if={not web_url?(site.url)}>{HostName.to_unicode(site.domain)}</span>
               <span :if={site.count > 1} class="font-mono text-[11px] text-on-app-muted">
                 ×{site.count}
               </span>
@@ -750,7 +822,13 @@ defmodule DirmoonWeb.ResultsLive do
         </div>
       </dl>
 
-      <.competitor_prices price_check={@price_check} competitor_page_count={@competitor_page_count} />
+      <.competitor_prices
+        price_check={@price_check}
+        competitor_page_count={@competitor_page_count}
+        existing_site?={@run.mode == :existing_site}
+      />
+
+      <PageComparison.table :if={@page_comparison} comparison={@page_comparison} />
 
       <.run_stopped_note
         :if={not @choosable?}
@@ -815,6 +893,7 @@ defmodule DirmoonWeb.ResultsLive do
 
   attr :price_check, PriceCheck, default: nil
   attr :competitor_page_count, :integer, required: true
+  attr :existing_site?, :boolean, required: true
 
   defp competitor_prices(assigns) do
     ~H"""
@@ -840,8 +919,19 @@ defmodule DirmoonWeb.ResultsLive do
         :if={startable?(@price_check, @competitor_page_count)}
         class="flex flex-col items-start gap-2.5"
       >
-        <p id="check-prices-note" class="m-0 text-sm leading-normal text-on-app-muted">
+        <p
+          :if={not @existing_site?}
+          id="check-prices-note"
+          class="m-0 text-sm leading-normal text-on-app-muted"
+        >
           I'll open the pages of up to {PriceChecks.page_limit()} businesses like yours from Google's first page and copy the prices they state; reading each page is one AI request, added to this research's API cost.
+        </p>
+        <p
+          :if={@existing_site?}
+          id="check-prices-note"
+          class="m-0 text-sm leading-normal text-on-app-muted"
+        >
+          I'll open the pages of up to {PriceChecks.page_limit()} businesses like yours from Google's first page, copy the prices they state and compare their pages with yours; reading each page is one AI request, and counting the sites that link to them is one more request, added to this research's API cost.
         </p>
         <.button
           id="check-prices"
@@ -850,7 +940,10 @@ defmodule DirmoonWeb.ResultsLive do
           phx-click="check_prices"
           phx-disable-with="Starting…"
         >
-          Check competitor prices
+          {if(@existing_site?,
+            do: "Check competitor prices and pages",
+            else: "Check competitor prices"
+          )}
         </.button>
       </div>
       <p
@@ -880,14 +973,22 @@ defmodule DirmoonWeb.ResultsLive do
           class="flex flex-col gap-1 border-t border-app-line-strong px-4 py-3 text-sm first:border-t-0"
         >
           <.link
+            :if={web_url?(page.read_url || page.url)}
             href={page.read_url || page.url}
             target="_blank"
             rel="noopener noreferrer"
             data-part="domain"
             class="font-medium break-all text-on-app underline decoration-app-line-strong underline-offset-2 transition-colors duration-150 hover:decoration-accent"
           >
-            {page.domain}
+            {HostName.to_unicode(page.domain)}
           </.link>
+          <span
+            :if={not web_url?(page.read_url || page.url)}
+            data-part="domain"
+            class="font-medium break-all"
+          >
+            {HostName.to_unicode(page.domain)}
+          </span>
           <ul :if={page.outcome == :prices_found} class="m-0 flex list-none flex-col gap-0.5 p-0">
             <li :for={offer <- page.offers} data-part="offer" class="break-words text-on-app-2">
               {offer.name}: <span class="font-mono whitespace-nowrap text-on-app">{offer.price}</span>
@@ -918,6 +1019,7 @@ defmodule DirmoonWeb.ResultsLive do
     short_description = RunDisplay.short_description(run.description)
     listed_niches = if show_low_niches, do: offered, else: worth
     niche_names = niche_names(summaries)
+    site_pages = site_pages(run)
 
     socket
     |> assign(
@@ -935,16 +1037,17 @@ defmodule DirmoonWeb.ResultsLive do
       selected_id: selected && selected.niche.id,
       low_count: length(low),
       show_low_niches: show_low_niches,
-      list_limit: @list_limit
+      list_limit: @list_limit,
+      site_pages: site_pages
     )
-    |> stream_niches(%{view: view, niches: listed_niches, selected: selected})
+    |> stream_niches(%{view: view, niches: listed_niches, selected: selected, site_pages: site_pages})
     |> stream_phrases(%{view: view, names: niche_names})
     |> assign_detail()
   end
 
-  defp stream_niches(socket, %{view: :niches, niches: niches, selected: selected}) do
+  defp stream_niches(socket, %{view: :niches, niches: niches, selected: selected, site_pages: site_pages}) do
     run = socket.assigns.run
-    rows = Enum.map(niches, &niche_row(&1, %{run: run, selected: selected}))
+    rows = Enum.map(niches, &niche_row(&1, %{run: run, selected: selected, site_pages: site_pages}))
     stream(socket, :niches, rows, reset: true)
   end
 
@@ -980,7 +1083,7 @@ defmodule DirmoonWeb.ResultsLive do
 
   defp assign_detail(%{assigns: %{selected: nil}} = socket) do
     socket
-    |> assign(detail: nil, price_check: nil, competitor_page_count: 0)
+    |> assign(detail: nil, price_check: nil, competitor_page_count: 0, page_comparison: nil)
     |> stream(:niche_phrases, [], reset: true)
   end
 
@@ -995,11 +1098,14 @@ defmodule DirmoonWeb.ResultsLive do
     results_by_phrase = Map.new(detail.first_pages, &{&1.id, &1.results})
     rows = Enum.map(shown_phrases, &niche_phrase_row(&1, Map.get(results_by_phrase, &1.id, [])))
 
+    price_check = PriceChecks.get_for_niche(niche)
+
     socket
     |> assign(
       detail: detail,
-      price_check: PriceChecks.get_for_niche(niche),
-      competitor_page_count: length(PriceChecks.competitor_pages(detail.first_pages))
+      price_check: price_check,
+      competitor_page_count: length(PriceChecks.competitor_pages(detail.first_pages)),
+      page_comparison: page_comparison(%{run: run, niche: niche, price_check: price_check})
     )
     |> stream(:niche_phrases, rows, reset: true)
   end
@@ -1031,7 +1137,7 @@ defmodule DirmoonWeb.ResultsLive do
     Enum.at(remaining, index) || List.last(remaining)
   end
 
-  defp niche_row(%{niche: niche} = summary, %{run: run, selected: selected}) do
+  defp niche_row(%{niche: niche} = summary, %{run: run, selected: selected, site_pages: site_pages}) do
     advice = NicheAdvice.advice(summary)
 
     %{
@@ -1041,8 +1147,32 @@ defmodule DirmoonWeb.ResultsLive do
       advice_class: advice.class,
       figures: NicheAdvice.figures(summary),
       selected?: selected != nil and selected.niche.id == niche.id,
-      path: view_path(run, %{view: "niches", niche: niche.id})
+      path: view_path(run, %{view: "niches", niche: niche.id}),
+      site_page: site_page(site_pages, niche.id)
     }
+  end
+
+  defp subscribe(run) do
+    Research.subscribe(run)
+    PriceChecks.subscribe(run)
+    if run.mode == :existing_site, do: SiteScans.subscribe(run)
+  end
+
+  defp page_comparison(%{run: %Run{mode: :existing_site} = run, niche: niche, price_check: %PriceCheck{} = price_check}),
+    do: PageComparison.build(%{run: run, price_check: price_check, site: SiteScans.niche_comparison(run, niche.id)})
+
+  defp page_comparison(%{run: run}), do: PageComparison.build(%{run: run})
+
+  defp site_pages(%Run{mode: :existing_site} = run), do: SiteScans.matched_pages_by_niche(run)
+  defp site_pages(%Run{}), do: nil
+
+  defp site_page(nil, _niche_id), do: :unknown
+
+  defp site_page(site_pages, niche_id) do
+    case Map.get(site_pages, niche_id) do
+      [address | _more] -> address
+      nil -> nil
+    end
   end
 
   defp kept_phrase_row(run_phrase, %{names: names, mode: mode}) do

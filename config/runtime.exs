@@ -30,6 +30,7 @@ google_client_id = System.get_env("GOOGLE_CLIENT_ID")
 google_client_secret = System.get_env("GOOGLE_CLIENT_SECRET")
 openai_api_key = System.get_env("OPENAI_API_KEY")
 openai_model = System.get_env("OPENAI_MODEL")
+page_speed_api_key = System.get_env("PAGESPEED_API_KEY")
 
 config :dirmoon, DirmoonWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
@@ -50,6 +51,11 @@ if config_env() != :test and is_binary(openai_api_key) and openai_api_key != "" 
   if is_binary(openai_model) and openai_model != "" do
     config :dirmoon, OpenAI, model: openai_model
   end
+end
+
+if config_env() != :test and is_binary(page_speed_api_key) and page_speed_api_key != "" do
+  config :dirmoon, Dirmoon.PageSpeed.HTTP, api_key: page_speed_api_key
+  config :dirmoon, page_speed_adapter: Dirmoon.PageSpeed.HTTP
 end
 
 if config_env() == :dev do

@@ -9,7 +9,7 @@ The terms below are internal (code, schemas, docs); readers never see them. Scre
 ### Tenancy
 
 **Account**:
-The business that uses dirmoon and owns its data: every Research Run, Niche, Page and Search Console Connection belongs to one Account.
+The business that uses dirmoon and owns its data: every Research Run, Niche, Page and Search Console Connection belongs to one Account, and a Site Scan belongs to it through its run.
 _Avoid_: Customer (as a model name), tenant, organization, workspace
 
 **User**:
@@ -23,7 +23,7 @@ Creating an account from the landing page: an email creates a User, their Accoun
 _Avoid_: Registration, waitlist
 
 **Search Console Connection**:
-An Account's authorised access to Google Search Console, one per Account, used by Step 6 for Existing Site runs.
+An Account's authorised access to Google Search Console, one per Account. Optional: Step 6 uses it for an Existing Site run when it can read the run's domain and has queries for it, because Google's own figures are exact; otherwise Step 6 uses the keyword API. It answers only for a site the connected Google account has access to.
 
 ### Research
 
@@ -36,7 +36,7 @@ The country and language a Research Run targets, chosen separately on the new re
 _Avoid_: Locale, region
 
 **Mode**:
-Which kind of business a Research Run is for: **New Idea** (nothing exists yet) or **Existing Site** (a site with a domain and Search Console data).
+Which kind of business a Research Run is for: **New Idea** (nothing exists yet) or **Existing Site** (a site with a domain, which also gets a Site Scan).
 
 **Step**:
 One of the eight parts of a Research Run (Seeds, Expansion, Volumes, Filter and Group, Competition, Current Positions, Scoring, Brief), each with its own status and stored output. Steps 1–7 follow each other on their own; Step 8 starts only when the owner chooses a Niche.
@@ -94,7 +94,7 @@ One Research Run's judgement of a SERP Snapshot: the Page Type of each result an
 How hard a top 10 is to break into: **weak** (weak Page Types hold more than half), **strong** (direct competitors hold more than half, or five or more places) or **medium**.
 
 **Current Position**:
-Where an Existing Site already ranks for a Phrase, from Search Console: its average position over the last 90 days, kept for every Phrase of the run that Search Console knows.
+Where an Existing Site already ranks for a Phrase, with the address that ranks when the source gives one. From Search Console when the Account's Connection can read the domain and has queries for it (the average position over the last 90 days, no address); otherwise from the keyword API's ranked phrases for the domain in the run's country, and, for the Phrases those don't place, the run's own SERP Snapshots. When the keyword API can't give ranked phrases, only the SERP Snapshots are used and Step 6 says so. A result counts as the site when its host is the run's domain or `www.` and the domain. Kept per run, for kept and rejected Phrases.
 
 **Quick Win**:
 A Phrase whose Current Position is between 8 and 20: the cheapest to push up.
@@ -108,6 +108,25 @@ One direct competitor's address a Price Check reads: the best-placed address of 
 
 **Competitor Offer**:
 One price a Competitor Page states: what it is for, the price exactly as written on the page and a quote from the page that contains it. An offer whose quote is not in the page text, or whose price is not in its quote, is dropped, so no price is ever invented.
+
+### Site Scan
+
+**Site Scan**:
+Reading an Existing Site's own pages and checking them, one per Research Run, started with the run. It reads up to the page limit (50) of the site's own pages within its robots.txt, checks the links it found, asks outside services what they say about the site (phone speed, Google's rough count of its indexed pages, its Google Business Profile, its Linking Sites), and, once Step 4 has made the Niches, matches its pages to them. It is not a Step: it runs beside Steps 1–7 with its own status (scanning, done, failed), so a site that can't be read never fails the research; a failed scan, or one that stopped storing anything, can be run again and keeps the pages already read. It stores facts, never conclusions; Findings are worked out from them when shown.
+_Avoid_: Audit
+
+**Scanned Page**:
+One page of the site a Site Scan read, in read order: its address, the HTTP status it answered with, its Page Facts and the Niche it was matched to, if any. A page whose read ended on another host has no Page Facts; a page that gave no answer keeps only why. Stored in `scanned_pages`, at most the page limit per scan. It is not a Page (the record of a Brief) and not a Competitor Page.
+
+**Page Facts**:
+What dirmoon reads off one web page without judging it: title, description, canonical address, robots meta, headings, amount of text, images with and without descriptions, links, declared language, phone set-up (viewport), structured data and the business name it gives, phone and e-mail links, and ways to act. Kept in full for a Scanned Page; a Competitor Page keeps only the few that compare one page with another. The HTML itself is never kept.
+
+**Finding**:
+One thing a Site Scan tells the owner, worked out from the stored facts, the run's Niches and its Current Positions: which of five questions it answers (can Google find the site, what each page says, does the site cover what people search for, does it work for a visitor, does it show a real business), the check, its level (problem, warning, not checked, good), the pages concerned and the figures behind it. A Finding says only what was measured; a check that could not be made is "not checked" with its reason (the service isn't connected, Demo Data, the request failed or was refused, the speed test's quota or it couldn't open the page, no business name on the site, no data for the site, the page limit was reached, the matching hasn't run yet). Never stored and never written by the LLM.
+_Avoid_: Issue
+
+**Linking Sites**:
+How many other sites link to a site, as DataForSEO's own link index knows: an approximate count, never the whole web. Asked for the Existing Site's domain by its Site Scan and for each Competitor Page's domain by a Price Check, so the owner can compare them; no data is unknown, never zero.
 
 ### Niches
 
@@ -146,7 +165,7 @@ The record that holds one Chosen Niche's Brief, with its status while Step 8 wri
 _Avoid_: Produced page, Landing page (for the record), article, post
 
 **Demo Data**:
-Obviously synthetic output from a demo adapter, used in dev while an external service has no credentials; the app shows "TEST DATA" with the names of the services answered this way.
+Obviously synthetic output from a demo adapter (the LLM and the keyword API only), used in dev while that service has no credentials; the app shows "TEST DATA" with the names of the services answered this way. Demo Data never says anything about the owner's real site or business: the ranked phrases, indexed page count, Business Profile, Linking Sites, the matching of pages to Niches and the drafted description have no demo answer and show as not done.
 
 **Placeholder**:
 Bracketed upper-case English text (`[PRICE]`, `[PHONE]`, `[BUSINESS NAME]`) marking a value the business owner must supply; the generator never fills it in, and a price, phone, e-mail or address the LLM writes is replaced by one.

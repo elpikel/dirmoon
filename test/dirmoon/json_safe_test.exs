@@ -38,4 +38,19 @@ defmodule Dirmoon.JsonSafeTest do
       JsonSafe.encode(%{"site" => URI.parse("https://example.com")})
     end
   end
+
+  test "a string with bytes that are not UTF-8 or NUL characters becomes one a jsonb column can hold" do
+    assert JsonSafe.encode(%{"rule" => "/k\xF3d", "name" => "A\u0000B"}) == %{"rule" => "/k\uFFFDd", "name" => "AB"}
+  end
+
+  test "string keys are cleaned like the values" do
+    assert JsonSafe.encode(%{"k\xF3d\u0000" => ["a\u0000"]}) == %{"k\uFFFDd" => ["a"]}
+  end
+
+  test "text is cleaned and cut at a character boundary to at most the given bytes" do
+    assert JsonSafe.text("Pok\xF3j\u0000") == "Pok\uFFFDj"
+    assert JsonSafe.text("Pokój", 4) == "Pok"
+    assert JsonSafe.text("Pokój", 5) == "Pokó"
+    assert JsonSafe.text("Pokój", 100) == "Pokój"
+  end
 end

@@ -10,6 +10,7 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
   alias Dirmoon.PriceChecks.PriceCheck
   alias Dirmoon.Research
   alias Dirmoon.Research.ApiRequest
+  alias Dirmoon.Research.Ledger
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
   alias Dirmoon.Workers.CheckCompetitorPrices
@@ -20,9 +21,9 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
     %{run: run, price_check: price_check} = checking(%{domains: ["lodowisko-a.example", "lodowisko-b.example"]})
     PriceChecks.subscribe(run)
 
-    expect(Dirmoon.WebPageMock, :fetch_text, 2, fn
-      "https://lodowisko-a.example/cennik" -> {:ok, %{text: @page_text, url: "https://lodowisko-a.example/cennik/"}}
-      "https://lodowisko-b.example/cennik" -> {:error, "HTTP 503"}
+    expect(Dirmoon.WebPageMock, :fetch, 2, fn
+      "https://lodowisko-a.example/cennik" -> {:ok, html_page("https://lodowisko-a.example/cennik/", @page_text)}
+      "https://lodowisko-b.example/cennik" -> {:ok, %{html_page("https://lodowisko-b.example/cennik", "") | status: 503}}
     end)
 
     expect(Dirmoon.LLMMock, :structured, 1, fn %{task: :competitor_prices} ->
@@ -56,7 +57,7 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
       checking(%{domains: ["lodowisko-a.example"], niche_name: "Łyżwy w Gdańsku", phrase: "wypożyczalnia łyżew"})
 
     test_pid = self()
-    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: @page_text, url: url}} end)
+    stub(Dirmoon.WebPageMock, :fetch, fn url -> {:ok, html_page(url, @page_text)} end)
 
     expect(Dirmoon.LLMMock, :structured, 1, fn request ->
       send(test_pid, {:request, request})
@@ -87,7 +88,7 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
 
   test "a page without visible text has no prices and is not sent to the model" do
     %{price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
-    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: "", url: url}} end)
+    stub(Dirmoon.WebPageMock, :fetch, fn url -> {:ok, html_page(url, "")} end)
     expect(Dirmoon.LLMMock, :structured, 0, fn _request -> {:ok, %{"offers" => []}, Decimal.new(0)} end)
 
     assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id})
@@ -98,7 +99,7 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
 
   test "checking again replays the stored page and answer instead of fetching or paying twice" do
     %{run: run, price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
-    expect(Dirmoon.WebPageMock, :fetch_text, 1, fn url -> {:ok, %{text: @page_text, url: url}} end)
+    expect(Dirmoon.WebPageMock, :fetch, 1, fn url -> {:ok, html_page(url, @page_text)} end)
 
     expect(Dirmoon.LLMMock, :structured, 1, fn _request ->
       {:ok, %{"offers" => [%{"name" => "Ostrzenie", "price" => "20 zł", "quote" => "Ostrzenie łyżew 20 zł"}]},
@@ -120,9 +121,9 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
   test "a model error is retried, and the pages read before it keep their outcome" do
     %{price_check: price_check} = checking(%{domains: ["lodowisko-a.example", "lodowisko-b.example"]})
 
-    stub(Dirmoon.WebPageMock, :fetch_text, fn
-      "https://lodowisko-a.example/cennik" -> {:error, "HTTP 404"}
-      url -> {:ok, %{text: @page_text, url: url}}
+    stub(Dirmoon.WebPageMock, :fetch, fn
+      "https://lodowisko-a.example/cennik" -> {:error, "the page could not be read"}
+      url -> {:ok, html_page(url, @page_text)}
     end)
 
     expect(Dirmoon.LLMMock, :structured, 1, fn _request -> {:error, "OpenAI: HTTP 500"} end)
@@ -139,7 +140,7 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
   test "on the last attempt a model error fails the check with its reason" do
     %{run: run, price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
     PriceChecks.subscribe(run)
-    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: @page_text, url: url}} end)
+    stub(Dirmoon.WebPageMock, :fetch, fn url -> {:ok, html_page(url, @page_text)} end)
     expect(Dirmoon.LLMMock, :structured, 1, fn _request -> {:error, "OpenAI: HTTP 500"} end)
 
     assert {:cancel, "OpenAI: HTTP 500"} =
@@ -151,7 +152,7 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
 
   test "without an LLM key the check fails at once and says the key is missing" do
     %{price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
-    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: @page_text, url: url}} end)
+    stub(Dirmoon.WebPageMock, :fetch, fn url -> {:ok, html_page(url, @page_text)} end)
     expect(Dirmoon.LLMMock, :structured, 1, fn _request -> {:error, :llm_not_configured} end)
 
     assert {:cancel, :llm_not_configured} = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id})
@@ -161,7 +162,7 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
 
   test "an answer without a list of offers is not stored and fails the check on the last attempt" do
     %{price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
-    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: @page_text, url: url}} end)
+    stub(Dirmoon.WebPageMock, :fetch, fn url -> {:ok, html_page(url, @page_text)} end)
     expect(Dirmoon.LLMMock, :structured, 1, fn _request -> {:ok, %{"offers" => "15 zł"}, Decimal.new("0.002")} end)
 
     assert {:cancel, "The model returned no list of offers"} =
@@ -175,7 +176,7 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
 
   test "an unexpected crash fails the check on the last attempt with a readable reason" do
     %{price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
-    stub(Dirmoon.WebPageMock, :fetch_text, fn _url -> raise ArgumentError, "zepsuty adres" end)
+    stub(Dirmoon.WebPageMock, :fetch, fn _url -> raise ArgumentError, "zepsuty adres" end)
 
     assert {:cancel, %ArgumentError{}} =
              perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id}, attempt: 3)
@@ -187,12 +188,174 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
   test "a check that is done or gone is left alone" do
     %{price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
     price_check |> Ecto.Changeset.change(status: :done) |> Repo.update!()
-    expect(Dirmoon.WebPageMock, :fetch_text, 0, fn _url -> {:error, "nie wolno"} end)
+    expect(Dirmoon.WebPageMock, :fetch, 0, fn _url -> {:error, "nie wolno"} end)
 
     assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id})
     assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id + 1_000_000})
     assert %PriceCheck{status: :done} = Repo.get!(PriceCheck, price_check.id)
   end
+
+  test "each page read keeps the facts that compare it with the site's page, and the ledger keeps its text, not its HTML" do
+    %{run: run, price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
+
+    html =
+      "<html><head><title>Lodowisko A</title></head><body><h1>Cennik</h1><h2>Łyżwy</h2><p>#{@page_text}</p></body></html>"
+
+    stub(Dirmoon.WebPageMock, :fetch, fn url ->
+      {:ok, %{url: url, status: 200, redirects: [], content_type: "text/html", body: html}}
+    end)
+
+    stub(Dirmoon.LLMMock, :structured, fn _request -> {:ok, %{"offers" => []}, Decimal.new(0)} end)
+
+    assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id})
+
+    assert [%CompetitorPage{facts: facts}] = PriceChecks.get_for_niche(price_check.niche).competitor_pages
+
+    assert %{
+             "main_heading_count" => 1,
+             "sub_heading_count" => 1,
+             "title_length" => 11,
+             "structured_data_types" => [],
+             "images" => 0,
+             "ways_to_act" => %{"phone_links" => 0}
+           } = facts
+
+    assert facts["word_count"] > 0
+
+    assert [%ApiRequest{response: %{"text" => text, "url" => _read_url, "facts" => ^facts} = response}] =
+             ApiRequest |> where(run_id: ^run.id, service: "web_page") |> Repo.all()
+
+    assert text =~ "Wypożyczenie łyżew"
+    refute response |> Jason.encode!() |> String.contains?("<h1>")
+  end
+
+  test "a plain-text page is read for prices and has no facts to compare" do
+    %{price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
+
+    stub(Dirmoon.WebPageMock, :fetch, fn url ->
+      {:ok, %{url: url, status: 200, redirects: [], content_type: "text/plain", body: @page_text}}
+    end)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn _request -> {:ok, %{"offers" => []}, Decimal.new(0)} end)
+
+    assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id})
+
+    assert [%CompetitorPage{outcome: :no_prices, facts: nil}] =
+             PriceChecks.get_for_niche(price_check.niche).competitor_pages
+  end
+
+  test "a page that is not HTML or plain text is unreadable, as before" do
+    %{price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
+
+    stub(Dirmoon.WebPageMock, :fetch, fn url ->
+      {:ok, %{url: url, status: 200, redirects: [], content_type: "application/pdf", body: ""}}
+    end)
+
+    expect(Dirmoon.LLMMock, :structured, 0, fn _request -> {:ok, %{"offers" => []}, Decimal.new(0)} end)
+
+    assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id})
+
+    assert [%CompetitorPage{outcome: :unreadable, facts: nil}] =
+             PriceChecks.get_for_niche(price_check.niche).competitor_pages
+  end
+
+  test "a page read before the facts were kept is replayed from the ledger, and its facts stay empty" do
+    %{run: run, price_check: price_check} = checking(%{domains: ["lodowisko-a.example"]})
+
+    {:ok, _stored} =
+      Ledger.fetch(
+        run,
+        %{service: "web_page", operation: "fetch_text", request: %{url: "https://lodowisko-a.example/cennik"}},
+        fn -> {:ok, %{"text" => @page_text, "url" => "https://lodowisko-a.example/cennik/"}, Decimal.new(0)} end
+      )
+
+    expect(Dirmoon.WebPageMock, :fetch, 0, fn _url -> {:error, "not called"} end)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn %{input: %{text: @page_text}} ->
+      {:ok, %{"offers" => [%{"name" => "Ostrzenie", "price" => "20 zł", "quote" => "Ostrzenie łyżew 20 zł"}]},
+       Decimal.new("0.003")}
+    end)
+
+    assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id})
+
+    assert [%CompetitorPage{outcome: :prices_found, read_url: "https://lodowisko-a.example/cennik/", facts: nil}] =
+             PriceChecks.get_for_niche(price_check.niche).competitor_pages
+  end
+
+  test "for an Existing Site one request counts the sites linking to every competitor's domain, paid once" do
+    %{run: run, price_check: price_check} =
+      checking(%{domains: ["lodowisko-b.example", "lodowisko-a.example"], mode: :existing_site})
+
+    stub(Dirmoon.WebPageMock, :fetch, fn url -> {:ok, html_page(url, @page_text)} end)
+    stub(Dirmoon.LLMMock, :structured, fn _request -> {:ok, %{"offers" => []}, Decimal.new(0)} end)
+
+    expect(Dirmoon.DataForSEOMock, :linking_sites, 1, fn %{domains: domains} ->
+      assert domains == ["lodowisko-a.example", "lodowisko-b.example"]
+
+      {:ok,
+       %{
+         rows: [%{domain: "lodowisko-a.example", linking_sites: 31}],
+         raw: %{"tasks" => []},
+         cost: Decimal.new("0.024072")
+       }}
+    end)
+
+    assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id})
+    Repo.update_all(PriceCheck, set: [status: :checking])
+    Repo.update_all(CompetitorPage, set: [outcome: :waiting, linking_sites: nil])
+    assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id})
+
+    assert [%CompetitorPage{domain: "lodowisko-b.example", linking_sites: nil}, %CompetitorPage{linking_sites: 31}] =
+             PriceChecks.get_for_niche(price_check.niche).competitor_pages
+
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new("0.024072"))
+  end
+
+  test "linking sites refused, unavailable, failed or crashing never fail the check and leave the counts empty" do
+    failures = [
+      fn _request ->
+        {:error, {:linking_sites_unavailable, %{message: "DataForSEO: Access denied.", raw: %{}, cost: 0}}}
+      end,
+      fn _request -> {:error, :not_in_demo_data} end,
+      fn _request -> {:error, :data_for_seo_not_configured} end,
+      fn _request -> {:error, "DataForSEO: HTTP 500"} end,
+      fn _request -> raise "the link index broke" end,
+      fn _request -> exit(:link_index_gone) end,
+      fn _request -> throw(:link_index_gave_up) end
+    ]
+
+    for failure <- failures do
+      %{price_check: price_check} = checking(%{domains: ["lodowisko-a.example"], mode: :existing_site})
+      stub(Dirmoon.WebPageMock, :fetch, fn url -> {:ok, html_page(url, @page_text)} end)
+      stub(Dirmoon.LLMMock, :structured, fn _request -> {:ok, %{"offers" => []}, Decimal.new(0)} end)
+      expect(Dirmoon.DataForSEOMock, :linking_sites, 1, failure)
+
+      assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id}, attempt: 3)
+
+      assert %PriceCheck{status: :done, competitor_pages: [%CompetitorPage{outcome: :no_prices, linking_sites: nil}]} =
+               PriceChecks.get_for_niche(price_check.niche)
+    end
+  end
+
+  test "a New Idea run has no site to compare, so its check buys no linking sites" do
+    %{price_check: price_check} = checking(%{domains: ["lodowisko-a.example"], mode: :new_idea})
+    stub(Dirmoon.WebPageMock, :fetch, fn url -> {:ok, html_page(url, @page_text)} end)
+    stub(Dirmoon.LLMMock, :structured, fn _request -> {:ok, %{"offers" => []}, Decimal.new(0)} end)
+    expect(Dirmoon.DataForSEOMock, :linking_sites, 0, fn _request -> {:error, :not_in_demo_data} end)
+
+    assert :ok = perform_job(CheckCompetitorPrices, %{price_check_id: price_check.id})
+
+    assert [%CompetitorPage{linking_sites: nil}] = PriceChecks.get_for_niche(price_check.niche).competitor_pages
+  end
+
+  defp html_page(url, text),
+    do: %{
+      url: url,
+      status: 200,
+      redirects: [],
+      content_type: "text/html",
+      body: "<html><body><p>#{text}</p></body></html>"
+    }
 
   defp run_step_statuses(run) do
     RunStep
@@ -204,7 +367,14 @@ defmodule Dirmoon.Workers.CheckCompetitorPricesTest do
   end
 
   defp checking(%{domains: domains} = attrs) do
-    run = insert(:run, status: :awaiting_choice, steps: build_run_steps(Map.new(1..7, &{&1, :done})))
+    run =
+      insert(:run,
+        mode: Map.get(attrs, :mode, :new_idea),
+        domain: if(Map.get(attrs, :mode) == :existing_site, do: "lodowisko-moje.example"),
+        status: :awaiting_choice,
+        steps: build_run_steps(Map.new(1..7, &{&1, :done}))
+      )
+
     niche = insert(:niche, run: run, name: Map.get(attrs, :niche_name, "Nisza testowa cen"))
     phrase = insert(:phrase, phrase: Map.get(attrs, :phrase, unique_phrase_text("fraza cen")))
     insert(:run_phrase, run: run, phrase: phrase, niche: niche)

@@ -38,6 +38,23 @@ defmodule Dirmoon.PriceChecksTest do
            ]
   end
 
+  test "a competitor's international domain is kept in its ASCII form, one page for both of its spellings" do
+    first_pages = [
+      %{
+        id: 1,
+        phrase: "wypożyczalnia łyżew",
+        results: [
+          result(%{position: 2, url: "https://www.Łyżwy.example/cennik", page_type: :direct_competitor}),
+          result(%{position: 4, url: "https://xn--ywy-gwa50a.example/", page_type: :direct_competitor})
+        ]
+      }
+    ]
+
+    assert PriceChecks.competitor_pages(first_pages) == [
+             %{domain: "xn--ywy-gwa50a.example", url: "https://www.Łyżwy.example/cennik", google_position: 2}
+           ]
+  end
+
   test "at most five competitor pages are read" do
     results =
       Enum.map(1..7, &result(%{position: &1, url: "https://konkurent-#{&1}.example/", page_type: :direct_competitor}))

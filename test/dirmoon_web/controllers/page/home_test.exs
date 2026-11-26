@@ -50,122 +50,255 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     assert document |> LazyHTML.query("title") |> squish() ==
              "Validate your business idea with Google search data · dirmoon"
 
+    for phrase <- ["niche finder", "monthly search volume", "keyword competition"] do
+      assert document |> LazyHTML.query("#journey-lead") |> squish() =~ phrase
+    end
+  end
+
+  test "the hero lead says what dirmoon does in two short sentences", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("#landing-hero #hero-lead") |> squish() ==
+             "Describe your idea in one sentence. dirmoon checks what people really search for on Google and tells you, in plain words, if it's worth building."
+  end
+
+  test "the description offers both testing an idea and a list of what to fix on an existing website, within 160 characters",
+       %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
     assert [description] = document |> LazyHTML.query("meta[name=description]") |> LazyHTML.attribute("content")
-    assert description =~ "Test a business idea before you build it."
+
+    assert description ==
+             "Niche finder: test a business idea with real monthly search volume and keyword competition. " <>
+               "Or paste your site and get a plain-English list of what to fix."
+
+    assert String.length(description) <= 160
+  end
+
+  test "the description keeps the search terms people use for this kind of tool", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert [description] = document |> LazyHTML.query("meta[name=description]") |> LazyHTML.attribute("content")
 
     for phrase <- ["niche finder", "monthly search volume", "keyword competition"] do
-      assert document |> LazyHTML.query("#landing-hero p") |> squish() =~ phrase
+      assert String.downcase(description) =~ phrase
     end
-
-    assert description =~ "the monthly search volume (how often they search)"
-    assert description =~ "the keyword competition (who holds Google's first page)"
   end
 
-  test "the hero lead explains its search terms in plain words as it goes", %{conn: conn} do
-    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
-    lead = document |> LazyHTML.query("#landing-hero p") |> squish()
-
-    assert lead =~ "the monthly search volume (how many times a month they type it)"
-    assert lead =~ "the keyword competition (who already holds Google's first page)"
-    assert lead =~ "which topics are worth going after: the things people want that your business could offer"
-  end
-
-  test "the journey walks four steps from the idea to the decision, along a flight path with the rocket",
+  test "the hero offers an owner who already has a website a list of what to fix, linked to its own section",
        %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("#landing-hero #hero-existing-site") |> squish() ==
+             "Already have a website? Paste its address and get a list of what to fix. See what it checks"
+
+    assert document |> LazyHTML.query("#landing-hero a#hero-existing-site-link[href='#existing-site']") |> squish() ==
+             "See what it checks"
+
+    assert document |> LazyHTML.query("section#existing-site") |> Enum.count() == 1
+  end
+
+  test "the section for an existing website comes after the journey and before the closing band", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("main > section") |> LazyHTML.attribute("id") ==
+             ~w(landing-hero journey existing-site closing)
+  end
+
+  test "the section for an existing website promises a plain-English list of what to fix from up to the scan's page limit",
+       %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    section = LazyHTML.query(document, "#existing-site")
+
+    assert section |> LazyHTML.query("#existing-site-heading") |> squish() ==
+             "Already have a website? Paste your address. Get a list of what to fix."
+
+    assert section |> LazyHTML.query("h2") |> squish() == "Paste your address. Get a list of what to fix."
+
+    assert section |> LazyHTML.query("[data-part=intro]") |> squish() ==
+             "dirmoon reads up to #{Dirmoon.SiteScans.page_limit()} pages of your site and tells you in plain words what to fix first."
+  end
+
+  test "the section says plainly what the report tells you, in the report's order", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    section = LazyHTML.query(document, "#existing-site")
+
+    assert section |> LazyHTML.query("[data-part=findings-lead]") |> squish() == "It tells you:"
+
+    assert section |> LazyHTML.query("#existing-site-findings [data-part=finding]") |> Enum.map(&squish/1) == [
+             "Which topics people search for that your site has no page for",
+             "Whether Google can find and read your pages",
+             "Whether each page says clearly what it offers",
+             "Whether it loads fast and works on a phone",
+             "Whether Google can see you are a real business"
+           ]
+
+    assert section |> LazyHTML.query("h3, [data-part=level], [data-part=examples-label]") |> Enum.count() == 0
+  end
+
+  test "nothing the section says about an existing website carries a number", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    findings = document |> LazyHTML.query("#existing-site [data-part=finding]") |> Enum.map(&squish/1)
+
+    assert Enum.count(findings) == 5
+    assert Enum.reject(findings, &(&1 =~ ~r/\d/)) == findings
+  end
+
+  test "the section says what comes next: a brief for a missing topic and your page beside your competitors'",
+       %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("#existing-site-next") |> squish() ==
+             "A topic with no page? Ask for its brief: the plan and the text for that page. " <>
+               "dirmoon also sets your page beside your competitors' pages."
+  end
+
+  test "the page asks no questions about an existing website and nowhere names the keyword API's vendor",
+       %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("#existing-site-answers, #existing-site-report-panel") |> Enum.count() == 0
+    refute document |> LazyHTML.query("main") |> squish() =~ "DataForSEO"
+  end
+
+  test "the lead under the steps' heading explains its search terms in plain words as it goes", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+    lead = document |> LazyHTML.query("#journey-lead") |> squish()
+
+    assert lead =~ "the monthly search volume (how often people search)"
+    assert lead =~ "the keyword competition (who holds Google's first page)"
+    assert lead =~ "then tells you which topics are worth going after."
+  end
+
+  test "the journey asks whether to start the business", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    journey = LazyHTML.query(document, "#journey")
+
+    assert journey |> LazyHTML.query("h2.sr-only") |> squish() == "Should I start this business?"
+    refute squish(journey) =~ "From idea to decision"
+    assert journey |> LazyHTML.query("#journey-intro") |> Enum.count() == 0
+    assert document |> LazyHTML.query("#how-it-works") |> Enum.count() == 0
+  end
+
+  test "the journey is one trip of six numbered stops, from the launch to the arrival", %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
     journey = LazyHTML.query(document, "#journey #journey-steps")
 
-    assert journey |> LazyHTML.query("[data-part=flight-path][aria-hidden=true] svg[data-rocket]") |> Enum.count() == 1
-
     assert journey |> LazyHTML.query("[data-part=step]") |> LazyHTML.attribute("id") ==
-             ~w(journey-steps-idea journey-steps-research journey-steps-report journey-steps-value)
+             ~w(journey-steps-launch journey-steps-demand journey-steps-click-price journey-steps-competition journey-steps-competitor-prices journey-steps-arrival)
 
-    assert journey |> LazyHTML.query("[data-part=step] [data-part=number]") |> Enum.map(&squish/1) == ~w(01 02 03 04)
+    assert journey |> LazyHTML.query("[data-part=step] [data-part=number]") |> Enum.map(&squish/1) ==
+             ~w(01 02 03 04 05 06)
 
     assert journey |> LazyHTML.query("[data-part=step] h3") |> Enum.map(&squish/1) == [
-             "You start with a question",
-             "dirmoon checks real search data",
-             "You get a ranked report",
-             "You decide with numbers, not hope"
+             "How do I validate my business idea?",
+             "How do I know if people are searching for my business idea?",
+             "What would a Google Ads click cost for my idea?",
+             "Who is on the first page of Google, and is the competition too strong?",
+             "What do my competitors charge?",
+             "What are my chances of a successful business?"
            ]
 
-    assert document |> LazyHTML.query("#how-it-works") |> Enum.count() == 0
+    assert journey |> LazyHTML.query("[data-part=label]") |> Enum.count() == 0
   end
 
-  test "the journey's example is one real research: what was typed, what it cost and the ranked Niches",
+  test "a dotted path passes a plain numbered marker at every stop, with no rocket, pad or flag",
        %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
-    assert document |> LazyHTML.query("#journey-steps-idea [data-part=description]") |> squish() == "“Ice skate rental”"
-    assert document |> LazyHTML.query("#journey input, #journey [class*=shadow-prompt]") |> Enum.count() == 0
+    journey = LazyHTML.query(document, "#journey-steps")
 
-    questions = [
-      "How do I know if people are searching for my business idea?",
-      "What would a Google Ads click cost for my idea?",
-      "Who is on the first page of Google, and is the competition too strong?",
-      "What do my competitors charge?"
-    ]
+    assert journey |> LazyHTML.query("[data-part=flight-path][aria-hidden=true]") |> Enum.count() == 1
+    assert journey |> LazyHTML.query("svg[data-rocket]") |> Enum.count() == 0
 
-    assert document |> LazyHTML.query("#journey-steps-idea [data-part=questions] li") |> Enum.map(&squish/1) == questions
+    assert journey |> LazyHTML.query("[data-part=step] [data-part=marker]") |> LazyHTML.attribute("data-marker") ==
+             ~w(launch question question question question arrival)
 
-    assert document |> LazyHTML.query("#journey-steps-idea [data-part=city]") |> squish() == "Gdańsk, Poland"
+    assert journey |> LazyHTML.query("[data-part=marker] .hero-flag-solid") |> Enum.count() == 0
+  end
 
-    assert document |> LazyHTML.query("#journey-steps-sources dt") |> Enum.map(&squish/1) == [
-             "Where do the numbers come from?",
-             "Does an AI make any of it up?"
+  test "each of the traveller's questions is answered at its stop with the real example", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    answers =
+      Enum.map(
+        ~w(demand click-price competition competitor-prices),
+        &(document |> LazyHTML.query("#journey-steps-#{&1} [data-part=lead]") |> squish())
+      )
+
+    assert answers == [
+             "dirmoon shows how many times a month people type it into Google. In the example, people look for skate rental 1,090 times a month: about 36 times a day.",
+             "dirmoon shows what businesses pay Google for one ad click. For skate rental it is $6.79. A high price means a customer is worth money.",
+             "dirmoon lists every site on Google's first page and tells you how hard it is to get there. For skate rental: businesses like yours and big portals, so it will be a fight.",
+             "Ask, and dirmoon opens your competitors' pages and lists the prices they publish, each with a link."
            ]
 
-    sources = document |> LazyHTML.query("#journey-steps-sources dd") |> Enum.map(&squish/1)
+    assert document |> LazyHTML.query("#journey-steps-demand [data-part=lead] strong") |> Enum.map(&squish/1) ==
+             ["1,090 times a month"]
 
-    assert Enum.at(sources, 0) =~ "Google's own search and ad data"
-    assert Enum.at(sources, 1) =~ "never from an AI's guess"
-    refute document |> LazyHTML.query("#journey") |> squish() =~ "API fees"
+    assert document |> LazyHTML.query("#journey-steps-click-price [data-part=lead] strong") |> squish() == "$6.79"
+  end
 
-    report = LazyHTML.query(document, "#journey-steps-report")
-    panel = LazyHTML.query(report, "#journey-steps-report-panel[data-surface=dark]")
+  test "each question appears exactly once on the page", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
-    assert squish(report) =~
-             "People ask Google for the same thing in many different words. A topic is those searches put together."
+    main = document |> LazyHTML.query("main") |> squish()
 
-    assert panel |> LazyHTML.query("[data-part=context]") |> squish() == "dirmoon / ice skate rental"
-    assert panel |> LazyHTML.query("[data-part=note]") |> squish() == "7 topics"
+    for question <- [
+          "How do I know if people are searching for my business idea?",
+          "What would a Google Ads click cost for my idea?",
+          "Who is on the first page of Google, and is the competition too strong?",
+          "What do my competitors charge?"
+        ] do
+      assert main |> String.split(question) |> Enum.count() == 2
+    end
 
-    niches = LazyHTML.query(panel, "[data-part=niche]")
+    assert document |> LazyHTML.query("#journey dl, #journey [data-part=questions]") |> Enum.count() == 0
+  end
 
-    assert niches |> LazyHTML.query("[data-part=name]") |> Enum.map(&squish/1) ==
-             ["Skate rental", "Ice rinks with skate rental", "Skates for kids"]
+  test "the journey no longer has a step about dirmoon checking real search data", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
-    assert niches |> LazyHTML.query("[data-part=verdict]") |> Enum.map(&squish/1) ==
-             [
-               "Worth it, but hard · rating 7.7 out of 10",
-               "Worth it, but hard · rating 5.6 out of 10",
-               "Probably not worth it · rating 2.3 out of 10"
-             ]
+    journey = document |> LazyHTML.query("#journey") |> squish()
 
-    assert niches |> LazyHTML.query("[data-part=figures]") |> Enum.at(0) |> squish() ==
-             "Typed 1,090 times a month · $6.79 per ad click"
+    refute journey =~ "dirmoon checks real search data"
+    refute journey =~ "It does not guess"
+    refute journey =~ "AI only suggests where to look"
+    refute journey =~ "API fees"
+    assert document |> LazyHTML.query("#journey-steps-research, #journey-steps-sources") |> Enum.count() == 0
+  end
 
-    assert panel |> LazyHTML.query("[data-part=more]") |> squish() =~ "And 4 more topics"
-    assert report |> LazyHTML.query("figcaption") |> squish() =~ "A real research from 24 Nov 2026"
+  test "the trip launches from the idea described in one sentence", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
-    assert report |> LazyHTML.query("#journey-steps-answers dt") |> Enum.map(&squish/1) == questions
+    launch = LazyHTML.query(document, "#journey-steps-launch")
 
-    answers = report |> LazyHTML.query("#journey-steps-answers dd") |> Enum.map(&squish/1)
+    assert launch |> LazyHTML.query("[data-part=lead]") |> squish() ==
+             "Describe it in one sentence. dirmoon checks it against what people really search for on Google."
 
-    assert Enum.at(answers, 0) =~ "is typed 1,090 times a month"
-    assert Enum.at(answers, 1) =~ "$6.79"
-    assert Enum.at(answers, 2) =~ "with a link to each"
-    assert Enum.at(answers, 3) =~ "lists the prices they publish"
+    assert launch |> LazyHTML.query("blockquote") |> Enum.count() == 0
+  end
 
-    value = document |> LazyHTML.query("#journey-steps-value") |> squish()
+  test "the last step answers with a score, a plain verdict and one real example, without a report mock-up",
+       %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
-    assert value =~ "5 of 7 topics turned out not worth a page"
+    arrival = LazyHTML.query(document, "#journey-steps-arrival")
 
-    assert value =~
-             "dirmoon writes its brief: the plan and the text for one page about that topic, with the title, headings, sections and the searches to cover. You hand it to whoever builds your site."
+    assert arrival |> LazyHTML.query("[data-part=lead]") |> squish() ==
+             "dirmoon gives your idea a score from 0 to 10 and a plain verdict: worth a try, worth it but hard, " <>
+               "or probably not worth it. Skate rental scored 7.7 out of 10: worth it, but hard."
 
-    refute value =~ "page content"
+    assert arrival |> LazyHTML.query("[data-part=decision]") |> Enum.map(&squish/1) == [
+             "Then dirmoon writes the plan and the text for your page, ready to hand to whoever builds your site."
+           ]
+
+    assert document |> LazyHTML.query("#journey [data-surface=dark], #journey figure") |> Enum.count() == 0
   end
 
   test "a signed-out visitor is offered sign-in in the nav", %{conn: conn} do

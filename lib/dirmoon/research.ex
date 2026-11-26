@@ -17,12 +17,15 @@ defmodule Dirmoon.Research do
   alias Dirmoon.Markets
   alias Dirmoon.Repo
   alias Dirmoon.Research.ApiRequest
+  alias Dirmoon.Research.Ledger
   alias Dirmoon.Research.Pipeline
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
   alias Dirmoon.Research.Steps
+  alias Dirmoon.SiteScans
 
   @list_limit 50
+  @id_range 1..9_223_372_036_854_775_807
   @cancellable_job_states ~w(available scheduled retryable)
 
   @doc """
@@ -47,13 +50,25 @@ defmodule Dirmoon.Research do
 
   @doc """
   Starts a run in the Scope's Account: the run, running, with its eight Steps
-  waiting, and Step 1 enqueued, all in one transaction.
+  waiting, Step 1 enqueued and, for an Existing Site run, its Site Scan
+  started (`Dirmoon.SiteScans.start/1`), all in one transaction.
+
+  `ledger_entries:` lists requests paid for this research before the run
+  existed (the draft of its description, `Dirmoon.SiteScans.Description`),
+  each `%{service:, operation:, request:, response:, cost:}`; they are
+  recorded on the run in the same transaction (`Ledger.record/2`), so its API
+  Cost includes them. They come from the server's own state, never from the
+  form's params.
   """
-  def start_run(%Scope{} = scope, attrs) do
+  def start_run(%Scope{} = scope, attrs, options \\ []) do
+    ledger_entries = Keyword.get(options, :ledger_entries, [])
+
     Repo.transact(fn ->
       with {:ok, run} <- scope |> change_run(attrs) |> Repo.insert() do
         insert_waiting_steps(run)
+        Enum.each(ledger_entries, &(:ok = Ledger.record(run, &1)))
         :ok = Pipeline.advance(run)
+        start_site_scan(run)
         {:ok, run}
       end
     end)
@@ -61,17 +76,18 @@ defmodule Dirmoon.Research do
 
   @doc """
   The Scope's Account's run with the given id, its Steps in order, or nil.
+  An id that isn't a whole number in the database's id range is not found.
   """
   def get_run(%Scope{} = scope, id) do
     case Ecto.Type.cast(:id, id) do
-      {:ok, run_id} ->
+      {:ok, run_id} when run_id in @id_range ->
         scope
         |> account_runs_query()
         |> where([run: run], run.id == ^run_id)
         |> preload(steps: ^RunStep.ordered_by_number())
         |> Repo.one()
 
-      :error ->
+      _not_an_id ->
         nil
     end
   end
@@ -160,9 +176,16 @@ defmodule Dirmoon.Research do
   per-request prices in `config :dirmoon, :cost_estimates`: one phrase ideas
   request, one search volumes request for the country and one more for a
   city, one SERP request per checked Phrase (`serp_phrase_limit`) and the LLM
-  allowance. The Mode doesn't change it: Search Console is free.
+  allowance. An Existing Site run adds Step 6's ranked phrases request, at
+  its price per request plus its price per phrase for `ranked_phrases_limit`
+  phrases (Search Console is free), and its Site Scan's indexed page count
+  and Business Profile lookup, one request each (PageSpeed is free), and
+  its linking sites request for the one domain, at its price per request
+  plus its price per domain. A Price Check is started on demand, so none of
+  its requests (the LLM's, the competitors' linking sites) is in the
+  estimate.
   """
-  def estimated_cost(%{city?: city?}) when is_boolean(city?) do
+  def estimated_cost(%{city?: city?, mode: mode}) when is_boolean(city?) do
     prices = Application.fetch_env!(:dirmoon, :cost_estimates)
     volume_requests = if city?, do: 2, else: 1
 
@@ -171,7 +194,8 @@ defmodule Dirmoon.Research do
         price(prices, :phrase_ideas),
         prices |> price(:search_volumes) |> Decimal.mult(volume_requests),
         prices |> price(:serp_top10) |> Decimal.mult(Application.fetch_env!(:dirmoon, :serp_phrase_limit)),
-        price(prices, :llm_allowance)
+        price(prices, :llm_allowance),
+        site_estimate(prices, mode)
       ],
       Decimal.new(0),
       &Decimal.add/2
@@ -309,6 +333,9 @@ defmodule Dirmoon.Research do
     Repo.insert_all(RunStep, steps)
   end
 
+  defp start_site_scan(%Run{mode: :existing_site} = run), do: {:ok, _site_scan} = SiteScans.start(run)
+  defp start_site_scan(%Run{mode: :new_idea}), do: :ok
+
   defp stop_locked(%Run{id: run_id}) do
     locked_run = lock_run!(run_id)
 
@@ -348,6 +375,19 @@ defmodule Dirmoon.Research do
   end
 
   defp price(prices, request), do: prices |> Map.fetch!(request) |> Decimal.new()
+
+  defp site_estimate(prices, :existing_site) do
+    prices
+    |> price(:ranked_phrases_per_phrase)
+    |> Decimal.mult(Application.fetch_env!(:dirmoon, :ranked_phrases_limit))
+    |> Decimal.add(price(prices, :ranked_phrases_request))
+    |> Decimal.add(price(prices, :indexed_page_count))
+    |> Decimal.add(price(prices, :business_profile))
+    |> Decimal.add(price(prices, :linking_sites_request))
+    |> Decimal.add(price(prices, :linking_sites_per_domain))
+  end
+
+  defp site_estimate(_prices, _new_idea_or_not_chosen), do: Decimal.new(0)
 
   defp topic(run_or_id), do: "run:#{run_id(run_or_id)}"
 

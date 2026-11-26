@@ -2,6 +2,7 @@ import Config
 
 alias Dirmoon.DataForSEO.HTTP
 alias Dirmoon.LLM.OpenAI
+alias Dirmoon.PageSpeed
 alias Dirmoon.SearchConsole.Client.Google
 alias Dirmoon.WebPage
 
@@ -44,12 +45,17 @@ config :dirmoon, OpenAI,
   api_key: "test-openai-key",
   req_options: [plug: {Req.Test, OpenAI}]
 
+config :dirmoon, PageSpeed.HTTP,
+  api_key: "test-pagespeed-key",
+  req_options: [plug: {Req.Test, PageSpeed.HTTP}]
+
 config :dirmoon, WebPage.HTTP, req_options: [plug: {Req.Test, WebPage.HTTP}]
 
 config :dirmoon,
   llm_adapter: Dirmoon.LLMMock,
   data_for_seo_adapter: Dirmoon.DataForSEOMock,
   search_console_adapter: Dirmoon.SearchConsoleMock,
+  page_speed_adapter: Dirmoon.PageSpeedMock,
   web_page_adapter: Dirmoon.WebPageMock
 
 # Print only warnings and errors during test

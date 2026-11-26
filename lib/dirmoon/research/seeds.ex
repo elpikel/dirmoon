@@ -10,6 +10,7 @@ defmodule Dirmoon.Research.Seeds do
   alias Dirmoon.LLM
   alias Dirmoon.Research.Ledger
   alias Dirmoon.Research.Run
+  alias Dirmoon.WebPage.HostName
 
   @minimum_seeds 10
   @maximum_seeds 20
@@ -82,7 +83,9 @@ defmodule Dirmoon.Research.Seeds do
     |> Enum.join("\n\n")
   end
 
-  defp mode_line(%Run{mode: :existing_site, domain: domain}), do: "Mode: existing site, domain: #{domain}."
+  defp mode_line(%Run{mode: :existing_site, domain: domain}),
+    do: "Mode: existing site, domain: #{HostName.to_unicode(domain)}."
+
   defp mode_line(%Run{mode: :new_idea}), do: "Mode: new idea, the business has no site yet."
 
   defp priority_services_line([]), do: nil

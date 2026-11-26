@@ -100,4 +100,27 @@ defmodule Dirmoon.DataForSEO.DemoTest do
   test "the demo languages are English and Polish" do
     assert Demo.languages() == {:ok, [%{language_code: "en", name: "English"}, %{language_code: "pl", name: "Polish"}]}
   end
+
+  test "ranked phrases have no demo answer, so no position or absence of one is ever invented for a real domain" do
+    assert Demo.ranked_phrases(%{
+             domain: "hotel-dla-psow-testowy.example",
+             location_code: 2616,
+             language_code: "pl",
+             limit: 100
+           }) == {:error, :not_in_demo_data}
+  end
+
+  test "the indexed page count has no demo answer, so no count is ever invented for a real domain" do
+    assert Demo.indexed_page_count(%{domain: "hotel-dla-psow-testowy.example", location_code: 2616, language_code: "pl"}) ==
+             {:error, :not_in_demo_data}
+  end
+
+  test "a business has no demo Business Profile, so none is ever invented for a real business" do
+    assert Demo.business_profile(%{name: "Hotel dla psów Testowy", location_code: 2616, language_code: "pl"}) ==
+             {:error, :not_in_demo_data}
+  end
+
+  test "no domain has demo linking sites, so no number of sites linking to a real site is ever invented" do
+    assert Demo.linking_sites(%{domains: ["hotel-dla-psow-testowy.example"]}) == {:error, :not_in_demo_data}
+  end
 end

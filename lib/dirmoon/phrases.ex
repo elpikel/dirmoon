@@ -14,6 +14,7 @@ defmodule Dirmoon.Phrases do
   alias Dirmoon.Phrases.RunPhrase
   alias Dirmoon.Repo
   alias Dirmoon.Research.Run
+  alias Dirmoon.WebPage.WebAddress
 
   @insert_chunk_size 1000
   @metrics_max_age_days 30
@@ -57,7 +58,9 @@ defmodule Dirmoon.Phrases do
   highest country Volume first, then by text. One query.
 
   `filters` narrows the list: `status: :kept | :rejected`, `niche_id:` (the
-  kept Phrases of that Niche) and `limit:` (at most that many).
+  kept Phrases of that Niche), `kept_or_ranked: true` (the kept Phrases and
+  any other the site has a Current Position address for) and `limit:` (at
+  most that many).
   """
   def list_for_run(%Run{} = run, filters \\ %{}) when is_map(filters) do
     run
@@ -124,6 +127,42 @@ defmodule Dirmoon.Phrases do
     |> limit(^limit)
     |> select([phrase: phrase], phrase)
     |> Repo.all()
+  end
+
+  @doc """
+  The texts of the run's kept Phrases per Niche they are in, at most
+  `per_niche` of each, in `list_for_run/2`'s order (highest country Volume
+  first, then by text). One query. A Niche without kept Phrases is absent.
+
+  Returns `%{niche_id => [phrase text]}`.
+  """
+  def top_kept_by_niche(%Run{id: run_id, location_code: location_code}, per_niche)
+      when is_integer(per_niche) and per_niche > 0 do
+    ranked =
+      RunPhrase
+      |> from(as: :run_phrase)
+      |> join(:inner, [run_phrase: run_phrase], phrase in assoc(run_phrase, :phrase), as: :phrase)
+      |> join_location_metrics(location_code)
+      |> where([run_phrase: run_phrase], run_phrase.run_id == ^run_id and run_phrase.status == ^:kept)
+      |> where([run_phrase: run_phrase], not is_nil(run_phrase.cluster_id))
+      |> select([run_phrase: run_phrase, phrase: phrase, metrics: metrics], %{
+        niche_id: run_phrase.cluster_id,
+        phrase: phrase.phrase,
+        rank:
+          over(row_number(),
+            partition_by: run_phrase.cluster_id,
+            order_by: [desc_nulls_last: metrics.search_volume, asc: phrase.phrase]
+          )
+      })
+
+    ranked
+    |> subquery()
+    |> from(as: :ranked)
+    |> where([ranked: ranked], ranked.rank <= ^per_niche)
+    |> order_by([ranked: ranked], asc: ranked.niche_id, asc: ranked.rank)
+    |> select([ranked: ranked], {ranked.niche_id, ranked.phrase})
+    |> Repo.all()
+    |> Enum.group_by(fn {niche_id, _phrase} -> niche_id end, fn {_niche_id, phrase} -> phrase end)
   end
 
   @doc """
@@ -270,12 +309,13 @@ defmodule Dirmoon.Phrases do
   end
 
   @doc """
-  Sets the run's Current Positions from Search Console `rows`
-  (`%{query:, position:}`): each row is matched to the run's Phrases (kept
-  or rejected) by normalised text, a query listed twice keeps its best
-  position, and the position is stored rounded to one decimal. The run's
-  other Phrases lose any earlier position, so running it again replaces the
-  previous positions.
+  Sets the run's Current Positions from `rows` (`%{phrase:, position:}`,
+  optionally with the `url:` that ranks, kept only when it is a web address
+  `Dirmoon.WebPage.WebAddress` accepts): each row is matched to the run's
+  Phrases (kept or rejected) by normalised text, a Phrase listed twice keeps
+  its best position and that row's address, and the position is stored
+  rounded to one decimal. The run's other Phrases lose any earlier position
+  and address, so running it again replaces the previous positions.
 
   Returns `{:ok, %{matched: count, quick_wins: count}}`, quick wins being the
   matched Phrases within `quick_win_range/0`.
@@ -287,7 +327,7 @@ defmodule Dirmoon.Phrases do
       run
       |> run_phrases_query()
       |> where([run_phrase: run_phrase], not is_nil(run_phrase.current_position))
-      |> Repo.update_all(set: [current_position: nil, updated_at: DateTime.utc_now(:second)])
+      |> Repo.update_all(set: [current_position: nil, current_position_url: nil, updated_at: DateTime.utc_now(:second)])
 
       stored_positions = update_current_positions(run, best_positions)
 
@@ -297,11 +337,20 @@ defmodule Dirmoon.Phrases do
 
   defp best_positions_by_phrase(rows) do
     rows
-    |> Enum.map(&%{phrase: Phrase.normalise(&1.query), position: rounded_position(&1.position)})
+    |> Enum.map(
+      &%{
+        phrase: Phrase.normalise(&1.phrase),
+        position: rounded_position(&1.position),
+        url: web_address(Map.get(&1, :url))
+      }
+    )
     |> Enum.reject(&(&1.phrase == ""))
-    |> Enum.group_by(& &1.phrase, & &1.position)
-    |> Map.new(fn {phrase, positions} -> {phrase, Enum.min(positions, Decimal)} end)
+    |> Enum.group_by(& &1.phrase)
+    |> Map.new(fn {phrase, positions} -> {phrase, Enum.min_by(positions, & &1.position, Decimal)} end)
   end
+
+  defp web_address(url) when is_binary(url), do: if(WebAddress.acceptable?(url), do: url)
+  defp web_address(_missing), do: nil
 
   defp rounded_position(position) when is_integer(position), do: position |> Decimal.new() |> Decimal.round(1)
   defp rounded_position(position) when is_float(position), do: position |> Decimal.from_float() |> Decimal.round(1)
@@ -319,14 +368,17 @@ defmodule Dirmoon.Phrases do
         :inner,
         [phrase: phrase],
         position in fragment(
-          "SELECT * FROM unnest(?::text[], ?::numeric[]) AS position(phrase, position)",
+          "SELECT * FROM unnest(?::text[], ?::numeric[], ?::text[]) AS position(phrase, position, url)",
           ^Map.keys(positions),
-          ^Map.values(positions)
+          ^Enum.map(Map.values(positions), & &1.position),
+          ^Enum.map(Map.values(positions), & &1.url)
         ),
         as: :position,
         on: position.phrase == phrase.phrase
       )
-      |> update([position: position], set: [current_position: position.position, updated_at: ^now])
+      |> update([position: position],
+        set: [current_position: position.position, current_position_url: position.url, updated_at: ^now]
+      )
       |> select([run_phrase: run_phrase], run_phrase.current_position)
       |> Repo.update_all([])
 
@@ -364,6 +416,13 @@ defmodule Dirmoon.Phrases do
 
       {:niche_id, niche_id}, filtered ->
         where(filtered, [run_phrase: run_phrase], run_phrase.cluster_id == ^niche_id and run_phrase.status == ^:kept)
+
+      {:kept_or_ranked, true}, filtered ->
+        where(
+          filtered,
+          [run_phrase: run_phrase],
+          run_phrase.status == ^:kept or not is_nil(run_phrase.current_position_url)
+        )
 
       {:limit, count}, filtered ->
         limit(filtered, ^count)

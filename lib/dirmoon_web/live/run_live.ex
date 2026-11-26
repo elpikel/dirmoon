@@ -4,7 +4,9 @@ defmodule DirmoonWeb.RunLive do
   run's eight Steps on the left, the running Step's detail on the right with
   the actions at its bottom, the status sentence in the status row, stop
   and resume, and the API Cost so far. Updates live from the run's PubSub
-  topic and goes to the results once Step 7 finishes. See
+  topic and goes to the results once Step 7 finishes. An Existing Site
+  run also says in one line where its Site Scan stands, with a link to
+  "Your site" (`DirmoonWeb.SiteScanLive`), updated from the scan's topic. See
   `docs/design/README.md` section 8.3 and `docs/design/reference/run.html`.
   """
   use DirmoonWeb, :live_view
@@ -16,7 +18,10 @@ defmodule DirmoonWeb.RunLive do
   alias Dirmoon.Research.RunStep
   alias Dirmoon.Research.StatusLine
   alias Dirmoon.Research.Steps
+  alias Dirmoon.SiteScans
+  alias Dirmoon.WebPage.HostName
   alias DirmoonWeb.RunDisplay
+  alias DirmoonWeb.SiteScanAdvice
 
   @competition_step Steps.number!(:competition)
   @checked_phrases_limit 8
@@ -28,7 +33,7 @@ defmodule DirmoonWeb.RunLive do
     volumes: "How many times a month people type each search, and what businesses pay Google for one ad click",
     filter_and_group: "I leave out searches that aren't about the business and sort the rest by what customers want",
     competition: "Who is on Google's first page for the searches people type most",
-    current_positions: "Where your site already shows up on Google, from Search Console",
+    current_positions: "Where your site already shows up on Google",
     scoring:
       "I rate each topic out of 10: how often people search, the ad click price " <>
         "and how easy it is to get onto Google's first page",
@@ -105,6 +110,21 @@ defmodule DirmoonWeb.RunLive do
             results_path={@results_path}
           />
 
+          <p
+            :if={@site_scan}
+            id="run-site-scan"
+            class="m-0 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm leading-normal break-words text-on-app-2"
+          >
+            <span>{SiteScanAdvice.progress_line(@site_scan, HostName.to_unicode(@run.domain))}</span>
+            <.link
+              id="run-site-scan-link"
+              navigate={~p"/app/runs/#{@run}/site"}
+              class="inline-flex min-h-target-min items-center font-medium text-accent underline underline-offset-4"
+            >
+              Your site
+            </.link>
+          </p>
+
           <div class="mt-auto flex flex-wrap items-center gap-2.5">
             <.button
               :if={@run.status in [:running, :stopped, :failed]}
@@ -149,11 +169,14 @@ defmodule DirmoonWeb.RunLive do
   def mount(%{"id" => id}, _session, socket) do
     case Research.get_run(socket.assigns.current_scope, id) do
       %Run{} = run ->
-        if connected?(socket), do: Research.subscribe(run)
+        if connected?(socket) do
+          Research.subscribe(run)
+          SiteScans.subscribe(run)
+        end
 
         {:ok,
          socket
-         |> assign(progress: nil)
+         |> assign(progress: nil, site_scan: SiteScans.status_of(run))
          |> stream_configure(:checked_phrases, dom_id: &"checked-phrase-#{&1.keyword_id}")
          |> stream(:checked_phrases, [])
          |> assign_run(run)}
@@ -182,6 +205,10 @@ defmodule DirmoonWeb.RunLive do
 
   def handle_info({:run_progress, _run_id, _other_step_progress}, socket) do
     {:noreply, socket}
+  end
+
+  def handle_info({:site_scan_updated, _run_id}, socket) do
+    {:noreply, assign(socket, :site_scan, SiteScans.status_of(socket.assigns.run))}
   end
 
   @impl true

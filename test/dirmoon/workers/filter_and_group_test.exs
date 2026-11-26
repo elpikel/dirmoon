@@ -11,6 +11,7 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
   alias Dirmoon.Research.RunStep
   alias Dirmoon.Workers.CheckCompetition
   alias Dirmoon.Workers.FilterAndGroup
+  alias Dirmoon.Workers.MatchSitePages
 
   test "the model's groups are stored as niches with their name, intent, reading and phrases" do
     run = insert(:run, steps: build_run_steps())
@@ -386,6 +387,22 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     assert prompt =~ "Mode: existing site, domain: hotel-testowy.example."
   end
 
+  test "the prompt names an international domain in its Unicode form" do
+    run = insert(:run, mode: :existing_site, domain: "xn--w-uga1v8h.pl", steps: build_run_steps())
+    kept = phrase_in_run(run, "hotel dla psów", 300)
+    test_process = self()
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn request ->
+      send(test_process, {:llm_request, request})
+      answer(%{"niches" => [niche_answer("Hotel dla psa", [kept.id])], "rejected" => []})
+    end)
+
+    :ok = perform_job(FilterAndGroup, %{run_id: run.id})
+
+    assert_received {:llm_request, %{prompt: prompt}}
+    assert prompt =~ "Mode: existing site, domain: żółw.pl."
+  end
+
   test "a niche name or rejection reason that is not text counts as missing" do
     run = insert(:run, steps: build_run_steps())
     kept = phrase_in_run(run, "hotel dla psów", 300)
@@ -424,6 +441,42 @@ defmodule Dirmoon.Workers.FilterAndGroupTest do
     :ok = perform_job(FilterAndGroup, %{run_id: run.id})
 
     assert_enqueued(worker: CheckCompetition, args: %{run_id: run.id})
+  end
+
+  test "when an existing site's phrases are grouped the matching of its pages to the Niches is enqueued" do
+    run = insert(:run, mode: :existing_site, domain: "hotel-testowy.example", steps: build_run_steps())
+    kept = phrase_in_run(run, "hotel dla psów", 300)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn _request ->
+      answer(%{"niches" => [niche_answer("Hotel dla psa", [kept.id])], "rejected" => []})
+    end)
+
+    :ok = perform_job(FilterAndGroup, %{run_id: run.id})
+
+    assert_enqueued(worker: MatchSitePages, args: %{run_id: run.id})
+  end
+
+  test "a new idea's grouped phrases enqueue no matching of pages" do
+    run = insert(:run, steps: build_run_steps())
+    kept = phrase_in_run(run, "hotel dla psów", 300)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn _request ->
+      answer(%{"niches" => [niche_answer("Hotel dla psa", [kept.id])], "rejected" => []})
+    end)
+
+    :ok = perform_job(FilterAndGroup, %{run_id: run.id})
+
+    refute_enqueued(worker: MatchSitePages)
+  end
+
+  test "an existing site's grouping that fails its attempt enqueues no matching of pages" do
+    run = insert(:run, mode: :existing_site, domain: "hotel-testowy.example", steps: build_run_steps())
+    phrase_in_run(run, "hotel dla psów", 300)
+    expect(Dirmoon.LLMMock, :structured, 1, fn _request -> {:error, :timeout} end)
+
+    assert {:error, _reason} = perform_job(FilterAndGroup, %{run_id: run.id}, attempt: 1)
+
+    refute_enqueued(worker: MatchSitePages)
   end
 
   test "re-running the step after a reset reuses the stored answer and doesn't duplicate niches" do

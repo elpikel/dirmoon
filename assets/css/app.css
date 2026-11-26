@@ -147,4 +147,5 @@
     background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px);
     background-size: var(--dot-pitch) var(--dot-pitch);
   }
+
 }

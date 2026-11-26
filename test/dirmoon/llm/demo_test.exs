@@ -164,6 +164,18 @@ defmodule Dirmoon.LLM.DemoTest do
     assert Decimal.equal?(cost, 0)
   end
 
+  test "matching a site's pages to Niches is not in Demo Data, so no match or lack of one is presented as fact" do
+    input = %{niches: [%{id: 1, name: "Hotel dla psa", phrases: ["hotel dla psa"]}], pages: [%{index: 1, path: "/"}]}
+
+    assert Demo.structured(request(:match_pages, input)) == {:error, :not_in_demo_data}
+  end
+
+  test "describing a site from its home page is not in Demo Data, so no description of a real site is invented" do
+    input = %{address: "https://hotel.example/", language_name: "Polish", text: "Hotel dla psów"}
+
+    assert Demo.structured(request(:describe_site, input)) == {:error, :not_in_demo_data}
+  end
+
   defp request(task, input) do
     %{task: task, system: "System", prompt: "Prompt", schema: %{"type" => "object"}, input: input}
   end

@@ -9,8 +9,7 @@ defmodule Dirmoon do
 
   @demo_services [
     llm_adapter: {Dirmoon.LLM.Demo, "language model (OpenAI)"},
-    data_for_seo_adapter: {Dirmoon.DataForSEO.Demo, "Google searches and competition (DataForSEO)"},
-    search_console_adapter: {Dirmoon.SearchConsole.Client.Demo, "Search Console"}
+    data_for_seo_adapter: {Dirmoon.DataForSEO.Demo, "Google searches and competition (DataForSEO)"}
   ]
 
   @doc """
@@ -21,7 +20,8 @@ defmodule Dirmoon do
 
   @doc """
   The names of the external services answered by a demo adapter right
-  now, in pipeline order; the "TEST DATA" banner lists them.
+  now, in pipeline order; the "TEST DATA" banner lists them. Search Console
+  has no demo adapter, so it is never named.
   """
   def demo_services do
     for {config_key, {demo_adapter, name}} <- @demo_services,

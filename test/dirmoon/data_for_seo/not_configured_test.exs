@@ -18,5 +18,23 @@ defmodule Dirmoon.DataForSEO.NotConfiguredTest do
     assert NotConfigured.find_location(%{city: "Gdańsk", country_code: "PL"}) == not_configured
     assert NotConfigured.countries() == not_configured
     assert NotConfigured.languages() == not_configured
+
+    assert NotConfigured.ranked_phrases(%{
+             domain: "hotel-dla-psow-testowy.example",
+             location_code: 2616,
+             language_code: "pl",
+             limit: 100
+           }) == not_configured
+
+    assert NotConfigured.indexed_page_count(%{
+             domain: "hotel-dla-psow-testowy.example",
+             location_code: 2616,
+             language_code: "pl"
+           }) == not_configured
+
+    assert NotConfigured.business_profile(%{name: "Hotel dla psów Testowy", location_code: 2616, language_code: "pl"}) ==
+             not_configured
+
+    assert NotConfigured.linking_sites(%{domains: ["hotel-dla-psow-testowy.example"]}) == not_configured
   end
 end

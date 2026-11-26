@@ -129,7 +129,9 @@ defmodule DirmoonWeb.Layouts do
             class="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-app-line bg-app-raised px-5 py-3.5 max-sm:px-4"
           >
             <.moon_mark tone="accent" size={26} />
-            <span class="min-w-0 flex-[1_1_240px] text-[15px] font-medium">{render_slot(@status)}</span>
+            <span class="min-w-0 flex-[1_1_240px] text-[15px] font-medium break-words">
+              {render_slot(@status)}
+            </span>
             <span :if={@note} id="app-note" class="font-mono text-[11px] text-on-app-muted">
               {@note}
             </span>
@@ -164,10 +166,10 @@ defmodule DirmoonWeb.Layouts do
       data-layout="landing"
       class="page-dots flex min-h-screen flex-col font-sans text-ink"
     >
-      <header class="px-gutter-phone pt-4 sm:px-gutter">
+      <header class="px-6 pt-4 sm:px-gutter">
         <.nav_card id="landing-nav">{render_slot(@nav)}</.nav_card>
       </header>
-      <main class="mx-auto flex w-full max-w-content grow flex-col px-gutter-phone pt-16 pb-[88px] sm:px-gutter">
+      <main class="mx-auto flex w-full max-w-content grow flex-col px-6 pt-12 pb-[88px] sm:px-gutter sm:pt-16">
         {render_slot(@inner_block)}
       </main>
     </div>

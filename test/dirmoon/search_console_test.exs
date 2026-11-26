@@ -5,6 +5,7 @@ defmodule Dirmoon.SearchConsoleTest do
 
   alias Dirmoon.Accounts
   alias Dirmoon.SearchConsole
+  alias Dirmoon.SearchConsole.Client.NotConfigured
   alias Dirmoon.SearchConsole.Connection
 
   @redirect_uri "http://localhost:4002/app/search-console/callback"
@@ -131,12 +132,12 @@ defmodule Dirmoon.SearchConsoleTest do
              {:ok, "https://accounts.google.com/o/oauth2/v2/auth?state=stan"}
   end
 
-  test "without credentials production uses the not-configured client and dev uses demo data" do
+  test "without credentials production and dev both use the not-configured client" do
     production = Config.Reader.read!("config/config.exs", env: :prod)
     dev = Config.Reader.read!("config/config.exs", env: :dev)
 
-    assert get_in(production, [:dirmoon, :search_console_adapter]) == Dirmoon.SearchConsole.Client.NotConfigured
-    assert get_in(dev, [:dirmoon, :search_console_adapter]) == Dirmoon.SearchConsole.Client.Demo
+    assert get_in(production, [:dirmoon, :search_console_adapter]) == NotConfigured
+    assert get_in(dev, [:dirmoon, :search_console_adapter]) == NotConfigured
   end
 
   defp scope, do: :user |> insert() |> Accounts.scope_for_user()

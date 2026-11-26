@@ -30,6 +30,7 @@ defmodule Dirmoon.Competition.Check do
   alias Dirmoon.Research.Ledger
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.Steps
+  alias Dirmoon.WebPage.HostName
 
   @step_number Steps.number!(:competition)
   @no_phrases_result "No searches to check"
@@ -249,7 +250,9 @@ defmodule Dirmoon.Competition.Check do
     )
   end
 
-  defp mode_line(%Run{mode: :existing_site, domain: domain}), do: "Mode: existing site, domain: #{domain}."
+  defp mode_line(%Run{mode: :existing_site, domain: domain}),
+    do: "Mode: existing site, domain: #{HostName.to_unicode(domain)}."
+
   defp mode_line(%Run{mode: :new_idea}), do: "Mode: new idea, the business has no site yet."
 
   defp serp_result_line(%{position: position, url: url, domain: domain, title: title}) do

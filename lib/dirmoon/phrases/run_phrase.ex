@@ -2,7 +2,7 @@ defmodule Dirmoon.Phrases.RunPhrase do
   @moduledoc """
   A Phrase as one Research Run sees it: whether the run kept or rejected it
   and why, the Niche Step 4 put it in
-  (`cluster_id`), and the site's Current Position. Per run, so per Account. `metrics` is filled by
+  (`cluster_id`), and the site's Current Position with the address that ranks, when known. Per run, so per Account. `metrics` is filled by
   `Dirmoon.Phrases.list_for_run/1` with the Metrics for the run's country,
   `city_metrics` with the Metrics for the run's city location.
   """
@@ -18,6 +18,7 @@ defmodule Dirmoon.Phrases.RunPhrase do
     field :status, Ecto.Enum, values: @statuses, default: :kept
     field :rejection_reason, :string
     field :current_position, :decimal
+    field :current_position_url, :string
     field :metrics, :any, virtual: true
     field :city_metrics, :any, virtual: true
 

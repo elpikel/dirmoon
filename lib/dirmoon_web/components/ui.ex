@@ -491,7 +491,7 @@ defmodule DirmoonWeb.UI do
   defp moon_fill("ink"), do: "fill-ink"
   defp moon_fill("accent"), do: "fill-accent"
 
-  defp headline_size_class("hero"), do: "max-w-[1000px] text-[clamp(40px,5.8vw,84px)] leading-[0.98] tracking-[-0.045em]"
+  defp headline_size_class("hero"), do: "max-w-[1000px] text-[clamp(50px,5.8vw,84px)] leading-[0.98] tracking-[-0.045em]"
 
   defp headline_size_class("page"), do: "max-w-[900px] text-[clamp(36px,4.6vw,64px)] leading-none tracking-[-0.04em]"
 

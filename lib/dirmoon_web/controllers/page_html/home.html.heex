@@ -6,13 +6,29 @@
   </:nav>
 
   <section id="landing-hero" class="flex flex-col items-center gap-7 text-center">
-    <.eyebrow>Test a business idea with real Google search data</.eyebrow>
+    <div aria-hidden="true" class="h-8"></div>
     <.headline size="hero">
-      Validate your business idea
-      <:underline>before you build it.</:underline>
+      Validate your business idea before you
+      <:underline>build it.</:underline>
     </.headline>
-    <p class="m-0 max-w-[680px] text-[clamp(17px,1.5vw,20px)] leading-normal text-pretty text-body">
-      Describe your idea in one sentence. dirmoon works as a niche finder: it looks up what people really type into Google, checks the monthly search volume (how many times a month they type it), what an ad click costs and the keyword competition (who already holds Google's first page). Then it tells you, in plain words, which topics are worth going after: the things people want that your business could offer.
+    <p
+      id="hero-lead"
+      class="m-0 max-w-[600px] text-[clamp(17px,1.5vw,20px)] leading-normal text-pretty text-body"
+    >
+      Describe your idea in one sentence. dirmoon checks what people really search for on Google and tells you, in plain words, if it's worth building.
+    </p>
+    <p
+      id="hero-existing-site"
+      class="m-0 max-w-[640px] text-[15px] leading-normal text-pretty text-body-muted sm:text-[16px]"
+    >
+      Already have a website? Paste its address and get a list of what to fix.
+      <a
+        id="hero-existing-site-link"
+        href="#existing-site"
+        class="font-semibold whitespace-nowrap text-ink underline decoration-2 underline-offset-4 hover:decoration-accent"
+      >
+        See what it checks
+      </a>
     </p>
     <.sign_up_form
       name={:hero}
@@ -22,13 +38,27 @@
   </section>
 
   <section id="journey" class="mt-24 flex flex-col items-center gap-12 text-center">
-    <div class="flex flex-col items-center gap-4">
-      <.eyebrow>How to test a business idea</.eyebrow>
+    <h2 class="sr-only">Should I start this business?</h2>
+    <.journey id="journey-steps" />
+    <p
+      id="journey-lead"
+      class="m-0 max-w-[680px] text-[14px] leading-normal text-pretty text-body-muted"
+    >
+      dirmoon works as a niche finder: it checks the monthly search volume (how often people search), the ad click price and the keyword competition (who holds Google's first page), then tells you which topics are worth going after.
+    </p>
+  </section>
+
+  <section
+    id="existing-site"
+    class="mt-24 flex scroll-mt-8 flex-col items-center gap-12 text-center"
+  >
+    <div id="existing-site-heading" class="flex flex-col items-center gap-4">
+      <.eyebrow>Already have a website?</.eyebrow>
       <h2 class="m-0 max-w-[760px] text-[clamp(28px,3.4vw,44px)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance text-ink">
-        One sentence in. A ranked answer out.
+        Paste your address. Get a list of what to fix.
       </h2>
     </div>
-    <.journey id="journey-steps" />
+    <.site_scan_section id="existing-site" />
   </section>
 
   <section

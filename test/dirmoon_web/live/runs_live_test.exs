@@ -59,6 +59,16 @@ defmodule DirmoonWeb.RunsLiveTest do
     assert has_element?(view, "#runs-#{run.id}", "rowery-cargo.example")
   end
 
+  test "an Existing Site run with an international domain shows it in its Unicode form", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = insert(:run, account: scope.account, mode: :existing_site, domain: "xn--w-uga1v8h.pl")
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs")
+
+    assert has_element?(view, "#runs-#{run.id}", "żółw.pl")
+    refute has_element?(view, "#runs-#{run.id}", "xn--w-uga1v8h.pl")
+  end
+
   test "a run with no recorded requests shows zero dollars", %{conn: conn} do
     %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
     run = insert(:run, account: scope.account)

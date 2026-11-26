@@ -34,6 +34,7 @@ defmodule DirmoonWeb.Router do
       live "/runs", RunsLive
       live "/runs/:id", RunLive
       live "/runs/:id/results", ResultsLive
+      live "/runs/:id/site", SiteScanLive
       live "/pages", PagesLive
       live "/pages/:id", PageLive
     end

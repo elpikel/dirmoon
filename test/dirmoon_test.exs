@@ -1,7 +1,7 @@
 defmodule DirmoonTest do
   use ExUnit.Case, async: false
 
-  alias Dirmoon.SearchConsole.Client.Demo
+  alias Dirmoon.DataForSEO.Demo
 
   @adapter_keys ~w(llm_adapter data_for_seo_adapter search_console_adapter)a
 
@@ -15,23 +15,21 @@ defmodule DirmoonTest do
     refute Dirmoon.demo_data?()
   end
 
-  test "the services answered by demo adapters are named in pipeline order" do
-    Application.put_env(:dirmoon, :search_console_adapter, Demo)
-    Application.put_env(:dirmoon, :data_for_seo_adapter, Dirmoon.DataForSEO.Demo)
+  test "the services answered by demo adapters are named" do
+    Application.put_env(:dirmoon, :data_for_seo_adapter, Demo)
 
-    assert Dirmoon.demo_services() == ["Google searches and competition (DataForSEO)", "Search Console"]
+    assert Dirmoon.demo_services() == ["Google searches and competition (DataForSEO)"]
     assert Dirmoon.demo_data?()
   end
 
-  test "with every adapter a demo adapter all three services are named" do
+  test "with every demo adapter on and Search Console not configured only the language model and DataForSEO are named" do
     Application.put_env(:dirmoon, :llm_adapter, Dirmoon.LLM.Demo)
-    Application.put_env(:dirmoon, :data_for_seo_adapter, Dirmoon.DataForSEO.Demo)
-    Application.put_env(:dirmoon, :search_console_adapter, Demo)
+    Application.put_env(:dirmoon, :data_for_seo_adapter, Demo)
+    Application.put_env(:dirmoon, :search_console_adapter, Dirmoon.SearchConsole.Client.NotConfigured)
 
     assert Dirmoon.demo_services() == [
              "language model (OpenAI)",
-             "Google searches and competition (DataForSEO)",
-             "Search Console"
+             "Google searches and competition (DataForSEO)"
            ]
   end
 end

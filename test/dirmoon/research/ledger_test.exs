@@ -140,6 +140,60 @@ defmodule Dirmoon.Research.LedgerTest do
     assert Decimal.equal?(Research.run_cost(float_run), Decimal.new("0.125"))
   end
 
+  test "a request paid before the run existed is recorded with its answer and cost, and counts in the run's API Cost" do
+    run = insert(:run)
+    entry = draft_entry(%{"description" => "Hotel dla psów w Gdańsku."})
+
+    assert Ledger.record(run, entry) == :ok
+
+    assert [%ApiRequest{service: "llm", operation: "describe_site", request: request, response: response}] =
+             Repo.all_by(ApiRequest, run_id: run.id)
+
+    assert request == %{"task" => "describe_site", "prompt" => "Opisz stronę."}
+    assert response == %{"description" => "Hotel dla psów w Gdańsku."}
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new("0.003"))
+  end
+
+  test "recording the same paid request twice keeps the first record" do
+    run = insert(:run)
+
+    :ok = Ledger.record(run, draft_entry(%{"description" => "Pierwszy opis."}))
+    :ok = Ledger.record(run, draft_entry(%{"description" => "Drugi opis."}))
+
+    assert [%ApiRequest{response: %{"description" => "Pierwszy opis."}}] = Repo.all_by(ApiRequest, run_id: run.id)
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new("0.003"))
+  end
+
+  test "a recorded request is replayed by a later fetch of the same request without calling the API" do
+    run = insert(:run)
+    entry = draft_entry(%{"description" => "Opis z nagrania."})
+    :ok = Ledger.record(run, entry)
+
+    assert {:ok, %{"description" => "Opis z nagrania."}} =
+             Ledger.fetch(run, Map.take(entry, [:service, :operation, :request]), fn -> flunk("the API was called") end)
+  end
+
+  test "an entry without a request map, a response map or a cost is refused" do
+    run = insert(:run)
+    entry = draft_entry(%{"description" => "Opis."})
+
+    for broken <- [%{entry | request: "prompt"}, %{entry | response: "opis"}, %{entry | cost: "0.003"}] do
+      assert_raise FunctionClauseError, fn -> Ledger.record(run, broken) end
+    end
+
+    assert Repo.all_by(ApiRequest, run_id: run.id) == []
+  end
+
+  defp draft_entry(response) do
+    %{
+      service: "llm",
+      operation: "describe_site",
+      request: %{task: :describe_site, prompt: "Opisz stronę."},
+      response: response,
+      cost: Decimal.new("0.003")
+    }
+  end
+
   defp volume_request do
     %{
       service: "data_for_seo",

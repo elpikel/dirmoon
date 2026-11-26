@@ -2,11 +2,14 @@ defmodule DirmoonWeb.NewResearchLiveTest do
   use DirmoonWeb.ConnCase, async: true
   use Oban.Testing, repo: Dirmoon.Repo
 
+  import Mox
   import Phoenix.LiveViewTest
 
   alias Dirmoon.Repo
   alias Dirmoon.Research
+  alias Dirmoon.Research.ApiRequest
   alias Dirmoon.Research.Run
+  alias Dirmoon.SearchConsole
   alias Dirmoon.Workers.GenerateSeeds
 
   test "a signed-in user sees the form with its chips, examples and estimated cost, and the Account's recent runs",
@@ -275,7 +278,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
            )
   end
 
-  test "the status row for an existing site without Search Console says current positions are skipped",
+  test "the status row for an existing site without Search Console still promises current positions",
        %{conn: conn} do
     %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
     store_market_lists()
@@ -286,7 +289,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     assert has_element?(
              view,
              "#new-research-status-line",
-             "Describe the business and give its domain. Without Search Console I'll skip where the site already shows up on Google."
+             "Describe the business and give its domain. I'll also check which searches the site already shows up for."
            )
   end
 
@@ -335,6 +338,17 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     view |> element("#research-form") |> render_change(%{"run" => %{"city" => "Gdańsk"}})
 
     assert has_element?(view, "#estimated-cost", "Estimated API cost: about $0.33")
+  end
+
+  test "choosing an existing site adds the ranked phrases, indexed page count, Business Profile and linking sites requests to the estimated cost",
+       %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    store_market_lists()
+    {:ok, view, _html} = live(conn, ~p"/app/research/new")
+
+    view |> element("#research-form") |> render_change(%{"run" => %{"mode" => "existing_site"}})
+
+    assert has_element?(view, "#estimated-cost", "Estimated API cost: about $0.41")
   end
 
   test "clicking an example prompt fills the textarea with it", %{conn: conn} do
@@ -566,6 +580,452 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     assert Research.list_runs(scope) == []
   end
 
+  test "in Existing Site mode the address comes first, with Read my site beside it and a hint pointing at it",
+       %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    store_market_lists()
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+
+    assert has_element?(view, "label[for=research-domain]", "Your site's address (required)")
+    assert has_element?(view, "#research-domain-field #read-site[type=button]", "Read my site")
+    assert has_element?(view, "#research-description-hint", "Paste your address and press Read my site")
+
+    ids =
+      view
+      |> render()
+      |> LazyHTML.from_fragment()
+      |> LazyHTML.query("#research-prompt-box [id^=research-][id$=-field]")
+      |> LazyHTML.attribute("id")
+
+    assert Enum.take(ids, 2) == ["research-domain-field", "research-description-field"]
+
+    fill_existing_site(view, store_market_lists(), %{"description" => "Hotel dla psów"})
+
+    refute has_element?(view, "#research-description-hint")
+  end
+
+  test "Read my site fills the empty description with a draft from the home page, in the Market's language, which I can edit",
+       %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    test_pid = self()
+    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: "Hotel dla psów w Gdańsku.", url: url}} end)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn %{task: :describe_site, input: input} ->
+      send(test_pid, {:asked, input})
+      {:ok, %{"description" => "Hotel dla psów w Gdańsku."}, Decimal.new("0.003")}
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "https://www.hotel-testowy.example/"})
+
+    view |> element("#read-site") |> render_click()
+    render_async(view)
+
+    assert_received {:asked, %{address: "https://hotel-testowy.example/", language_name: language_name}}
+    assert language_name == market.language.name
+    assert has_element?(view, "#research-description", "Hotel dla psów w Gdańsku.")
+    refute has_element?(view, "#research-description[readonly]")
+    refute has_element?(view, "#draft-description")
+
+    fill_existing_site(view, market, %{"description" => "Hotel dla psów w Gdańsku, z ogrodem."})
+
+    assert has_element?(view, "#research-description", "Hotel dla psów w Gdańsku, z ogrodem.")
+  end
+
+  test "while my site is read the button says Reading… and can't start a second read", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    test_pid = self()
+    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: "Hotel dla psów.", url: url}} end)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn _request ->
+      send(test_pid, {:reading, self()})
+
+      receive do
+        :answer -> {:ok, %{"description" => "Hotel dla psów."}, Decimal.new("0.003")}
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+
+    view |> element("#read-site") |> render_click()
+    assert_receive {:reading, reader}
+
+    assert has_element?(view, "#read-site[disabled][aria-busy=true]", "Reading…")
+    render_click(view, "read_site", %{})
+    fill_existing_site(view, market, %{"city" => "Gdańsk"})
+
+    send(reader, :answer)
+    render_async(view)
+
+    assert has_element?(view, "#read-site:not([disabled])", "Read my site")
+    assert has_element?(view, "#research-description", "Hotel dla psów.")
+  end
+
+  test "starting the research with the drafted description adds the draft's request to its API Cost",
+       %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: "Hotel dla psów.", url: url}} end)
+
+    expect(Dirmoon.LLMMock, :structured, 1, fn _request ->
+      {:ok, %{"description" => "Hotel dla psów w Gdańsku."}, Decimal.new("0.003")}
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+    view |> element("#read-site") |> render_click()
+    render_async(view)
+
+    {:error, {:live_redirect, _redirect}} =
+      view
+      |> element("#research-form")
+      |> render_submit(%{"run" => existing_site_params(market, %{"domain" => "https://hotel-testowy.example/"})})
+
+    assert [%Run{description: "Hotel dla psów w Gdańsku."} = run] = Research.list_runs(scope)
+    assert [%ApiRequest{service: "llm", operation: "describe_site"}] = Repo.all_by(ApiRequest, run_id: run.id)
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new("0.003"))
+  end
+
+  test "a draft made for another address than the one I start with is not recorded on the research",
+       %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: "Hotel dla psów.", url: url}} end)
+
+    stub(Dirmoon.LLMMock, :structured, fn _request ->
+      {:ok, %{"description" => "Hotel dla psów."}, Decimal.new("0.003")}
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+    view |> element("#read-site") |> render_click()
+    render_async(view)
+
+    fill_existing_site(view, market, %{"domain" => "inny-hotel.example", "description" => "Hotel dla psów."})
+
+    {:error, {:live_redirect, _redirect}} =
+      view
+      |> element("#research-form")
+      |> render_submit(%{"run" => existing_site_params(market, %{"domain" => "inny-hotel.example"})})
+
+    assert [run] = Research.list_runs(scope)
+    assert Repo.all(ApiRequest) == []
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new(0))
+  end
+
+  test "a draft that comes back after I changed the address is dropped", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    test_pid = self()
+    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: "Hotel dla psów.", url: url}} end)
+
+    stub(Dirmoon.LLMMock, :structured, fn _request ->
+      send(test_pid, {:reading, self()})
+
+      receive do
+        :answer -> {:ok, %{"description" => "Hotel dla psów."}, Decimal.new("0.003")}
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+    view |> element("#read-site") |> render_click()
+    assert_receive {:reading, reader}
+
+    fill_existing_site(view, market, %{"domain" => "inny-hotel.example"})
+    send(reader, :answer)
+    render_async(view)
+
+    refute has_element?(view, "#research-description", "Hotel dla psów.")
+    refute has_element?(view, "#draft-description")
+  end
+
+  test "a failed read that comes back after I changed the address shows no reason under the new address",
+       %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    test_pid = self()
+
+    stub(Dirmoon.WebPageMock, :fetch_text, fn _url ->
+      send(test_pid, {:reading, self()})
+
+      receive do
+        :answer -> {:error, "HTTP 404"}
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+    view |> element("#read-site") |> render_click()
+    assert_receive {:reading, reader}
+
+    fill_existing_site(view, market, %{"domain" => "inny-hotel.example"})
+    send(reader, :answer)
+    assert_receive {:reading, ^reader}
+    send(reader, :answer)
+    render_async(view)
+
+    refute has_element?(view, "#read-site-error")
+    assert has_element?(view, "#read-site:not([disabled])")
+  end
+
+  @tag :capture_log
+  test "a read that crashes after I changed the address shows no error under the new address", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    test_pid = self()
+
+    stub(Dirmoon.WebPageMock, :fetch_text, fn _url ->
+      send(test_pid, {:reading, self()})
+
+      receive do
+        :answer -> raise "the reader broke"
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+    view |> element("#read-site") |> render_click()
+    assert_receive {:reading, reader}
+
+    fill_existing_site(view, market, %{"domain" => "inny-hotel.example"})
+    send(reader, :answer)
+    render_async(view)
+
+    refute has_element?(view, "#read-site-error")
+    assert has_element?(view, "#read-site:not([disabled])")
+  end
+
+  test "a description I typed is never overwritten: the draft is offered beside it, and Use this replaces it",
+       %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: "Hotel dla psów.", url: url}} end)
+
+    stub(Dirmoon.LLMMock, :structured, fn _request ->
+      {:ok, %{"description" => "Hotel dla psów."}, Decimal.new("0.003")}
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example", "description" => "Mój własny opis."})
+    view |> element("#read-site") |> render_click()
+    render_async(view)
+
+    assert has_element?(view, "#research-description", "Mój własny opis.")
+    assert has_element?(view, "#draft-description #draft-description-text", "Hotel dla psów.")
+
+    view |> element("#use-draft") |> render_click()
+
+    assert has_element?(view, "#research-description", "Hotel dla psów.")
+    refute has_element?(view, "#draft-description")
+  end
+
+  test "a description still equal to the earlier draft is replaced by the next draft", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    stub(Dirmoon.WebPageMock, :fetch_text, fn url -> {:ok, %{text: "Hotel dla psów.", url: url}} end)
+
+    expect(Dirmoon.LLMMock, :structured, 2, fn %{input: %{address: address}} ->
+      {:ok, %{"description" => "Opis strony #{address}"}, Decimal.new("0.003")}
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+    view |> element("#read-site") |> render_click()
+    render_async(view)
+
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example/oferta"})
+    view |> element("#read-site") |> render_click()
+    render_async(view)
+
+    assert has_element?(view, "#research-description", "Opis strony https://hotel-testowy.example/")
+    refute has_element?(view, "#draft-description")
+  end
+
+  test "a home page that can't be opened says why under the address, and I can still describe the business myself",
+       %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    stub(Dirmoon.WebPageMock, :fetch_text, fn _url -> {:error, "HTTP 404"} end)
+    expect(Dirmoon.LLMMock, :structured, 0, fn _request -> {:error, "not called"} end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+    view |> element("#read-site") |> render_click()
+    render_async(view)
+
+    assert has_element?(
+             view,
+             "#research-domain-field #read-site-error",
+             "I couldn't open https://hotel-testowy.example/: HTTP 404."
+           )
+
+    {:error, {:live_redirect, _redirect}} =
+      view
+      |> element("#research-form")
+      |> render_submit(%{"run" => existing_site_params(market, %{"description" => "Hotel dla psów w Gdańsku."})})
+
+    assert [%Run{description: "Hotel dla psów w Gdańsku."}] = Research.list_runs(scope)
+  end
+
+  test "changing the address clears the reason the last read failed", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    stub(Dirmoon.WebPageMock, :fetch_text, fn _url -> {:error, "HTTP 404"} end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+    view |> element("#read-site") |> render_click()
+    render_async(view)
+    fill_existing_site(view, market, %{"description" => "Hotel dla psów."})
+
+    assert has_element?(view, "#read-site-error")
+
+    fill_existing_site(view, market, %{"domain" => "inny-hotel.example"})
+
+    refute has_element?(view, "#read-site-error")
+  end
+
+  test "Read my site without an address, or without a language I can write in, says what's missing and reads nothing",
+       %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    expect(Dirmoon.WebPageMock, :fetch_text, 0, fn _url -> {:error, "not called"} end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "not a site"})
+    view |> element("#read-site") |> render_click()
+
+    assert has_element?(view, "#read-site-error", "Type your site's address first, like yourbusiness.com.")
+
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example", "language_code" => "x-not-stored"})
+    view |> element("#read-site") |> render_click()
+
+    assert has_element?(view, "#read-site-error", "Choose the research's language first")
+  end
+
+  @tag :capture_log
+  test "a read that crashes says something went wrong and leaves the screen working", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    stub(Dirmoon.WebPageMock, :fetch_text, fn _url -> raise "the reader broke" end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+    view |> element("#read-site") |> render_click()
+    render_async(view)
+
+    assert has_element?(view, "#read-site-error", "Something went wrong while I read your site.")
+    assert has_element?(view, "#read-site:not([disabled])")
+  end
+
+  test "after five reads on one screen I say so instead of reading again", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    expect(Dirmoon.WebPageMock, :fetch_text, 10, fn _url -> {:error, "HTTP 503"} end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"domain" => "hotel-testowy.example"})
+
+    for _read <- 1..5 do
+      view |> element("#read-site") |> render_click()
+      render_async(view)
+    end
+
+    view |> element("#read-site") |> render_click()
+
+    assert has_element?(view, "#read-site-error", "I've read your site 5 times on this screen.")
+  end
+
+  test "Use this with no draft on offer changes nothing", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+    fill_existing_site(view, market, %{"description" => "Mój opis."})
+
+    render_click(view, "use_draft", %{})
+
+    assert has_element?(view, "#research-description", "Mój opis.")
+  end
+
+  test "a paid request sent in the form's params is never recorded on the research", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+
+    injected = %{
+      "service" => "llm",
+      "operation" => "describe_site",
+      "request" => %{"prompt" => "x"},
+      "response" => %{"description" => "x"},
+      "cost" => "999"
+    }
+
+    {:error, {:live_redirect, _redirect}} =
+      view
+      |> element("#research-form")
+      |> render_submit(%{
+        "run" =>
+          Map.merge(existing_site_params(market, %{"description" => "Hotel dla psów."}), %{
+            "ledger_entries" => %{"0" => injected},
+            "api_requests" => %{"0" => injected}
+          }),
+        "ledger_entries" => %{"0" => injected}
+      })
+
+    assert [run] = Research.list_runs(scope)
+    assert Repo.all(ApiRequest) == []
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new(0))
+  end
+
+  test "without a Search Console Connection an Existing Site research starts, and the note calls the connection optional",
+       %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    market = store_market_lists()
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+
+    assert has_element?(view, "#search-console-note", "Optional: with Search Console")
+
+    assert has_element?(
+             view,
+             "#search-console-note a#connect-search-console[href^='/app/search-console/connect?']"
+           )
+
+    {:error, {:live_redirect, _redirect}} =
+      view
+      |> element("#research-form")
+      |> render_submit(%{"run" => existing_site_params(market, %{"description" => "Hotel dla psów w Gdańsku."})})
+
+    assert [%Run{mode: :existing_site, domain: "hotel-testowy.example", status: :running}] = Research.list_runs(scope)
+    assert SearchConsole.get_connection(scope) == nil
+  end
+
+  test "the Connect Search Console link leads to Google's consent screen", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    store_market_lists()
+
+    expect(Dirmoon.SearchConsoleMock, :authorize_url, 1, fn %{state: state} ->
+      {:ok, "https://accounts.google.com/o/oauth2/v2/auth?" <> URI.encode_query(state: state)}
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new?mode=existing_site")
+
+    href =
+      view
+      |> render()
+      |> LazyHTML.from_fragment()
+      |> LazyHTML.query("#connect-search-console")
+      |> LazyHTML.attribute("href")
+      |> hd()
+
+    assert conn |> get(href) |> redirected_to() =~ "accounts.google.com"
+  end
+
   test "a signed-out visitor is sent to sign in", %{conn: conn} do
     assert {:error, {:redirect, %{to: path}}} = live(conn, ~p"/app/research/new")
 
@@ -579,6 +1039,24 @@ defmodule DirmoonWeb.NewResearchLiveTest do
     conn = get(conn, ~p"/app")
 
     assert redirected_to(conn) == ~p"/app/research/new"
+  end
+
+  defp fill_existing_site(view, market, params) do
+    view
+    |> element("#research-form")
+    |> render_change(%{"run" => existing_site_params(market, params)})
+  end
+
+  defp existing_site_params(market, params) do
+    Map.merge(
+      %{
+        "mode" => "existing_site",
+        "country_code" => market.country.country_code,
+        "language_code" => market.language.language_code,
+        "domain" => "hotel-testowy.example"
+      },
+      params
+    )
   end
 
   defp store_market_lists do

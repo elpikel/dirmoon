@@ -57,8 +57,7 @@ config :dirmoon, dev_routes: true
 
 config :dirmoon,
   llm_adapter: Dirmoon.LLM.Demo,
-  data_for_seo_adapter: Dirmoon.DataForSEO.Demo,
-  search_console_adapter: Dirmoon.SearchConsole.Client.Demo
+  data_for_seo_adapter: Dirmoon.DataForSEO.Demo
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"

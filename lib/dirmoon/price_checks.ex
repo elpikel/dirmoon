@@ -23,10 +23,10 @@ defmodule Dirmoon.PriceChecks do
   alias Dirmoon.Repo
   alias Dirmoon.Research
   alias Dirmoon.Research.Run
+  alias Dirmoon.WebPage.HostName
   alias Dirmoon.Workers.CheckCompetitorPrices
 
   @web_schemes ["http", "https"]
-  @www_prefix "www."
 
   @doc "The most Competitor Pages one Price Check reads."
   def page_limit, do: Application.fetch_env!(:dirmoon, :price_check_page_limit)
@@ -35,7 +35,8 @@ defmodule Dirmoon.PriceChecks do
   The Competitor Pages a Price Check of a Niche reads, from the Niche's
   first pages (`Dirmoon.Niches.niche_detail/2`'s `first_pages`): the results
   labelled direct competitor with an `http`/`https` address, one per domain
-  (the best-placed address; `www.` doesn't make another domain), best
+  (the best-placed address; `www.` doesn't make another domain, nor the
+  Unicode form of an international name, kept in its ASCII form), best
   Google position first, at most `page_limit/0`.
 
   Returns `[%{domain: String.t(), url: String.t(), google_position: integer}]`.
@@ -98,14 +99,33 @@ defmodule Dirmoon.PriceChecks do
 
   @doc """
   Stores what reading one Competitor Page gave:
-  `%{outcome: :prices_found | :no_prices | :unreadable, offers: [map], read_url: String.t() | nil}`,
-  and tells subscribers.
+  `%{outcome: :prices_found | :no_prices | :unreadable, offers: [map], read_url: String.t() | nil,
+  facts: map | nil}`, and tells subscribers.
   """
   def record_page(%PriceCheck{} = price_check, %CompetitorPage{} = page, %{outcome: outcome} = reading) do
     page
-    |> Ecto.Changeset.change(outcome: outcome, read_url: Map.get(reading, :read_url))
+    |> Ecto.Changeset.change(outcome: outcome, read_url: Map.get(reading, :read_url), facts: Map.get(reading, :facts))
     |> Ecto.Changeset.put_embed(:offers, Map.get(reading, :offers, []))
     |> Repo.update!()
+
+    broadcast_updated(price_check)
+  end
+
+  @doc """
+  Stores how many other sites link to each Competitor Page's domain,
+  `%{domain => count}`, on the check's pages of those domains, and tells
+  subscribers. A page whose domain has no count keeps the one it has.
+  """
+  def record_linking_sites(%PriceCheck{id: price_check_id} = price_check, counts) when is_map(counts) do
+    Enum.each(counts, fn {domain, count} ->
+      CompetitorPage
+      |> from(as: :competitor_page)
+      |> where(
+        [competitor_page: competitor_page],
+        competitor_page.price_check_id == ^price_check_id and competitor_page.domain == ^domain
+      )
+      |> Repo.update_all(set: [linking_sites: count, updated_at: DateTime.utc_now(:second)])
+    end)
 
     broadcast_updated(price_check)
   end
@@ -177,7 +197,7 @@ defmodule Dirmoon.PriceChecks do
       %URI{scheme: scheme, host: host} when scheme in @web_schemes and is_binary(host) and host != "" ->
         [
           %{
-            domain: host |> String.downcase() |> String.replace_prefix(@www_prefix, ""),
+            domain: HostName.bare(host),
             url: url,
             google_position: position
           }

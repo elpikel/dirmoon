@@ -4,11 +4,14 @@ defmodule Dirmoon.ResearchTest do
 
   alias Dirmoon.Accounts.Scope
   alias Dirmoon.Research
+  alias Dirmoon.Research.ApiRequest
   alias Dirmoon.Research.Run
   alias Dirmoon.Research.RunStep
+  alias Dirmoon.SiteScans.SiteScan
   alias Dirmoon.Workers.ExpandPhrases
   alias Dirmoon.Workers.FetchVolumes
   alias Dirmoon.Workers.GenerateSeeds
+  alias Dirmoon.Workers.ScanSite
   alias Dirmoon.Workers.WriteBrief
 
   test "starting a run creates it in the user's Account with eight waiting Steps" do
@@ -80,6 +83,91 @@ defmodule Dirmoon.ResearchTest do
     {:ok, run} = Research.start_run(scope, attrs)
 
     assert Repo.reload!(run).domain == "kkadwokat.pl"
+  end
+
+  test "starting an Existing Site research stores its Site Scan, scanning" do
+    scope = scope_for(insert(:account))
+    attrs = Map.merge(valid_run_attrs(), %{"mode" => "existing_site", "domain" => "kancelaria-testowa.example"})
+
+    {:ok, run} = Research.start_run(scope, attrs)
+
+    assert %SiteScan{status: :scanning} = Repo.get_by(SiteScan, run_id: run.id)
+  end
+
+  test "starting an Existing Site research enqueues its Site Scan's job" do
+    scope = scope_for(insert(:account))
+    attrs = Map.merge(valid_run_attrs(), %{"mode" => "existing_site", "domain" => "kancelaria-testowa.example"})
+
+    {:ok, run} = Research.start_run(scope, attrs)
+
+    site_scan = Repo.get_by!(SiteScan, run_id: run.id)
+    assert_enqueued(worker: ScanSite, args: %{site_scan_id: site_scan.id}, queue: :site_scan)
+  end
+
+  test "a request paid for the research before it started is recorded on the run, in its API Cost" do
+    scope = scope_for(insert(:account))
+    attrs = Map.merge(valid_run_attrs(), %{"mode" => "existing_site", "domain" => "kancelaria-testowa.example"})
+
+    {:ok, run} = Research.start_run(scope, attrs, ledger_entries: [draft_entry()])
+
+    assert [%ApiRequest{service: "llm", operation: "describe_site"}] = Repo.all_by(ApiRequest, run_id: run.id)
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new("0.004"))
+  end
+
+  test "a rejected research records none of the requests paid before it" do
+    scope = scope_for(insert(:account))
+    attrs = Map.put(valid_run_attrs(), "description", " ")
+
+    {:error, _changeset} = Research.start_run(scope, attrs, ledger_entries: [draft_entry()])
+
+    assert Repo.all(ApiRequest) == []
+  end
+
+  test "a research started without paid requests has no API Cost yet" do
+    scope = scope_for(insert(:account))
+
+    {:ok, run} = Research.start_run(scope, valid_run_attrs(), [])
+
+    assert Decimal.equal?(Research.run_cost(run), Decimal.new(0))
+  end
+
+  test "a malformed paid request stops the research from starting at all" do
+    scope = scope_for(insert(:account))
+
+    assert_raise FunctionClauseError, fn ->
+      Research.start_run(scope, valid_run_attrs(), ledger_entries: [%{draft_entry() | response: "opis"}])
+    end
+
+    assert Repo.all(Run) == []
+  end
+
+  test "starting a New Idea research starts no Site Scan" do
+    scope = scope_for(insert(:account))
+
+    {:ok, run} = Research.start_run(scope, valid_run_attrs())
+
+    assert Repo.get_by(SiteScan, run_id: run.id) == nil
+    refute_enqueued(worker: ScanSite)
+  end
+
+  test "a rejected Existing Site research starts no Site Scan" do
+    scope = scope_for(insert(:account))
+    attrs = Map.merge(valid_run_attrs(), %{"mode" => "existing_site", "domain" => "not a domain"})
+
+    {:error, _changeset} = Research.start_run(scope, attrs)
+
+    assert Repo.aggregate(SiteScan, :count) == 0
+    refute_enqueued(worker: ScanSite)
+  end
+
+  test "starting an Existing Site research writes nothing to the shared market tables" do
+    scope = scope_for(insert(:account))
+    attrs = Map.merge(valid_run_attrs(), %{"mode" => "existing_site", "domain" => "kancelaria-testowa.example"})
+    shared_rows_before = shared_market_rows()
+
+    {:ok, _run} = Research.start_run(scope, attrs)
+
+    assert shared_market_rows() == shared_rows_before
   end
 
   test "a run with six Priority Services is rejected with an error on the Priority Services" do
@@ -283,6 +371,16 @@ defmodule Dirmoon.ResearchTest do
 
   test "a malformed run id is not found" do
     assert Research.get_run(scope_for(insert(:account)), "not-an-id") == nil
+  end
+
+  test "a run id beyond the database's id range, or below it, is not found" do
+    scope = scope_for(insert(:account))
+
+    assert Research.get_run(scope, "99999999999999999999999") == nil
+    assert Research.get_run(scope, "9223372036854775808") == nil
+    assert Research.get_run(scope, "0") == nil
+    assert Research.get_run(scope, "-1") == nil
+    assert {:error, :not_found} = Research.stop_run(scope, "99999999999999999999999")
   end
 
   test "stopping a run in another Account is not found and leaves it running" do
@@ -500,15 +598,59 @@ defmodule Dirmoon.ResearchTest do
       |> Decimal.add(Decimal.mult(Decimal.new(prices.serp_top10), serp_phrase_limit))
       |> Decimal.add(Decimal.new(prices.llm_allowance))
 
-    assert Decimal.equal?(Research.estimated_cost(%{city?: false}), expected)
+    assert Decimal.equal?(Research.estimated_cost(%{city?: false, mode: :new_idea}), expected)
   end
 
   test "a city adds one more volumes request to the estimated cost" do
     prices = Application.fetch_env!(:dirmoon, :cost_estimates)
 
-    difference = Decimal.sub(Research.estimated_cost(%{city?: true}), Research.estimated_cost(%{city?: false}))
+    difference =
+      Decimal.sub(
+        Research.estimated_cost(%{city?: true, mode: :new_idea}),
+        Research.estimated_cost(%{city?: false, mode: :new_idea})
+      )
 
     assert Decimal.equal?(difference, Decimal.new(prices.search_volumes))
+  end
+
+  test "an Existing Site run adds the ranked phrases request at its limit, the indexed page count, the Business Profile lookup and the site's linking sites" do
+    prices = Application.fetch_env!(:dirmoon, :cost_estimates)
+    ranked_phrases_limit = Application.fetch_env!(:dirmoon, :ranked_phrases_limit)
+
+    difference =
+      Decimal.sub(
+        Research.estimated_cost(%{city?: false, mode: :existing_site}),
+        Research.estimated_cost(%{city?: false, mode: :new_idea})
+      )
+
+    expected =
+      prices.ranked_phrases_per_phrase
+      |> Decimal.new()
+      |> Decimal.mult(ranked_phrases_limit)
+      |> Decimal.add(Decimal.new(prices.ranked_phrases_request))
+      |> Decimal.add(Decimal.new(prices.indexed_page_count))
+      |> Decimal.add(Decimal.new(prices.business_profile))
+      |> Decimal.add(Decimal.new(prices.linking_sites_request))
+      |> Decimal.add(Decimal.new(prices.linking_sites_per_domain))
+
+    assert Decimal.equal?(difference, expected)
+  end
+
+  defp shared_market_rows do
+    Map.new(["keywords", "keyword_metrics", "serp_snapshots"], fn table ->
+      %Postgrex.Result{rows: rows} = Repo.query!("SELECT row_to_json(shared)::text FROM #{table} AS shared ORDER BY id")
+      {table, rows}
+    end)
+  end
+
+  defp draft_entry do
+    %{
+      service: "llm",
+      operation: "describe_site",
+      request: %{task: "describe_site", prompt: "Opisz stronę."},
+      response: %{"description" => "Kancelaria notarialna w centrum miasta."},
+      cost: Decimal.new("0.004")
+    }
   end
 
   defp scope_for(account) do

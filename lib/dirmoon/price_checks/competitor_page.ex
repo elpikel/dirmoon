@@ -9,6 +9,13 @@ defmodule Dirmoon.PriceChecks.CompetitorPage do
   (with its verified Competitor Offers), `:no_prices` (the page was read
   but states no price the check could verify) or `:unreadable` (the page
   could not be opened).
+
+  `facts` are the page's Page Facts that compare it with the site's own
+  page (`Dirmoon.WebPage.PageFacts.comparison/1`), stored when the page is
+  read; nil for a page that could not be opened, one that is not HTML, or
+  one read before they were kept. `linking_sites` is how many other sites
+  link to the page's domain, as DataForSEO's link index knows; nil when
+  unknown (not asked, no data, or the request failed).
   """
   use Ecto.Schema
 
@@ -23,6 +30,8 @@ defmodule Dirmoon.PriceChecks.CompetitorPage do
     field :url, :string
     field :read_url, :string
     field :outcome, Ecto.Enum, values: @outcomes, default: :waiting
+    field :facts, :map
+    field :linking_sites, :integer
 
     embeds_many :offers, CompetitorOffer, on_replace: :delete
 

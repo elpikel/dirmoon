@@ -18,12 +18,12 @@ These come from `docs/design/README.md`; read it before building a pipeline step
 
 - **Open questions are the owner's.** Section 9 of the handover lists what isn't decided (LLM provider, scoring weights, Pagedock deploy interface, the name itself…). Ask, don't guess.
 - **The LLM never invents final phrases.** It writes Seeds and filters, groups and writes content; Phrases come from the keyword API.
-- **Never re-buy data.** Every step's output and every raw API response is stored (`jsonb` next to the parsed rows); resuming a run or changing a prompt reuses what's stored.
+- **Never re-buy data.** Every step's output and every raw API response is stored (`jsonb` next to the parsed rows); resuming a run or changing a prompt reuses what's stored. Deliberate exceptions: web pages dirmoon reads keep their Page Facts (and a competitor page its text), never the HTML, and a PageSpeed answer is kept without its screenshots.
 - **Every run shows its API cost.**
 - **Pages contain no invented price, phone, address or factual claim.** A missing value stays a visible `[PLACEHOLDER]`.
 - **Numbers in the reference designs are invented.** Never copy them into seeds, fixtures presented as real, or copy.
 - **UI:** interface copy is English, because the audience is global; market-facing content (Seeds, Phrases, the Brief and the Page) is in the run's market language; colours only from `assets/css/tokens.css` (handover tokens plus the app surface tokens); every screen works at 390 px wide.
-- **v1 has one user, the owner:** no accounts, billing, onboarding or multi-tenancy.
+- **Accounts with open sign-up** (ADR-0001): anyone can sign up and each User's data belongs to their Account; still no billing, onboarding or per-account limits.
 
 ## Agent skills
 

@@ -12,6 +12,7 @@ defmodule Dirmoon.Application do
       Dirmoon.Repo,
       {DNSCluster, query: Application.get_env(:dirmoon, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Dirmoon.PubSub},
+      {Task.Supervisor, name: Dirmoon.WebPage.ReadSupervisor},
       {Oban, Application.fetch_env!(:dirmoon, Oban)},
       # Start a worker by calling: Dirmoon.Worker.start_link(arg)
       # {Dirmoon.Worker, arg},

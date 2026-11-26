@@ -10,6 +10,18 @@ defmodule DirmoonWeb.NewResearchLive do
   can be loaded the screen says why and can't start a run. The status row says what the run will do
   for the chosen Mode (`Dirmoon.Research.NewRunStatusLine`). See
   `docs/design/README.md` section 8.3.
+
+  In Existing Site mode the site's address comes first, with "Read my site":
+  an async task drafts the description from the home page
+  (`Dirmoon.SiteScans.Description.draft/1`) while the screen stays
+  responsive. The draft fills an empty description (or one still equal to
+  the previous draft); text the owner typed is never overwritten, and the
+  draft is offered beside it instead. The draft's paid request is kept in
+  the socket for the domain it was made for, dropped when the address
+  changes, and recorded on the run only when the research starts for that
+  same domain (`Dirmoon.Research.start_run/3`); the form's params never
+  carry it. One draft runs at a time, and a screen makes at most
+  five of them.
   """
   use DirmoonWeb, :live_view
 
@@ -19,9 +31,14 @@ defmodule DirmoonWeb.NewResearchLive do
   alias Dirmoon.Research.NewRunStatusLine
   alias Dirmoon.Research.Run
   alias Dirmoon.SearchConsole
+  alias Dirmoon.SiteScans.Description
   alias DirmoonWeb.RunDisplay
 
   @recent_runs_count 5
+  @drafts_per_screen 5
+  @drafts_used_up "I've read your site #{@drafts_per_screen} times on this screen. Describe the business yourself, or reload the page to read it again."
+  @no_language "Choose the research's language first, so I know which language to write in."
+  @draft_crashed "Something went wrong while I read your site. Try again, or describe the business yourself."
 
   @example_prompts [
     %{
@@ -74,6 +91,16 @@ defmodule DirmoonWeb.NewResearchLive do
               surface="app"
               class="flex flex-col overflow-hidden transition-colors duration-150 has-[#research-description:focus-visible]:border-on-app-2"
             >
+              <.domain_field
+                :if={@mode == :existing_site}
+                form={@form}
+                existing_site?={true}
+                reading_site?={@reading_site != nil}
+                read_site_error={@read_site_error}
+                connection={@search_console_connection}
+                class="border-b border-app-line px-[26px] pt-6 pb-[18px] max-sm:px-5"
+              />
+
               <div
                 id="research-description-field"
                 class="flex flex-col gap-2.5 px-[26px] pt-6 pb-[18px] max-sm:px-5 *:mb-0"
@@ -91,36 +118,41 @@ defmodule DirmoonWeb.NewResearchLive do
                   placeholder="What do you do, where and for whom?"
                   class="min-h-[92px] w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[21px] font-medium leading-[1.45] tracking-[-0.01em] text-on-app placeholder:text-on-app-muted focus-visible:outline-none"
                 />
+                <p
+                  :if={@mode == :existing_site and not @description?}
+                  id="research-description-hint"
+                  class="m-0 text-[13px] leading-normal text-on-app-muted"
+                >
+                  Paste your address and press Read my site, or describe the business yourself.
+                </p>
+                <div
+                  :if={@offered_draft}
+                  id="draft-description"
+                  class="flex min-w-0 flex-col items-start gap-2.5 rounded-tile border border-app-line-strong bg-app-raised px-4 py-3"
+                >
+                  <span class={field_label_class()}>What I read on your site</span>
+                  <p
+                    id="draft-description-text"
+                    class="m-0 text-[15px] leading-normal break-words text-on-app"
+                  >
+                    {@offered_draft}
+                  </p>
+                  <.button id="use-draft" variant="outline" phx-click="use_draft">
+                    Use this instead
+                  </.button>
+                </div>
               </div>
 
               <div
-                :if={@domain_shown? or @services_shown?}
+                :if={(@domain_shown? and @mode != :existing_site) or @services_shown?}
                 id="research-optional-fields"
                 class="flex flex-col gap-5 border-t border-app-line px-[26px] py-[18px] max-sm:px-5"
               >
-                <div
-                  :if={@domain_shown?}
-                  id="research-domain-field"
-                  class="flex flex-col gap-2 *:mb-0"
-                >
-                  <label for="research-domain" class={field_label_class()}>
-                    Domain{if @mode == :existing_site, do: " (required)"}
-                  </label>
-                  <.input
-                    field={@form[:domain]}
-                    id="research-domain"
-                    type="text"
-                    placeholder="yourbusiness.com"
-                    autocomplete="url"
-                    spellcheck="false"
-                    required={@mode == :existing_site}
-                    surface="app"
-                  />
-                  <.search_console_note
-                    :if={@mode == :existing_site}
-                    connection={@search_console_connection}
-                  />
-                </div>
+                <.domain_field
+                  :if={@domain_shown? and @mode != :existing_site}
+                  form={@form}
+                  existing_site?={false}
+                />
 
                 <fieldset
                   :if={@services_shown?}
@@ -362,7 +394,12 @@ defmodule DirmoonWeb.NewResearchLive do
        search_console_connection: SearchConsole.get_connection(scope),
        domain_open?: false,
        services_open?: false,
-       params: initial_params
+       params: initial_params,
+       reading_site: nil,
+       read_site_error: nil,
+       drafts_left: @drafts_per_screen,
+       site_draft: nil,
+       offered_draft: nil
      )
      |> assign_market_options()
      |> assign_form(changeset)
@@ -394,8 +431,37 @@ defmodule DirmoonWeb.NewResearchLive do
     {:noreply, socket |> assign(:services_open?, true) |> assign_form(socket.assigns.form.source)}
   end
 
+  def handle_event("read_site", _params, %{assigns: %{reading_site: %{}}} = socket), do: {:noreply, socket}
+
+  def handle_event("read_site", _params, %{assigns: %{drafts_left: 0}} = socket) do
+    {:noreply, assign(socket, :read_site_error, @drafts_used_up)}
+  end
+
+  def handle_event("read_site", _params, socket) do
+    language_name = Ecto.Changeset.get_field(socket.assigns.form.source, :language_name)
+
+    case Run.normalised_domain(socket.assigns.params["domain"]) do
+      {:ok, domain} when is_binary(language_name) ->
+        {:noreply, start_reading(socket, %{domain: domain, language_name: language_name})}
+
+      {:ok, _domain} ->
+        {:noreply, assign(socket, :read_site_error, @no_language)}
+
+      :error ->
+        {:noreply, assign(socket, :read_site_error, Description.no_site_message())}
+    end
+  end
+
+  def handle_event("use_draft", _params, %{assigns: %{offered_draft: draft}} = socket) when is_binary(draft) do
+    {:noreply, socket |> assign(:offered_draft, nil) |> validate(Map.put(socket.assigns.params, "description", draft))}
+  end
+
+  def handle_event("use_draft", _params, socket), do: {:noreply, socket}
+
   def handle_event("start", %{"run" => params}, socket) do
-    case Research.start_run(socket.assigns.current_scope, params) do
+    options = [ledger_entries: draft_ledger_entries(socket.assigns.site_draft, params)]
+
+    case Research.start_run(socket.assigns.current_scope, params, options) do
       {:ok, run} ->
         {:noreply, push_navigate(socket, to: ~p"/app/runs/#{run}")}
 
@@ -404,12 +470,80 @@ defmodule DirmoonWeb.NewResearchLive do
     end
   end
 
+  @impl true
+  def handle_async(:draft_description, {:ok, {:ok, draft}}, %{assigns: %{reading_site: %{domain: domain}}} = socket) do
+    {:noreply, socket |> assign(:reading_site, nil) |> apply_draft(Map.put(draft, :domain, domain))}
+  end
+
+  def handle_async(:draft_description, {:ok, {:error, reason}}, socket) do
+    {:noreply, read_failed(socket, reason)}
+  end
+
+  def handle_async(:draft_description, {:exit, _reason}, socket) do
+    {:noreply, read_failed(socket, @draft_crashed)}
+  end
+
+  attr :form, Phoenix.HTML.Form, required: true
+  attr :existing_site?, :boolean, required: true
+  attr :reading_site?, :boolean, default: false
+  attr :read_site_error, :string, default: nil
+  attr :connection, :any, default: nil
+  attr :class, :string, default: nil
+
+  defp domain_field(assigns) do
+    ~H"""
+    <div id="research-domain-field" class={["flex min-w-0 flex-col gap-2 *:mb-0", @class]}>
+      <label for="research-domain" class={field_label_class()}>
+        {if @existing_site?, do: "Your site's address (required)", else: "Domain"}
+      </label>
+      <div class="flex min-w-0 flex-wrap items-start gap-2">
+        <div class="min-w-0 flex-[1_1_220px] *:mb-0">
+          <.input
+            field={@form[:domain]}
+            id="research-domain"
+            type="text"
+            placeholder="yourbusiness.com"
+            autocomplete="url"
+            spellcheck="false"
+            required={@existing_site?}
+            surface="app"
+          />
+        </div>
+        <.button
+          :if={@existing_site?}
+          id="read-site"
+          variant="outline"
+          phx-click="read_site"
+          disabled={@reading_site?}
+          aria-busy={to_string(@reading_site?)}
+          class="flex-none max-sm:w-full"
+        >
+          <%= if @reading_site? do %>
+            <.icon name="hero-arrow-path" class="size-4 motion-safe:animate-spin" /> Reading…
+          <% else %>
+            <.icon name="hero-document-magnifying-glass" class="size-4" /> Read my site
+          <% end %>
+        </.button>
+      </div>
+      <p
+        :if={@read_site_error}
+        id="read-site-error"
+        role="alert"
+        class="m-0 flex min-w-0 items-start gap-2 text-sm leading-normal break-words text-on-app"
+      >
+        <.icon name="hero-exclamation-circle" class="mt-0.5 size-5 shrink-0 text-warn" />{@read_site_error}
+      </p>
+      <.search_console_note :if={@existing_site?} connection={@connection} />
+    </div>
+    """
+  end
+
   attr :connection, :any, required: true
 
   defp search_console_note(%{connection: nil} = assigns) do
     ~H"""
     <p id="search-console-note" class="m-0 text-[13px] leading-normal text-on-app-2">
-      Without Search Console, I skip step 6 (where the site already shows up on Google).
+      Optional: with Search Console I use Google's own figures for where your site shows up.
       <.link
         id="connect-search-console"
         href={
@@ -439,8 +573,67 @@ defmodule DirmoonWeb.NewResearchLive do
       |> Map.put(:action, :validate)
 
     socket
+    |> forget_other_site(params)
     |> assign(:params, params)
     |> assign_form(changeset)
+  end
+
+  defp forget_other_site(socket, params) do
+    domain = Run.normalised_domain(params["domain"])
+
+    socket
+    |> clear_error_when_address_changed(domain)
+    |> keep_draft_only_for(domain)
+  end
+
+  defp clear_error_when_address_changed(socket, domain) do
+    if Run.normalised_domain(socket.assigns.params["domain"]) == domain,
+      do: socket,
+      else: assign(socket, :read_site_error, nil)
+  end
+
+  defp keep_draft_only_for(socket, domain) do
+    if draft_for?(socket.assigns.site_draft, domain),
+      do: socket,
+      else: assign(socket, site_draft: nil, offered_draft: nil)
+  end
+
+  defp start_reading(socket, %{domain: domain} = site) do
+    socket
+    |> assign(reading_site: %{domain: domain}, read_site_error: nil, drafts_left: socket.assigns.drafts_left - 1)
+    |> start_async(:draft_description, fn -> Description.draft(site) end)
+  end
+
+  defp apply_draft(socket, %{description: description, ledger_entry: ledger_entry, domain: domain}) do
+    if draft_for?(%{domain: domain}, Run.normalised_domain(socket.assigns.params["domain"])) do
+      %{params: params, site_draft: previous_draft} = socket.assigns
+      socket = assign(socket, site_draft: %{domain: domain, description: description, ledger_entry: ledger_entry})
+
+      if replaceable_description?(params["description"], previous_draft) do
+        socket |> assign(:offered_draft, nil) |> validate(Map.put(params, "description", description))
+      else
+        assign(socket, :offered_draft, description)
+      end
+    else
+      socket
+    end
+  end
+
+  defp read_failed(%{assigns: %{reading_site: %{domain: domain}}} = socket, reason) do
+    if draft_for?(%{domain: domain}, Run.normalised_domain(socket.assigns.params["domain"])),
+      do: assign(socket, reading_site: nil, read_site_error: reason),
+      else: assign(socket, :reading_site, nil)
+  end
+
+  defp replaceable_description?(description, previous_draft) do
+    not present?(description) or (previous_draft != nil and String.trim(description) == previous_draft.description)
+  end
+
+  defp draft_for?(%{domain: draft_domain}, {:ok, domain}), do: draft_domain == domain
+  defp draft_for?(_no_draft, _domain), do: false
+
+  defp draft_ledger_entries(site_draft, params) do
+    if draft_for?(site_draft, Run.normalised_domain(params["domain"])), do: [site_draft.ledger_entry], else: []
   end
 
   defp assign_form(socket, changeset) do
@@ -458,12 +651,9 @@ defmodule DirmoonWeb.NewResearchLive do
       services_shown?: socket.assigns.services_open? or Enum.any?(service_values, &present?/1),
       service_values: service_values,
       service_errors: service_errors(services_field),
-      estimated_cost: Research.estimated_cost(%{city?: city?}),
-      status_line:
-        NewRunStatusLine.sentence(%{
-          mode: mode,
-          search_console_connected?: not is_nil(socket.assigns.search_console_connection)
-        })
+      description?: changeset |> Ecto.Changeset.get_field(:description) |> present?(),
+      estimated_cost: Research.estimated_cost(%{city?: city?, mode: mode}),
+      status_line: NewRunStatusLine.sentence(%{mode: mode})
     )
   end
 
