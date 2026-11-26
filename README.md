@@ -50,7 +50,7 @@ Google redirect URI to add to the Google Cloud OAuth client: `https://<PHX_HOST>
 
 **LLM:** `Dirmoon.LLM.OpenAI` calls the Responses API with strict Structured Outputs. A call's cost is its token usage times the per-model prices in `config :dirmoon, Dirmoon.LLM.OpenAI` (`prices`, USD per million tokens); a model with no prices there is refused, so add its prices before setting `OPENAI_MODEL` to it.
 
-**Mailer:** production still uses the local Swoosh adapter. Configure a real one in `config/runtime.exs` (commented example there) before deploying, or sign-in links won't be delivered.
+**Mailer:** production sends sign-in links through Brevo and does not start without `BREVO_API_KEY`. `MAIL_FROM` is the sender address (default `no-reply@dirmoon.com`); it must be a sender verified in Brevo. Dev keeps the local mailbox at `/dev/mailbox`.
 
 **Tunables** in `config/config.exs`:
 
@@ -64,6 +64,16 @@ Google redirect URI to add to the Google Cloud OAuth client: `https://<PHX_HOST>
 - `site_scan_page_limit`: how many pages one site scan reads (50).
 - `site_scan_stale_after_minutes`: how long a scan may go without storing anything before the "Your site" screen offers to run it again (15).
 - `ranked_phrases_limit`: how many of the phrases a site ranks for Step 6 buys from DataForSEO (1000).
+
+## Deploy
+
+The `Dockerfile` builds a release image. On start the container runs pending migrations, then serves plain HTTP on port 4000; HTTPS is the proxy's job (the app redirects to HTTPS from the proxy's `X-Forwarded-Proto` header). On Coolify: add the GitHub repository as an application with the Dockerfile build pack and port 4000, add a PostgreSQL database, set the domain, and set these variables:
+
+- `DATABASE_URL`: the database's internal URL, as Coolify shows it.
+- `SECRET_KEY_BASE`: the output of `mix phx.gen.secret`.
+- `PHX_HOST`: the domain, without `https://` (default `dirmoon.com`).
+- `BREVO_API_KEY` and, to change the sender, `MAIL_FROM`: see Mailer above.
+- The service keys from `.env.example`, without `export`.
 
 ## Running a real run
 

@@ -97,28 +97,7 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || "example.com"
-
-  config :dirmoon, Dirmoon.Repo,
-    # ssl: true,
-    url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    # For machines with several cores, consider starting multiple pools of `pool_size`
-    # pool_count: 4,
-    socket_options: maybe_ipv6
-
-  config :dirmoon, DirmoonWeb.Endpoint,
-    url: [host: host, port: 443, scheme: "https"],
-    http: [
-      # Enable IPv6 and bind on all interfaces.
-      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
-      # See the documentation on https://bandit.hexdocs.pm/Bandit.html#t:options/0
-      # for details about using IPv6 vs IPv4 and loopback vs public addresses.
-      ip: {0, 0, 0, 0, 0, 0, 0, 0}
-    ],
-    secret_key_base: secret_key_base
-
-  config :dirmoon, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  host = System.get_env("PHX_HOST") || "dirmoon.com"
 
   # ## SSL Support
   #
@@ -152,21 +131,38 @@ if config_env() == :prod do
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 
-  # ## Configuring the mailer
+  # ## Mailer
   #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :dirmoon, Dirmoon.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://swoosh.hexdocs.pm/Swoosh.html#module-installation for details.
+  # Sign-in is by emailed link only, so production does not start without a mail service.
+  # Brevo sends the emails; MAIL_FROM must be a sender verified in Brevo.
+  brevo_api_key =
+    System.get_env("BREVO_API_KEY") ||
+      raise """
+      environment variable BREVO_API_KEY is missing.
+      Create one in Brevo under SMTP & API > API keys.
+      """
+
+  config :dirmoon, Dirmoon.Mailer, adapter: Swoosh.Adapters.Brevo, api_key: brevo_api_key
+
+  config :dirmoon, Dirmoon.Repo,
+    # ssl: true,
+    url: database_url,
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    # For machines with several cores, consider starting multiple pools of `pool_size`
+    # pool_count: 4,
+    socket_options: maybe_ipv6
+
+  config :dirmoon, DirmoonWeb.Endpoint,
+    url: [host: host, port: 443, scheme: "https"],
+    http: [
+      # Enable IPv6 and bind on all interfaces.
+      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
+      # See the documentation on https://bandit.hexdocs.pm/Bandit.html#t:options/0
+      # for details about using IPv6 vs IPv4 and loopback vs public addresses.
+      ip: {0, 0, 0, 0, 0, 0, 0, 0}
+    ],
+    secret_key_base: secret_key_base
+
+  config :dirmoon, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  config :dirmoon, :mail_from, System.get_env("MAIL_FROM") || "no-reply@dirmoon.com"
 end

@@ -7,8 +7,6 @@ defmodule Dirmoon.Accounts.UserNotifier do
   alias Dirmoon.Accounts.User
   alias Dirmoon.Mailer
 
-  @sender {"dirmoon", "contact@example.com"}
-
   @doc """
   Delivers the link that confirms a change of the user's email.
   """
@@ -62,7 +60,7 @@ defmodule Dirmoon.Accounts.UserNotifier do
     email =
       new()
       |> to(recipient)
-      |> from(@sender)
+      |> from({"dirmoon", Application.fetch_env!(:dirmoon, :mail_from)})
       |> subject(subject)
       |> text_body(body)
 

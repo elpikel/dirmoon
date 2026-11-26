@@ -52,6 +52,9 @@ config :dirmoon, Oban,
   queues: [pipeline: 5, site_scan: 2],
   plugins: [Oban.Plugins.Pruner]
 
+# The address sign-in emails are sent from. Production reads MAIL_FROM (config/runtime.exs).
+config :dirmoon, :mail_from, "contact@example.com"
+
 config :dirmoon, :scopes,
   user: [
     default: true,
