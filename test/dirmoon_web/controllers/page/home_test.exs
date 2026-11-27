@@ -85,6 +85,73 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     end
   end
 
+  test "the page names its one address and may be listed by search engines", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("link[rel=canonical]") |> LazyHTML.attribute("href") ==
+             [DirmoonWeb.Endpoint.url() <> "/"]
+
+    assert document |> LazyHTML.query("meta[name=robots]") |> Enum.count() == 0
+  end
+
+  test "a shared link shows the page's title, description and the sharing image", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+    property = fn name -> document |> LazyHTML.query("meta[property='#{name}']") |> LazyHTML.attribute("content") end
+
+    assert property.("og:type") == ["website"]
+    assert property.("og:site_name") == ["dirmoon"]
+    assert property.("og:url") == [DirmoonWeb.Endpoint.url() <> "/"]
+    assert property.("og:title") == ["Validate your business idea with Google search data"]
+
+    assert property.("og:description") ==
+             document |> LazyHTML.query("meta[name=description]") |> LazyHTML.attribute("content")
+
+    assert property.("og:image:alt") == ["dirmoon: validate your business idea before you build it."]
+    assert [image_url] = property.("og:image")
+    assert String.starts_with?(image_url, DirmoonWeb.Endpoint.url() <> "/images/og")
+
+    assert document |> LazyHTML.query("meta[name='twitter:card']") |> LazyHTML.attribute("content") ==
+             ["summary_large_image"]
+  end
+
+  test "the sharing image the page names is served as a 1200 by 630 PNG", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+    [image_url] = document |> LazyHTML.query("meta[property='og:image']") |> LazyHTML.attribute("content")
+
+    image = get(conn, URI.parse(image_url).path)
+
+    assert image.status == 200
+    assert get_resp_header(image, "content-type") == ["image/png"]
+    assert <<_signature::binary-size(16), 1200::32, 630::32, _rest::binary>> = image.resp_body
+  end
+
+  test "the structured data names the site and who runs it, and nothing the page doesn't say", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+    home = DirmoonWeb.Endpoint.url() <> "/"
+
+    assert [json] = document |> LazyHTML.query("script[type='application/ld+json']") |> Enum.map(&LazyHTML.text/1)
+    assert %{"@context" => "https://schema.org", "@graph" => [website, organization]} = Jason.decode!(json)
+
+    assert [description] = document |> LazyHTML.query("meta[name=description]") |> LazyHTML.attribute("content")
+
+    assert website == %{
+             "@type" => "WebSite",
+             "@id" => home <> "#website",
+             "url" => home,
+             "name" => "dirmoon",
+             "description" => description,
+             "inLanguage" => "en",
+             "publisher" => %{"@id" => home <> "#organization"}
+           }
+
+    assert %{"@type" => "Organization", "@id" => organization_id, "name" => "dirmoon", "url" => ^home, "logo" => logo} =
+             organization
+
+    assert organization_id == home <> "#organization"
+    assert Map.keys(organization) == ["@id", "@type", "logo", "name", "url"]
+    assert conn |> get(URI.parse(logo).path) |> response(200)
+  end
+
   test "the hero offers an owner who already has a website a list of what to fix, linked to its own section",
        %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()

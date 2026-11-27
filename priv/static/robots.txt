@@ -1,5 +1,6 @@
-# See https://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file
-#
-# To ban all spiders from the entire site uncomment the next two lines:
-# User-agent: *
-# Disallow: /
+# Everything public may be read. The signed-in app is private: it only ever
+# answers with a redirect to the sign-in page.
+User-agent: *
+Disallow: /app/
+
+Sitemap: https://dirmoon.com/sitemap.xml

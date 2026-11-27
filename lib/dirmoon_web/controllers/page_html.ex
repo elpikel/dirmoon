@@ -39,18 +39,52 @@ defmodule DirmoonWeb.PageHTML do
     "Whether Google can see you are a real business"
   ]
 
+  @page_title "Validate your business idea with Google search data"
+  @meta_description "Niche finder: test a business idea with real monthly search volume and keyword competition. " <>
+                      "Or paste your site and get a plain-English list of what to fix."
+
   @doc """
   Returns the assigns the landing page template needs: the given sign-up
-  forms and the page title.
+  forms, the page title and what search engines and link previews read (the
+  description, the page's one address, the structured data).
   """
   def landing_assigns(sign_up_forms) do
     [
       sign_up_forms: sign_up_forms,
-      page_title: "Validate your business idea with Google search data",
-      meta_description:
-        "Niche finder: test a business idea with real monthly search volume and keyword competition. " <>
-          "Or paste your site and get a plain-English list of what to fix."
+      page_title: @page_title,
+      meta_description: @meta_description,
+      canonical_url: url(~p"/"),
+      share_image_alt: "dirmoon: validate your business idea before you build it.",
+      structured_data: structured_data()
     ]
+  end
+
+  # What the landing page tells search engines it is: the site and who runs
+  # it. Only what the page itself says; no price, rating or address.
+  defp structured_data do
+    home = url(~p"/")
+
+    %{
+      "@context" => "https://schema.org",
+      "@graph" => [
+        %{
+          "@type" => "WebSite",
+          "@id" => home <> "#website",
+          "url" => home,
+          "name" => "dirmoon",
+          "description" => @meta_description,
+          "inLanguage" => "en",
+          "publisher" => %{"@id" => home <> "#organization"}
+        },
+        %{
+          "@type" => "Organization",
+          "@id" => home <> "#organization",
+          "url" => home,
+          "name" => "dirmoon",
+          "logo" => url(~p"/apple-touch-icon.png")
+        }
+      ]
+    }
   end
 
   @doc """

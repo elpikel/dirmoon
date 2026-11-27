@@ -75,6 +75,8 @@ The `Dockerfile` builds a release image. On start the container runs pending mig
 - `BREVO_API_KEY` and, to change the sender, `MAIL_FROM`: see Mailer above.
 - The service keys from `.env.example`, without `export`.
 
+After the first deploy: make `www.dirmoon.com` redirect to `dirmoon.com` in Coolify (two addresses serving the same page count against the site), add the domain to Google Search Console and submit `https://dirmoon.com/sitemap.xml`. `priv/static/robots.txt` and `priv/static/sitemap.xml` hold the domain literally; change them if it changes.
+
 ## Running a real run
 
 1. Set `OPENAI_API_KEY`, `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD`; for an existing site also `PAGESPEED_API_KEY` (and `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` if you want Search Console's figures).

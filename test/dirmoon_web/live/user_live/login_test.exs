@@ -19,6 +19,14 @@ defmodule DirmoonWeb.UserLive.LoginTest do
     assert has_element?(view, "#sign-up-link[href='/#sign-up-form-hero']")
   end
 
+  test "the sign-in page asks search engines not to list it and names no canonical address", %{conn: conn} do
+    document = conn |> get(~p"/users/log-in") |> html_response(200) |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("meta[name=robots]") |> LazyHTML.attribute("content") == ["noindex"]
+    assert document |> LazyHTML.query("link[rel=canonical]") |> Enum.count() == 0
+    assert document |> LazyHTML.query("script[type='application/ld+json']") |> Enum.count() == 0
+  end
+
   test "an email that already has a User gets a sign-in link", %{conn: conn} do
     user = insert(:user)
     {:ok, view, _html} = live(conn, ~p"/users/log-in")
