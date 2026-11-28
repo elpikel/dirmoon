@@ -21,6 +21,7 @@ defmodule DirmoonWeb.ResultsLive do
   """
   use DirmoonWeb, :live_view
 
+  alias Dirmoon.Billing
   alias Dirmoon.Competition.SerpAssessment
   alias Dirmoon.Format
   alias Dirmoon.Niches
@@ -62,6 +63,7 @@ defmodule DirmoonWeb.ResultsLive do
   @quick_win_forms %{one: "quick win", other: "quick wins"}
 
   @page_forms %{one: "page", other: "pages"}
+  @used_price_check_forms %{one: "competitor price check is", other: "competitor price checks are"}
 
   @price_check_errors %{
     not_found: "Topic not found",
@@ -297,7 +299,7 @@ defmodule DirmoonWeb.ResultsLive do
         {:noreply, load_results(socket)}
 
       {:error, reason} ->
-        message = Map.fetch!(@price_check_errors, reason)
+        message = price_check_error(reason)
         {:noreply, socket |> put_flash(:error, message) |> load_results()}
     end
   end
@@ -311,6 +313,15 @@ defmodule DirmoonWeb.ResultsLive do
   end
 
   def handle_event(action, _params, socket) when action in ["choose", "reject", "check_prices"], do: {:noreply, socket}
+
+  defp price_check_error(:price_check_limit_reached) do
+    price_checks = Billing.offer().price_checks_per_research
+
+    "This research's #{price_checks} #{Format.plural(price_checks, @used_price_check_forms)} used, " <>
+      "so I can't check another topic"
+  end
+
+  defp price_check_error(reason), do: Map.fetch!(@price_check_errors, reason)
 
   defp view_explainer(:niches) do
     "People ask Google for the same thing in many different words. A topic is those searches put together. " <>

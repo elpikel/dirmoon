@@ -172,3 +172,28 @@ Bracketed upper-case English text (`[PRICE]`, `[PHONE]`, `[BUSINESS NAME]`) mark
 
 **API Cost**:
 What a Research Run has itself spent on paid API requests, in USD, shown on the run. Shared market data it reused and requests it had already paid for add nothing.
+
+### Paying
+
+Screens say "research" for a Research Run, "plan" for the Subscription and "researches left" for what the Allowances still hold; "Allowance" and "Unpaid Access" never appear on a screen.
+
+**Single Research**:
+One research bought with a one-off payment at the configured price, to try dirmoon. It does not renew and does not expire, and can be bought again at any time, by a subscriber too.
+
+**Subscription**:
+An Account's monthly plan, paid through Stripe at the configured monthly price for the configured number of researches a month, at most one per Account. dirmoon keeps what Stripe's events last reported: its Stripe status, the dates of the paid month and, once a cancellation is scheduled, when it ends. It runs until Stripe reports it cancelled or expired, and while it runs the Account can't start a second one. Stripe is where it is started, changed and cancelled.
+_Avoid_: Tier, package
+
+**Allowance**:
+A number of researches an Account has paid for, one row per payment Stripe confirmed: the configured number of researches a month for a paid Subscription month, valid until that month ends (unused researches don't carry over), or 1 for a Single Research, with no end. Starting a Research Run spends one research from an Allowance, the month's first, and the run keeps which. An Account with nothing left keeps its results and can start nothing new.
+_Avoid_: Credit, balance
+
+**Research Cap**:
+How many Briefs and how many Price Checks one Research Run includes (configured). Applies to every run, an Unpaid Access Account's too. A failed Brief doesn't count; a failed Price Check does, but running it again is always allowed.
+
+**Unpaid Access**:
+A mark on an Account that lets it start Research Runs without an Allowance: the owner's own Account, a tester's. Only the owner sets it, from the server console; in dev every Account signed up after the paying change gets it.
+_Avoid_: Free plan, trial
+
+**Stripe Event**:
+One webhook event Stripe sent, stored as received on its first delivery and marked processed once dirmoon has acted on it. It is the only way dirmoon learns of a payment or a Subscription change. An event stored but not processed (it couldn't be read) is tried again on Stripe's next delivery; one already processed changes nothing when it comes again.

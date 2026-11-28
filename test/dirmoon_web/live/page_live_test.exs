@@ -4,6 +4,7 @@ defmodule DirmoonWeb.PageLiveTest do
 
   import Phoenix.LiveViewTest
 
+  alias Dirmoon.Accounts.Membership
   alias Dirmoon.Pages
   alias Dirmoon.Pages.Brief
   alias Dirmoon.Pages.Page
@@ -462,6 +463,17 @@ defmodule DirmoonWeb.PageLiveTest do
     assert has_element?(view, "#flash-error", "I'm still writing the brief for another topic")
     assert Repo.get!(Page, page.id).status == :failed
     refute_enqueued(worker: WriteBrief)
+  end
+
+  test "an Account with no research left still opens a Brief", %{conn: conn} do
+    account = insert(:account, unpaid_access: false)
+    user = insert(:user, memberships: [%Membership{account: account}])
+    conn = log_in_user(conn, user)
+    page = insert(:page, run: brief_run(%{account: account}))
+
+    {:ok, view, _html} = live(conn, ~p"/app/pages/#{page}")
+
+    assert has_element?(view, "#brief-form #brief-text #brief-h1[value='#{page.brief.h1}']")
   end
 
   defp brief_run(%{account: account}, attrs \\ %{}) do

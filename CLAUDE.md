@@ -23,7 +23,8 @@ These come from `docs/design/README.md`; read it before building a pipeline step
 - **Pages contain no invented price, phone, address or factual claim.** A missing value stays a visible `[PLACEHOLDER]`.
 - **Numbers in the reference designs are invented.** Never copy them into seeds, fixtures presented as real, or copy.
 - **UI:** interface copy is English, because the audience is global; market-facing content (Seeds, Phrases, the Brief and the Page) is in the run's market language; colours only from `assets/css/tokens.css` (handover tokens plus the app surface tokens); every screen works at 390 px wide.
-- **Accounts with open sign-up** (ADR-0001): anyone can sign up and each User's data belongs to their Account; still no billing, onboarding or per-account limits.
+- **Accounts with open sign-up, paid research** (ADR-0001, ADR-0004): anyone can sign up and each User's data belongs to their Account; every research is paid for through Stripe, a single research or a monthly plan at the configured prices, except in an Account marked Unpaid Access; still no onboarding.
+- **The offer lives in config.** Prices and the numbers of researches, briefs and price checks come from `config :dirmoon, Dirmoon.Billing` (`Billing.offer/0`); never write them into templates or tests.
 
 ## Agent skills
 

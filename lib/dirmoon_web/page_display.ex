@@ -7,6 +7,8 @@ defmodule DirmoonWeb.PageDisplay do
   is refused.
   """
 
+  alias Dirmoon.Billing
+  alias Dirmoon.Format
   alias Dirmoon.Pages.Brief
   alias Dirmoon.Pages.Page
 
@@ -24,6 +26,8 @@ defmodule DirmoonWeb.PageDisplay do
     not_choosable: "This topic can no longer be chosen"
   }
 
+  @used_brief_forms %{one: "brief is", other: "briefs are"}
+
   @doc """
   The label of a page's status ("Writing", "Ready"…), one for each of
   `Page.statuses/0`.
@@ -33,6 +37,11 @@ defmodule DirmoonWeb.PageDisplay do
   @doc """
   The message for a reason `Dirmoon.Niches.choose/2` refused a Niche.
   """
+  def choose_error(:brief_limit_reached) do
+    briefs = Billing.offer().briefs_per_research
+    "This research's #{briefs} #{Format.plural(briefs, @used_brief_forms)} used, so I can't write another"
+  end
+
   def choose_error(reason), do: Map.fetch!(@choose_errors, reason)
 
   @doc """

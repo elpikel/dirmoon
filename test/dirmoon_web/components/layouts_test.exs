@@ -39,7 +39,7 @@ defmodule DirmoonWeb.LayoutsTest do
     assert has_class?(document, "#app-top-bar > div", "font-mono")
   end
 
-  test "the sidebar links to a new research, the results and the briefs" do
+  test "the sidebar links to a new research, the results, the briefs and the plan" do
     assigns = %{}
 
     document = parse(~H|<Layouts.app flash={%{}} context="results">Content</Layouts.app>|)
@@ -49,15 +49,16 @@ defmodule DirmoonWeb.LayoutsTest do
 
     assert link_text(document, "#app-nav a#nav-runs[href='/app/runs']") == "Results"
     assert link_text(document, "#app-nav a#nav-pages[href='/app/pages']") == "Briefs"
+    assert link_text(document, "#app-nav a#nav-billing[href='/app/billing']") == "Plan"
     assert document |> LazyHTML.query("#app-nav [aria-current]") |> Enum.count() == 0
 
-    for link <- ~w(#nav-new-research #nav-runs #nav-pages) do
+    for link <- ~w(#nav-new-research #nav-runs #nav-pages #nav-billing) do
       assert has_class?(document, link, "min-h-target-min")
     end
   end
 
   test "the sidebar marks the active link as the current page" do
-    for {active, id} <- [new_research: "nav-new-research", runs: "nav-runs", pages: "nav-pages"] do
+    for {active, id} <- [new_research: "nav-new-research", runs: "nav-runs", pages: "nav-pages", billing: "nav-billing"] do
       assigns = %{active: active}
       document = parse(~H|<Layouts.app flash={%{}} context="results" active={@active}>Content</Layouts.app>|)
 

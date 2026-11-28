@@ -21,6 +21,14 @@ defmodule Dirmoon.AccountsTest do
     assert %Account{} = Repo.get(Account, account_id)
   end
 
+  test "sign-up leaves the new Account without Unpaid Access when new Accounts are not set to be unpaid" do
+    email = unique_user_email()
+
+    :ok = Accounts.sign_up(%{"email" => email}, &"/users/log-in/#{&1}")
+
+    assert %Account{unpaid_access: false} = email |> Accounts.get_user_by_email() |> Accounts.account_for_user()
+  end
+
   test "sign-up with a new email emails a sign-in link to that address" do
     email = unique_user_email()
 

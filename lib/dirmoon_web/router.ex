@@ -13,6 +13,16 @@ defmodule DirmoonWeb.Router do
     plug :fetch_current_scope_for_user
   end
 
+  pipeline :webhook do
+    plug :accepts, ["json"]
+  end
+
+  scope "/webhooks", DirmoonWeb do
+    pipe_through :webhook
+
+    post "/stripe", StripeWebhookController, :create, log: false
+  end
+
   scope "/", DirmoonWeb do
     pipe_through [:browser, :redirect_if_user_is_authenticated]
 
@@ -27,6 +37,8 @@ defmodule DirmoonWeb.Router do
     get "/search-console/connect", SearchConsoleController, :connect
     get "/search-console/callback", SearchConsoleController, :callback
     delete "/search-console", SearchConsoleController, :delete
+    post "/billing/checkout", BillingController, :checkout
+    post "/billing/portal", BillingController, :portal
 
     live_session :app,
       on_mount: [{DirmoonWeb.UserAuth, :require_authenticated}, {DirmoonWeb.Layouts, :app_body}] do
@@ -37,6 +49,7 @@ defmodule DirmoonWeb.Router do
       live "/runs/:id/site", SiteScanLive
       live "/pages", PagesLive
       live "/pages/:id", PageLive
+      live "/billing", BillingLive
     end
   end
 

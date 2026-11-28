@@ -3,6 +3,7 @@ defmodule Dirmoon.NichesTest do
   use Oban.Testing, repo: Dirmoon.Repo
 
   alias Dirmoon.Accounts.Scope
+  alias Dirmoon.Billing
   alias Dirmoon.Niches
   alias Dirmoon.Niches.Niche
   alias Dirmoon.Pages
@@ -243,6 +244,52 @@ defmodule Dirmoon.NichesTest do
     assert {:ok, %Page{id: page_id, status: :writing, error: nil}} = Niches.choose(scope_for(run.account), niche.id)
     assert page_id == page.id
     assert_enqueued(worker: WriteBrief, args: %{run_id: run.id})
+  end
+
+  test "failed briefs don't count toward the run's brief cap, so another niche can still be picked" do
+    run = run_awaiting_choice()
+    insert_list(Billing.offer().briefs_per_research - 1, :page, run: run, status: :ready)
+    insert(:page, run: run, status: :failed, error: "The model returned an invalid brief", brief: nil)
+    niche = insert(:niche, run: run)
+
+    assert {:ok, %Page{status: :writing}} = Niches.choose(scope_for(run.account), niche.id)
+    assert_enqueued(worker: WriteBrief, args: %{run_id: run.id})
+  end
+
+  test "at the run's brief cap a niche whose brief exists still returns it" do
+    run = run_awaiting_choice()
+    insert_list(Billing.offer().briefs_per_research - 1, :page, run: run, status: :ready)
+    niche = insert(:niche, run: run, status: :chosen)
+    page = insert(:page, run: run, niche: niche, status: :ready)
+
+    assert {:ok, %Page{id: page_id}} = Niches.choose(scope_for(run.account), niche.id)
+    assert page_id == page.id
+    assert all_enqueued(worker: WriteBrief) == []
+  end
+
+  test "at the run's brief cap a new niche can't be picked and nothing starts" do
+    run = run_awaiting_choice()
+    insert_list(Billing.offer().briefs_per_research, :page, run: run, status: :ready)
+    niche = insert(:niche, run: run)
+
+    assert {:error, :brief_limit_reached} = Niches.choose(scope_for(run.account), niche.id)
+    assert Repo.get!(Niche, niche.id).status == :proposed
+    assert Pages.page_for_niche(niche) == nil
+    assert Repo.get!(Run, run.id).status == :awaiting_choice
+    assert all_enqueued() == []
+  end
+
+  test "at the run's brief cap a niche whose brief failed can't be written again" do
+    run = run_awaiting_choice()
+    insert_list(Billing.offer().briefs_per_research, :page, run: run, status: :ready)
+    niche = insert(:niche, run: run, status: :chosen)
+
+    failed =
+      insert(:page, run: run, niche: niche, status: :failed, error: "The model returned an invalid brief", brief: nil)
+
+    assert {:error, :brief_limit_reached} = Niches.choose(scope_for(run.account), niche.id)
+    assert Repo.get!(Page, failed.id).status == :failed
+    assert all_enqueued() == []
   end
 
   test "another niche can't be picked while step 8 is still running after storing its brief" do

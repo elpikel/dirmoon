@@ -5,6 +5,8 @@ defmodule Dirmoon.Factory do
   alias Dirmoon.Accounts.Account
   alias Dirmoon.Accounts.Membership
   alias Dirmoon.Accounts.User
+  alias Dirmoon.Billing.Allowance
+  alias Dirmoon.Billing.Subscription
   alias Dirmoon.Competition.SerpAssessment
   alias Dirmoon.Competition.SerpSnapshot
   alias Dirmoon.Markets.Country
@@ -29,6 +31,16 @@ defmodule Dirmoon.Factory do
 
   def unique_phrase_text(text), do: sequence(:phrase, &"#{text} #{&1}")
 
+  def unique_stripe_customer_id, do: sequence(:stripe_customer_id, &"cus_test_#{&1}")
+
+  def unique_stripe_reference, do: sequence(:stripe_reference, &"cs_test_#{&1}")
+
+  def unique_stripe_subscription_id, do: sequence(:stripe_subscription_id, &"sub_test_#{&1}")
+
+  def unique_stripe_invoice_id, do: sequence(:stripe_invoice_id, &"in_test_#{&1}")
+
+  def unique_stripe_event_id, do: sequence(:stripe_event_id, &"evt_test_#{&1}")
+
   def user_factory do
     %User{
       email: unique_user_email(),
@@ -38,7 +50,32 @@ defmodule Dirmoon.Factory do
   end
 
   def account_factory do
-    %Account{}
+    %Account{unpaid_access: true}
+  end
+
+  def allowance_factory do
+    %Allowance{
+      account: build(:account, unpaid_access: false),
+      source: :single_research,
+      researches: 1,
+      valid_from: DateTime.shift(DateTime.utc_now(:second), day: -1),
+      valid_until: nil,
+      stripe_reference: unique_stripe_reference()
+    }
+  end
+
+  def subscription_factory do
+    now = DateTime.utc_now(:second)
+
+    %Subscription{
+      account: build(:account, unpaid_access: false),
+      stripe_subscription_id: unique_stripe_subscription_id(),
+      status: "active",
+      current_period_start: DateTime.shift(now, day: -1),
+      current_period_end: DateTime.shift(now, day: 29),
+      ends_at: nil,
+      stripe_updated_at: DateTime.shift(now, day: -1)
+    }
   end
 
   def membership_factory do

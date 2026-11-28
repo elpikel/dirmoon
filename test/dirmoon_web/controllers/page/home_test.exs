@@ -1,6 +1,8 @@
 defmodule DirmoonWeb.Controllers.Page.HomeTest do
   use DirmoonWeb.ConnCase, async: true
 
+  @free_promise ~r/\b(free|trials?|no card|no credit card|without a card|credits?)\b/i
+
   test "a signed-out visitor sees the landing page on the dotted page with the nav card", %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
@@ -152,24 +154,140 @@ defmodule DirmoonWeb.Controllers.Page.HomeTest do
     assert conn |> get(URI.parse(logo).path) |> response(200)
   end
 
-  test "the hero offers an owner who already has a website a list of what to fix, linked to its own section",
+  test "the hero holds only the headline, the lead and the sign-up form: no line about an existing website, no note under the form",
        %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
-    assert document |> LazyHTML.query("#landing-hero #hero-existing-site") |> squish() ==
-             "Already have a website? Paste its address and get a list of what to fix. See what it checks"
-
-    assert document |> LazyHTML.query("#landing-hero a#hero-existing-site-link[href='#existing-site']") |> squish() ==
-             "See what it checks"
-
+    assert document |> LazyHTML.query("#landing-hero p") |> LazyHTML.attribute("id") == ["hero-lead"]
+    assert document |> LazyHTML.query("#landing-hero a[href='#existing-site']") |> Enum.count() == 0
+    assert document |> LazyHTML.query("form[action='/sign-up'] p") |> Enum.count() == 0
     assert document |> LazyHTML.query("section#existing-site") |> Enum.count() == 1
   end
 
-  test "the section for an existing website comes after the journey and before the closing band", %{conn: conn} do
+  test "the section for an existing website comes after the journey, then pricing, then the closing band",
+       %{conn: conn} do
     document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
 
     assert document |> LazyHTML.query("main > section") |> LazyHTML.attribute("id") ==
-             ~w(landing-hero journey existing-site closing)
+             ~w(landing-hero journey existing-site pricing closing)
+  end
+
+  test "the pricing section has an eyebrow and a heading, then the two ways to pay", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    section = LazyHTML.query(document, "section#pricing")
+
+    assert section |> LazyHTML.query("#pricing-heading") |> squish() ==
+             "Pricing One research to try it, or a monthly plan."
+
+    assert section |> LazyHTML.query("h2") |> squish() == "One research to try it, or a monthly plan."
+
+    assert section |> LazyHTML.query("#pricing-options > article") |> LazyHTML.attribute("id") ==
+             ~w(pricing-single-research pricing-monthly-plan)
+  end
+
+  test "the one research card shows the configured single price, paid once, and that it never expires",
+       %{conn: conn} do
+    offer = Dirmoon.Billing.offer()
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    card = LazyHTML.query(document, "#pricing-single-research")
+
+    assert card |> LazyHTML.query("h3") |> squish() == "One research"
+    assert card |> LazyHTML.query("#pricing-single-research-price") |> squish() == "$#{offer.single_price}"
+    assert card |> LazyHTML.query("[data-part=price-note]") |> squish() == "paid once"
+
+    assert card |> LazyHTML.query("[data-part=details]") |> squish() ==
+             "One research, to try dirmoon. It never expires."
+  end
+
+  test "the monthly plan card shows the configured monthly price and number of researches a month, which don't carry over",
+       %{conn: conn} do
+    offer = Dirmoon.Billing.offer()
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    card = LazyHTML.query(document, "#pricing-monthly-plan")
+
+    assert card |> LazyHTML.query("h3") |> squish() == "Monthly plan"
+    assert card |> LazyHTML.query("#pricing-monthly-plan-price") |> squish() == "$#{offer.monthly_price}"
+    assert card |> LazyHTML.query("[data-part=price-note]") |> squish() == "a month"
+
+    assert card |> LazyHTML.query("[data-part=details]") |> squish() ==
+             "#{offer.monthly_researches} researches a month. Researches you don't use in a month don't carry over."
+  end
+
+  test "both pricing cards say what a research includes, with the configured numbers of briefs and price checks",
+       %{conn: conn} do
+    offer = Dirmoon.Billing.offer()
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    for card_id <- ~w(pricing-single-research pricing-monthly-plan) do
+      card = LazyHTML.query(document, "##{card_id}")
+
+      assert card |> LazyHTML.query("[data-part=includes-lead]") |> squish() == "Each research includes:"
+
+      assert card |> LazyHTML.query("##{card_id}-includes li") |> Enum.map(&squish/1) == [
+               "Up to #{offer.briefs_per_research} briefs: the plan and the text for one page each",
+               "Up to #{offer.price_checks_per_research} competitor price checks",
+               "For an existing site, a scan of your site"
+             ]
+    end
+  end
+
+  test "each pricing card's dark button leads to the closing sign-up form, which stays the page's one primary action",
+       %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("#pricing-single-research a#pricing-single-research-sign-up") |> squish() ==
+             "Create account"
+
+    assert document |> LazyHTML.query("#pricing-monthly-plan a#pricing-monthly-plan-sign-up") |> squish() ==
+             "Create account"
+
+    assert document
+           |> LazyHTML.query("#pricing-single-research-sign-up, #pricing-monthly-plan-sign-up")
+           |> LazyHTML.attribute("href") == ["#closing", "#closing"]
+
+    assert document
+           |> LazyHTML.query("#pricing-single-research-sign-up, #pricing-monthly-plan-sign-up")
+           |> LazyHTML.attribute("data-variant") == ["dark", "dark"]
+
+    assert document |> LazyHTML.query("main [data-variant=lime]") |> Enum.count() == 0
+
+    assert document |> LazyHTML.query("section#closing form#sign-up-form-closing") |> Enum.count() == 1
+  end
+
+  test "under the pricing cards one line says you create an account with your email, then pay on Stripe's page",
+       %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("#pricing #pricing-how-to-pay") |> squish() ==
+             "You create an account with your email, then pay on Stripe's secure page."
+  end
+
+  test "the nav offers a Pricing link to the pricing section next to Sign in", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    assert document |> LazyHTML.query("#landing-nav nav a") |> LazyHTML.attribute("id") ==
+             ~w(pricing-link sign-in-link)
+
+    assert document |> LazyHTML.query("#landing-nav a#pricing-link[href='#pricing']") |> squish() == "Pricing"
+    assert document |> LazyHTML.query("#landing-nav a#pricing-link[data-variant]") |> Enum.count() == 0
+  end
+
+  test "nothing on the landing page promises anything free, a trial or no card", %{conn: conn} do
+    document = conn |> get(~p"/") |> html_response(200) |> LazyHTML.from_document()
+
+    meta_texts =
+      document
+      |> LazyHTML.query("title, meta[name=description], meta[property^='og:'], meta[name^='twitter:']")
+      |> Enum.flat_map(&[LazyHTML.text(&1) | LazyHTML.attribute(&1, "content")])
+
+    page_text = Enum.join([squish(LazyHTML.query(document, "body")) | meta_texts], " ")
+
+    assert "Try it free" =~ @free_promise
+    refute "A freelancer's freedom" =~ @free_promise
+    refute page_text =~ @free_promise
   end
 
   test "the section for an existing website promises a plain-English list of what to fix from up to the scan's page limit",

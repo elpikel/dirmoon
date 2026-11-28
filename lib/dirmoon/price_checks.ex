@@ -15,6 +15,7 @@ defmodule Dirmoon.PriceChecks do
   import Ecto.Query
 
   alias Dirmoon.Accounts.Scope
+  alias Dirmoon.Billing
   alias Dirmoon.Competition.SerpAssessment
   alias Dirmoon.Niches
   alias Dirmoon.Niches.Niche
@@ -67,14 +68,16 @@ defmodule Dirmoon.PriceChecks do
   The User asks for the prices of a Niche's competitors. A Niche that
   already has a check being run or done returns it and starts nothing; a
   failed check runs again for the pages not read yet. Otherwise the run's
-  results must be ready (else `:run_not_ready`) and the Niche must have
+  results must be ready (else `:run_not_ready`), the run must be under its
+  Research Cap for Price Checks (`Dirmoon.Billing.price_check_allowed?/1`,
+  else `:price_check_limit_reached`) and the Niche must have
   Competitor Pages (else `:no_competitors`); the check and its pages are
   stored and the worker is enqueued in one transaction, with the run locked
   so two requests never start two checks; subscribers are told once it
   commits.
 
   Returns `{:ok, price_check}` or
-  `{:error, :not_found | :run_not_ready | :no_competitors}`.
+  `{:error, :not_found | :run_not_ready | :price_check_limit_reached | :no_competitors}`.
   """
   def start(%Scope{} = scope, niche_id) do
     with %Niche{} = niche <- Niches.get_niche(scope, niche_id) || {:error, :not_found},
@@ -158,6 +161,7 @@ defmodule Dirmoon.PriceChecks do
 
   defp create(%{run: run, niche: niche}) do
     with :ok <- ensure_results_ready(run),
+         :ok <- ensure_price_check_allowed(run),
          {:ok, pages} <- pages_to_read(run, niche) do
       price_check = Repo.insert!(%PriceCheck{run_id: run.id, cluster_id: niche.id, status: :checking})
       Enum.each(pages, &Repo.insert!(struct(CompetitorPage, Map.put(&1, :price_check_id, price_check.id))))
@@ -168,6 +172,10 @@ defmodule Dirmoon.PriceChecks do
 
   defp ensure_results_ready(run) do
     if Run.results_ready?(run), do: :ok, else: {:error, :run_not_ready}
+  end
+
+  defp ensure_price_check_allowed(run) do
+    if Billing.price_check_allowed?(run), do: :ok, else: {:error, :price_check_limit_reached}
   end
 
   defp pages_to_read(run, niche) do

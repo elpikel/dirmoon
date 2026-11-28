@@ -1,5 +1,12 @@
 <Layouts.landing>
   <:nav>
+    <.link
+      id="pricing-link"
+      href="#pricing"
+      class="inline-flex min-h-target-min items-center text-body no-underline transition-colors duration-150 hover:text-ink"
+    >
+      Pricing
+    </.link>
     <.button id="sign-in-link" variant="dark" href={~p"/users/log-in"}>
       Sign in
     </.button>
@@ -16,19 +23,6 @@
       class="m-0 max-w-[600px] text-[clamp(17px,1.5vw,20px)] leading-normal text-pretty text-body"
     >
       Describe your idea in one sentence. dirmoon checks what people really search for on Google and tells you, in plain words, if it's worth building.
-    </p>
-    <p
-      id="hero-existing-site"
-      class="m-0 max-w-[640px] text-[15px] leading-normal text-pretty text-body-muted sm:text-[16px]"
-    >
-      Already have a website? Paste its address and get a list of what to fix.
-      <a
-        id="hero-existing-site-link"
-        href="#existing-site"
-        class="font-semibold whitespace-nowrap text-ink underline decoration-2 underline-offset-4 hover:decoration-accent"
-      >
-        See what it checks
-      </a>
     </p>
     <.sign_up_form
       name={:hero}
@@ -59,6 +53,19 @@
       </h2>
     </div>
     <.site_scan_section id="existing-site" />
+  </section>
+
+  <section
+    id="pricing"
+    class="mt-24 flex scroll-mt-8 flex-col items-center gap-12 text-center"
+  >
+    <div id="pricing-heading" class="flex flex-col items-center gap-4">
+      <.eyebrow>Pricing</.eyebrow>
+      <h2 class="m-0 max-w-[760px] text-[clamp(28px,3.4vw,44px)] leading-[1.05] font-extrabold tracking-[-0.035em] text-balance text-ink">
+        One research to try it, or a monthly plan.
+      </h2>
+    </div>
+    <.pricing_section id="pricing" />
   </section>
 
   <section

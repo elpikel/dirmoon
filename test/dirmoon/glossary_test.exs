@@ -47,7 +47,11 @@ defmodule Dirmoon.GlossaryTest do
     # The Phoenix generator's config key for the DNSCluster library.
     "dns_cluster_query" => "config :dirmoon, :dns_cluster_query, read for DNSCluster",
     # The verb of Step 4, "Filter and Group".
-    "group" => "Dirmoon.Niches.Grouping.group/1 runs Step 4, Filter and Group"
+    "group" => "Dirmoon.Niches.Grouping.group/1 runs Step 4, Filter and Group",
+    # Stripe's Customer object, whose id an Account stores (ADR-0004).
+    "stripe_customer_id" => "column accounts.stripe_customer_id, Stripe's Customer id",
+    "create_customer" => "the Stripe seam's call to Stripe's POST /v1/customers",
+    "no_stripe_customer" => "the reason Billing.portal_url/2 gives when an Account has no Stripe Customer yet"
   }
 
   # Glossary terms and external product names whose words look avoided:
@@ -81,6 +85,8 @@ defmodule Dirmoon.GlossaryTest do
     %{word: "job", names: ~w(job step_job insert_step_job stop_and_cancel_jobs cancellable_job_states)},
     # Phoenix's flash group component.
     %{word: "group", names: ~w(flash_group)},
+    # The landing page's pricing section: what dirmoon charges, not a Price Check.
+    %{word: "pricing", names: ~w(pricing pricing_section pricing_option pricing-link pricing-heading)},
     # Phoenix.PubSub topics.
     %{word: "topic", names: ~w(topic user_session_topic)}
   ]

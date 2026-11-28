@@ -3,6 +3,7 @@ defmodule Dirmoon.ResearchTest do
   use Oban.Testing, repo: Dirmoon.Repo
 
   alias Dirmoon.Accounts.Scope
+  alias Dirmoon.Billing
   alias Dirmoon.Research
   alias Dirmoon.Research.ApiRequest
   alias Dirmoon.Research.Run
@@ -634,6 +635,69 @@ defmodule Dirmoon.ResearchTest do
       |> Decimal.add(Decimal.new(prices.linking_sites_per_domain))
 
     assert Decimal.equal?(difference, expected)
+  end
+
+  test "starting a research with one research left starts the run and records the Allowance it spent" do
+    account = insert(:account, unpaid_access: false)
+    allowance = insert(:allowance, account: account, researches: 1)
+
+    assert {:ok, run} = Research.start_run(scope_for(account), valid_run_attrs())
+
+    assert Repo.reload!(run).allowance_id == allowance.id
+    assert_enqueued(worker: GenerateSeeds, args: %{run_id: run.id})
+  end
+
+  test "starting a research with no research left starts nothing and records no paid request" do
+    account = insert(:account, unpaid_access: false)
+
+    assert Research.start_run(scope_for(account), valid_run_attrs(), ledger_entries: [draft_entry()]) ==
+             {:error, :no_researches_left}
+
+    assert Repo.aggregate(Run, :count) == 0
+    assert Repo.aggregate(ApiRequest, :count) == 0
+    refute_enqueued(worker: GenerateSeeds)
+  end
+
+  test "starting a research with Unpaid Access starts the run and records no Allowance" do
+    account = insert(:account, unpaid_access: true)
+
+    assert {:ok, run} = Research.start_run(scope_for(account), valid_run_attrs())
+
+    assert Repo.reload!(run).allowance_id == nil
+  end
+
+  test "an allowance id sent in the form's params is never stored on the run" do
+    account = insert(:account, unpaid_access: true)
+    other_allowance = insert(:allowance, researches: 1)
+
+    {:ok, run} = Research.start_run(scope_for(account), Map.put(valid_run_attrs(), "allowance_id", other_allowance.id))
+
+    assert Repo.reload!(run).allowance_id == nil
+  end
+
+  test "a rejected research spends nothing and shows its errors, even with no research left" do
+    paying = insert(:account, unpaid_access: false)
+    insert(:allowance, account: paying, researches: 1)
+    used_up = insert(:account, unpaid_access: false)
+    blank = %{valid_run_attrs() | "description" => "  "}
+
+    assert {:error, %Ecto.Changeset{} = changeset} = Research.start_run(scope_for(paying), blank)
+    assert %{description: ["can't be blank"]} = errors_on(changeset)
+    assert Billing.researches_left(scope_for(paying)) == 1
+
+    assert {:error, %Ecto.Changeset{} = changeset} = Research.start_run(scope_for(used_up), blank)
+    assert %{description: ["can't be blank"]} = errors_on(changeset)
+  end
+
+  test "the last research left starts one run: a second start right after it is refused" do
+    account = insert(:account, unpaid_access: false)
+    insert(:allowance, account: account, researches: 1)
+    scope = scope_for(account)
+
+    assert {:ok, run} = Research.start_run(scope, valid_run_attrs())
+    assert Research.start_run(scope, valid_run_attrs()) == {:error, :no_researches_left}
+
+    assert Run |> Repo.all() |> Enum.map(& &1.id) == [run.id]
   end
 
   defp shared_market_rows do

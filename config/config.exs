@@ -7,6 +7,27 @@
 # General application configuration
 import Config
 
+# `new_accounts_unpaid` gives every new Account Unpaid Access (on in dev only).
+config :dirmoon, Dirmoon.Accounts, new_accounts_unpaid: false
+
+# What dirmoon offers (prices in USD, as shown; the amounts charged live in Stripe's Prices) and the
+# Research Caps.
+config :dirmoon, Dirmoon.Billing,
+  single_price: "10",
+  monthly_price: "49",
+  monthly_researches: 10,
+  briefs_per_research: 3,
+  price_checks_per_research: 3
+
+# Stripe (ADR-0004). `api_version` pins Stripe's API, the webhook endpoint must use the same one.
+# `automatic_tax` turns on Stripe Tax in Checkout (set it up in Stripe first). The secret key and
+# the two Price ids come from the environment (config/runtime.exs).
+config :dirmoon, Dirmoon.Billing.Stripe.HTTP,
+  base_url: "https://api.stripe.com",
+  api_version: "2026-11-18.endive",
+  automatic_tax: false,
+  req_options: []
+
 config :dirmoon, Dirmoon.DataForSEO.HTTP, base_url: "https://api.dataforseo.com", req_options: []
 
 # Configure the mailer
@@ -73,6 +94,7 @@ config :dirmoon,
   data_for_seo_adapter: Dirmoon.DataForSEO.NotConfigured,
   search_console_adapter: Dirmoon.SearchConsole.Client.NotConfigured,
   page_speed_adapter: Dirmoon.PageSpeed.NotConfigured,
+  stripe_adapter: Dirmoon.Billing.Stripe.NotConfigured,
   web_page_adapter: Dirmoon.WebPage.HTTP,
   price_check_page_limit: 5,
   site_scan_page_limit: 50,

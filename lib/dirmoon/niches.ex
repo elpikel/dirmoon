@@ -10,6 +10,7 @@ defmodule Dirmoon.Niches do
   import Ecto.Query
 
   alias Dirmoon.Accounts.Scope
+  alias Dirmoon.Billing
   alias Dirmoon.Competition
   alias Dirmoon.Niches.Niche
   alias Dirmoon.Pages
@@ -218,13 +219,16 @@ defmodule Dirmoon.Niches do
   nothing. Otherwise a Niche of the run must be choosable now
   (`Dirmoon.Research.Run.choosable?/1`: Step 7 is done and the run isn't
   stopped, else `:run_not_ready`); the Niche must be proposed or chosen
-  (`Niche.choosable?/1`, else `:not_choosable`); no other page of the run
+  (`Niche.choosable?/1`, else `:not_choosable`); the run must be under its
+  Research Cap for Briefs (`Dirmoon.Billing.brief_allowed?/1`, else
+  `:brief_limit_reached`; writing a failed page again counts as a new Brief,
+  since the failed one didn't count); no other page of the run
   may be `:writing` (else `:brief_in_progress`); and the run must be idle
   (`Dirmoon.Research.idle?/1`: not running, no Step 8 queued or
   running, else `:run_busy`).
 
   Returns `{:ok, page}` or
-  `{:error, :not_found | :run_not_ready | :not_choosable | :brief_in_progress | :run_busy}`.
+  `{:error, :not_found | :run_not_ready | :not_choosable | :brief_limit_reached | :brief_in_progress | :run_busy}`.
   """
   def choose(%Scope{} = scope, niche_id) do
     with %Niche{} = niche <- get_niche(scope, niche_id) || {:error, :not_found},
@@ -284,6 +288,10 @@ defmodule Dirmoon.Niches do
     if Niche.choosable?(niche), do: :ok, else: {:error, :not_choosable}
   end
 
+  defp ensure_brief_allowed(run) do
+    if Billing.brief_allowed?(run), do: :ok, else: {:error, :brief_limit_reached}
+  end
+
   defp ensure_no_brief_in_progress(run) do
     case Pages.writing_page_for_run(run) do
       nil -> :ok
@@ -294,6 +302,7 @@ defmodule Dirmoon.Niches do
   defp start_writing(run, %{niche: niche} = choice) do
     with :ok <- ensure_run_choosable(run),
          :ok <- ensure_choosable(niche),
+         :ok <- ensure_brief_allowed(run),
          :ok <- ensure_no_brief_in_progress(run),
          :ok <- ensure_run_idle(run),
          {:ok, page} <- write_page(run, choice),

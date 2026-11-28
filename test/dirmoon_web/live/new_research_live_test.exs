@@ -5,6 +5,7 @@ defmodule DirmoonWeb.NewResearchLiveTest do
   import Mox
   import Phoenix.LiveViewTest
 
+  alias Dirmoon.Accounts.Membership
   alias Dirmoon.Repo
   alias Dirmoon.Research
   alias Dirmoon.Research.ApiRequest
@@ -1040,6 +1041,102 @@ defmodule DirmoonWeb.NewResearchLiveTest do
 
     assert redirected_to(conn) == ~p"/app/research/new"
   end
+
+  test "the status row says how many researches are left", %{conn: conn} do
+    %{conn: conn, account: account} = log_in_paying_user(conn)
+    insert(:allowance, account: account, source: :subscription_month, researches: 3, valid_until: days_from_now(20))
+    store_market_lists()
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new")
+
+    assert has_element?(view, "#app-status #app-note", "3 researches left")
+    refute has_element?(view, "#no-researches-left")
+  end
+
+  test "with one research left the status row says so in the singular", %{conn: conn} do
+    %{conn: conn, account: account} = log_in_paying_user(conn)
+    insert(:allowance, account: account, researches: 1)
+    store_market_lists()
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new")
+
+    assert has_element?(view, "#app-note", "1 research left")
+  end
+
+  test "an Account with Unpaid Access sees no count of researches left", %{conn: conn} do
+    %{conn: conn} = sign_up_and_log_in_user(%{conn: conn})
+    store_market_lists()
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new")
+
+    refute has_element?(view, "#app-note")
+    refute has_element?(view, "#no-researches-left")
+  end
+
+  test "with no research left the screen says so and links to the plan screen", %{conn: conn} do
+    %{conn: conn} = log_in_paying_user(conn)
+    store_market_lists()
+
+    {:ok, view, _html} = live(conn, ~p"/app/research/new")
+
+    assert has_element?(view, "#no-researches-left", "You have no research left.")
+    assert has_element?(view, "#no-researches-left a#plan-link[href='/app/billing']")
+    refute has_element?(view, "#app-note")
+  end
+
+  test "starting a research with no research left starts no run and says there is none left", %{conn: conn} do
+    %{conn: conn, account: account} = log_in_paying_user(conn)
+    allowance = insert(:allowance, account: account, researches: 1)
+    market = store_market_lists()
+    {:ok, view, _html} = live(conn, ~p"/app/research/new")
+    insert(:run, account: account, allowance: allowance)
+
+    view
+    |> element("#research-form")
+    |> render_submit(%{
+      "run" => %{
+        "description" => "Wypożyczalnia kajaków nad jeziorem",
+        "mode" => "new_idea",
+        "country_code" => market.country.country_code,
+        "language_code" => market.language.language_code
+      }
+    })
+
+    assert has_element?(view, "#no-researches-left a#plan-link[href='/app/billing']")
+    refute has_element?(view, "#app-note")
+    assert Repo.aggregate(Run, :count) == 1
+    refute_enqueued(worker: GenerateSeeds)
+  end
+
+  test "starting a research with one research left starts the run and spends that research", %{conn: conn} do
+    %{conn: conn, account: account} = log_in_paying_user(conn)
+    allowance = insert(:allowance, account: account, researches: 1)
+    market = store_market_lists()
+    {:ok, view, _html} = live(conn, ~p"/app/research/new")
+
+    result =
+      view
+      |> element("#research-form")
+      |> render_submit(%{
+        "run" => %{
+          "description" => "Wypożyczalnia kajaków nad jeziorem",
+          "mode" => "new_idea",
+          "country_code" => market.country.country_code,
+          "language_code" => market.language.language_code
+        }
+      })
+
+    assert {:error, {:live_redirect, %{to: "/app/runs/" <> run_id}}} = result
+    assert Repo.get!(Run, run_id).allowance_id == allowance.id
+  end
+
+  defp log_in_paying_user(conn) do
+    account = insert(:account, unpaid_access: false)
+    user = insert(:user, memberships: [%Membership{account: account}])
+    %{conn: log_in_user(conn, user), account: account}
+  end
+
+  defp days_from_now(days), do: :second |> DateTime.utc_now() |> DateTime.shift(day: days)
 
   defp fill_existing_site(view, market, params) do
     view

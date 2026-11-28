@@ -6,6 +6,14 @@ alias Dirmoon.PageSpeed
 alias Dirmoon.SearchConsole.Client.Google
 alias Dirmoon.WebPage
 
+config :dirmoon, Dirmoon.Billing, webhook_secret: "whsec_test_dirmoon"
+
+config :dirmoon, Dirmoon.Billing.Stripe.HTTP,
+  secret_key: "sk_test_dirmoon",
+  single_price_id: "price_test_single",
+  monthly_price_id: "price_test_monthly",
+  req_options: [plug: {Req.Test, Dirmoon.Billing.Stripe.HTTP}]
+
 # In test we don't send emails
 config :dirmoon, Dirmoon.Mailer, adapter: Swoosh.Adapters.Test
 
@@ -56,6 +64,7 @@ config :dirmoon,
   data_for_seo_adapter: Dirmoon.DataForSEOMock,
   search_console_adapter: Dirmoon.SearchConsoleMock,
   page_speed_adapter: Dirmoon.PageSpeedMock,
+  stripe_adapter: Dirmoon.StripeMock,
   web_page_adapter: Dirmoon.WebPageMock
 
 # Print only warnings and errors during test

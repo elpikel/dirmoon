@@ -3,6 +3,7 @@ defmodule Dirmoon.PriceChecksTest do
   use Oban.Testing, repo: Dirmoon.Repo
 
   alias Dirmoon.Accounts.Scope
+  alias Dirmoon.Billing
   alias Dirmoon.PriceChecks
   alias Dirmoon.PriceChecks.CompetitorPage
   alias Dirmoon.PriceChecks.PriceCheck
@@ -116,6 +117,38 @@ defmodule Dirmoon.PriceChecksTest do
     assert page.outcome == :unreadable
     assert_enqueued(worker: CheckCompetitorPrices, args: %{price_check_id: failed.id})
     assert_received {:price_check_updated, _niche_id}
+  end
+
+  test "at the run's price check cap a Niche's finished check is still returned" do
+    run = scored_run()
+    insert_list(Billing.offer().price_checks_per_research - 1, :price_check, run: run, status: :done)
+    niche = insert(:niche, run: run)
+    done = insert(:price_check, run: run, niche: niche, status: :done)
+
+    assert {:ok, %PriceCheck{id: done_id, status: :done}} = PriceChecks.start(scope_for(run.account), niche.id)
+    assert done_id == done.id
+    refute_enqueued(worker: CheckCompetitorPrices)
+  end
+
+  test "at the run's price check cap a Niche's failed check still runs again" do
+    run = scored_run()
+    insert_list(Billing.offer().price_checks_per_research - 1, :price_check, run: run, status: :done)
+    niche = insert(:niche, run: run)
+    failed = insert(:price_check, run: run, niche: niche, status: :failed, error: "No OpenAI API key")
+
+    assert {:ok, %PriceCheck{status: :checking}} = PriceChecks.start(scope_for(run.account), niche.id)
+    assert_enqueued(worker: CheckCompetitorPrices, args: %{price_check_id: failed.id})
+  end
+
+  test "at the run's price check cap a Niche without a check gets none and nothing is enqueued" do
+    run = scored_run()
+    insert_list(Billing.offer().price_checks_per_research, :price_check, run: run, status: :done)
+    niche = insert(:niche, run: run)
+    niche_with_competitors(run, niche, ["direct_competitor"])
+
+    assert {:error, :price_check_limit_reached} = PriceChecks.start(scope_for(run.account), niche.id)
+    assert PriceChecks.get_for_niche(niche) == nil
+    refute_enqueued(worker: CheckCompetitorPrices)
   end
 
   test "a Niche of another Account or a malformed id is not found" do

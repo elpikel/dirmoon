@@ -41,9 +41,9 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 | Linter | `mix credo --strict`, with ex_slop checks |
 | Background jobs | Oban, workers in `lib/dirmoon/workers/`, queues `pipeline` (Steps, Price Checks) and `site_scan` (`ScanSite`, `MatchSitePages`), `testing: :manual` in test |
 | Test data | ExMachina factory `Dirmoon.Factory` in `test/support/factory.ex`, `insert(:factory)` |
-| External API mocks | Mox: mocks defined in `test/test_helper.exs` (added with each client): `LLMMock`, `DataForSEOMock`, `SearchConsoleMock`, `PageSpeedMock`, `WebPageMock`; each real adapter is tested against `Req.Test` |
+| External API mocks | Mox: mocks defined in `test/test_helper.exs` (added with each client): `LLMMock`, `DataForSEOMock`, `SearchConsoleMock`, `PageSpeedMock`, `WebPageMock`, `StripeMock`; each real adapter is tested against `Req.Test` |
 | API spec | none |
-| Web UI | LiveView app under `/app` (`Layouts.app/1`, `DirmoonWeb.UI` components); controller-rendered landing page at `/`; controllers for the Search Console OAuth only |
+| Web UI | LiveView app under `/app` (`Layouts.app/1`, `DirmoonWeb.UI` components); controller-rendered landing page at `/` (with its pricing section); the Plan screen `BillingLive` at `/app/billing`; controllers for the Search Console OAuth, the billing posts (`BillingController`: checkout, portal) and Stripe's webhook (`StripeWebhookController`, JSON) |
 
 ## Tests
 
@@ -62,8 +62,8 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 | Setting | Value |
 |---|---|
 | Router | `lib/dirmoon_web/router.ex` |
-| Path prefixes | `/` (landing, sign-up), `/users/*` (sign-in, settings), `/app` (signed-in app), `/dev` (LiveDashboard and mailbox preview, dev only) |
-| Pipelines (reviewer checks placement) | `:browser` (session, CSRF, secure headers, current scope), `:require_authenticated_user` (signed-in User; every `/app` route and Settings), `:redirect_if_user_is_authenticated` (sends a signed-in User from the landing page `GET /` and `POST /sign-up` to `/app`). `live_session :app` mounts `UserAuth :require_authenticated`. |
+| Path prefixes | `/` (landing, sign-up), `/users/*` (sign-in, settings), `/app` (signed-in app), `/webhooks/stripe` (Stripe's webhook), `/dev` (LiveDashboard and mailbox preview, dev only) |
+| Pipelines (reviewer checks placement) | `:browser` (session, CSRF, secure headers, current scope), `:require_authenticated_user` (signed-in User; every `/app` route and Settings), `:redirect_if_user_is_authenticated` (sends a signed-in User from the landing page `GET /` and `POST /sign-up` to `/app`). `:webhook` (JSON only; no session, CSRF check or Scope; only `POST /webhooks/stripe`). `live_session :app` mounts `UserAuth :require_authenticated`. |
 | API docs for clients | none (no external API clients) |
 
 ## Access rules (reviewer fails on any leak)
@@ -79,6 +79,7 @@ Detected from `mix.exs` and `test/`. A tool marked "none" is never run or requir
 - Text from the web (page text, titles, headings, addresses) goes into an LLM prompt only as JSON data, cut short, with the instruction to ignore anything in it that asks for something. The LLM's page matches may pair only the run's own Scanned Pages with the run's own Niches that were sent: any other page index or Niche id in the answer is dropped.
 - The "Read my site" draft's ledger entry is built by the server and kept in the LiveView's state for the domain it was made for; it is never taken from form params.
 - The Search Console OAuth callback accepts only a `state` issued to the same session.
+- The Stripe secret key and webhook signing secret come from runtime config and are never logged, never in an error tuple, a flash or a stored response; the key travels only in the `Authorization` header. Payment routes (`/app/billing`, its checkout and portal posts) need a signed-in User and act on the Scope's Account; a Stripe error reaches the User only as a plain message. `POST /webhooks/stripe` is unauthenticated: an event is acted on only after its `Stripe-Signature` is verified over the raw body, and it is decoded from those signed bytes, never from params. A payment counts only through a verified webhook event, never through a return address (`?paid=1` grants nothing). Unpaid Access is set only from the server console, never from a route.
 - A Brief contains no invented price, phone, address or e-mail; a missing value is a visible Placeholder.
 - Final Phrases come from the keyword API, never from the LLM.
 - A paid request a run already stored is never sent again for that run; fresh (< 30 days) Volumes and SERP Snapshots are reused across runs.

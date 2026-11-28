@@ -14,6 +14,8 @@ defmodule Dirmoon.Research do
   import Ecto.Query
 
   alias Dirmoon.Accounts.Scope
+  alias Dirmoon.Billing
+  alias Dirmoon.Billing.Allowance
   alias Dirmoon.Markets
   alias Dirmoon.Repo
   alias Dirmoon.Research.ApiRequest
@@ -59,12 +61,22 @@ defmodule Dirmoon.Research do
   recorded on the run in the same transaction (`Ledger.record/2`), so its API
   Cost includes them. They come from the server's own state, never from the
   form's params.
+
+  The form is checked first, so a rejected run returns `{:error, changeset}`
+  and spends nothing. A valid one spends a research
+  (`Dirmoon.Billing.spend_research/1`, which locks the Account's row) and
+  the run keeps the Allowance it spent; with none left nothing is stored and
+  it returns `{:error, :no_researches_left}`.
   """
   def start_run(%Scope{} = scope, attrs, options \\ []) do
     ledger_entries = Keyword.get(options, :ledger_entries, [])
 
+    changeset = change_run(scope, attrs)
+
     Repo.transact(fn ->
-      with {:ok, run} <- scope |> change_run(attrs) |> Repo.insert() do
+      with {:ok, _valid_run} <- Ecto.Changeset.apply_action(changeset, :insert),
+           {:ok, allowance} <- Billing.spend_research(scope),
+           {:ok, run} <- changeset |> Ecto.Changeset.put_change(:allowance_id, allowance_id(allowance)) |> Repo.insert() do
         insert_waiting_steps(run)
         Enum.each(ledger_entries, &(:ok = Ledger.record(run, &1)))
         :ok = Pipeline.advance(run)
@@ -297,6 +309,9 @@ defmodule Dirmoon.Research do
   defp new_run(%Scope{account: account}) do
     %Run{account_id: account.id, status: :running}
   end
+
+  defp allowance_id(%Allowance{id: allowance_id}), do: allowance_id
+  defp allowance_id(nil), do: nil
 
   defp account_runs_query(%Scope{account: account}) do
     Run

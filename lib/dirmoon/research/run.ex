@@ -10,6 +10,7 @@ defmodule Dirmoon.Research.Run do
   import Ecto.Changeset
 
   alias Dirmoon.Accounts.Account
+  alias Dirmoon.Billing.Allowance
   alias Dirmoon.Markets.Country
   alias Dirmoon.Markets.Language
   alias Dirmoon.Research.RunStep
@@ -39,6 +40,7 @@ defmodule Dirmoon.Research.Run do
     field :status, Ecto.Enum, values: @statuses
 
     belongs_to :account, Account
+    belongs_to :allowance, Allowance
     has_many :steps, RunStep
 
     timestamps(type: :utc_datetime)

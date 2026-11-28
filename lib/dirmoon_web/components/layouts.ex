@@ -28,7 +28,7 @@ defmodule DirmoonWeb.Layouts do
   step lighter and the status row lighter again.
   A slim top bar (the moon mark, "dirmoon / <context>" in mono, and the
   user's email with "Settings" and "Log out"), a sidebar ("New research",
-  "Results", "Briefs"), the status row (moon mark, the screen's first-person
+  "Results", "Briefs", "Plan"), the status row (moon mark, the screen's first-person
   sentence and its note) and the screen's working area. On phones (below
   860px) the sidebar becomes a row of links under the top bar and the email
   is only read out to screen readers. The light dotted page, the nav card,
@@ -52,7 +52,7 @@ defmodule DirmoonWeb.Layouts do
 
   attr :active, :atom,
     default: nil,
-    values: [nil, :new_research, :runs, :pages],
+    values: [nil, :new_research, :runs, :pages, :billing],
     doc: "the sidebar link of the page being shown"
 
   attr :context, :string, required: true, doc: "shown as `dirmoon / <context>` in the top bar"
@@ -285,7 +285,8 @@ defmodule DirmoonWeb.Layouts do
   defp app_sidebar_links do
     [
       %{page: :runs, label: "Results", path: ~p"/app/runs"},
-      %{page: :pages, label: "Briefs", path: ~p"/app/pages"}
+      %{page: :pages, label: "Briefs", path: ~p"/app/pages"},
+      %{page: :billing, label: "Plan", path: ~p"/app/billing"}
     ]
   end
 

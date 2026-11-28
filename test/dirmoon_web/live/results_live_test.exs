@@ -4,6 +4,8 @@ defmodule DirmoonWeb.ResultsLiveTest do
 
   import Phoenix.LiveViewTest
 
+  alias Dirmoon.Accounts.Membership
+  alias Dirmoon.Billing
   alias Dirmoon.Niches.Niche
   alias Dirmoon.Pages.Page
   alias Dirmoon.PriceChecks.CompetitorOffer
@@ -1570,6 +1572,83 @@ defmodule DirmoonWeb.ResultsLiveTest do
     assert has_element?(view, "#check-prices", "Check competitor prices and pages")
     assert has_element?(view, "#check-prices-note", "compare their pages with yours")
     assert has_element?(view, "#check-prices-note", "counting the sites that link to them is one more request")
+  end
+
+  test "at the research's brief cap a topic that has a brief still links to it", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    insert_list(Billing.offer().briefs_per_research - 1, :page, run: run, status: :ready)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"), status: :chosen)
+    page = insert(:page, run: run, niche: niche, status: :ready)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?niche=#{niche.id}")
+
+    assert has_element?(view, "#open-page[href='/app/pages/#{page.id}']", "Open brief")
+  end
+
+  test "choosing a topic once the research's briefs are used starts nothing and says so", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    briefs = Billing.offer().briefs_per_research
+    insert_list(briefs, :page, run: run, status: :ready)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?niche=#{niche.id}")
+    view |> element("#choose-niche") |> render_click()
+
+    assert has_element?(view, "#flash-error", "This research's #{briefs} briefs are used, so I can't write another")
+    assert Repo.get_by(Page, cluster_id: niche.id) == nil
+    assert Repo.get!(Niche, niche.id).status == :proposed
+    refute_enqueued(worker: WriteBrief)
+  end
+
+  test "at the research's price check cap a topic's failed check still runs again", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    insert_list(Billing.offer().price_checks_per_research - 1, :price_check, run: run, status: :done)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+    price_check = insert(:price_check, run: run, niche: niche, status: :failed, error: "No OpenAI API key")
+    insert(:competitor_page, price_check: price_check)
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?niche=#{niche.id}")
+    view |> element("#check-prices") |> render_click()
+
+    assert_enqueued(worker: CheckCompetitorPrices, args: %{price_check_id: price_check.id})
+    assert has_element?(view, "#competitor-prices-status", "0 of 1 page done")
+  end
+
+  test "asking for prices once the research's price checks are used starts nothing and says so", %{conn: conn} do
+    %{conn: conn, scope: scope} = sign_up_and_log_in_user(%{conn: conn})
+    run = scored_run(scope)
+    price_checks = Billing.offer().price_checks_per_research
+    insert_list(price_checks, :price_check, run: run, status: :done)
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+    checked = phrase_in_niche(run, niche, %{volume: 100, cpc: nil})
+    insert(:serp_assessment, run: run, phrase: checked.phrase, labels: labels(%{"direct_competitor" => 1, "blog" => 9}))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results?niche=#{niche.id}")
+    view |> element("#check-prices") |> render_click()
+
+    assert has_element?(
+             view,
+             "#flash-error",
+             "This research's #{price_checks} competitor price checks are used, so I can't check another topic"
+           )
+
+    assert Repo.get_by(PriceCheck, cluster_id: niche.id) == nil
+    refute_enqueued(worker: CheckCompetitorPrices)
+  end
+
+  test "an Account with no research left still opens a past run's results", %{conn: conn} do
+    account = insert(:account, unpaid_access: false)
+    user = insert(:user, memberships: [%Membership{account: account}])
+    conn = log_in_user(conn, user)
+    run = scored_run(%{account: account})
+    niche = insert(:niche, run: run, score: Decimal.new("6.0"))
+
+    {:ok, view, _html} = live(conn, ~p"/app/runs/#{run}/results")
+
+    assert has_element?(view, "#app-main #results #niches #niche-row-#{niche.id}")
   end
 
   defp scored_run(%{account: account}, attrs \\ %{}) do

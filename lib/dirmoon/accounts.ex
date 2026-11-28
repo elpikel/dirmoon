@@ -24,6 +24,8 @@ defmodule Dirmoon.Accounts do
 
   @doc """
   Creates a user with a new Account and their Membership, in one transaction.
+  The Account gets Unpaid Access when the `new_accounts_unpaid` setting of
+  `config :dirmoon, Dirmoon.Accounts` is on (in dev; off elsewhere).
   `opts` are `Dirmoon.Accounts.User.email_changeset/3`'s.
 
   ## Examples
@@ -38,7 +40,7 @@ defmodule Dirmoon.Accounts do
   def create_user_with_account(attrs, opts \\ []) do
     Multi.new()
     |> Multi.insert(:user, User.email_changeset(%User{}, attrs, opts))
-    |> Multi.insert(:account, %Account{})
+    |> Multi.insert(:account, %Account{unpaid_access: new_accounts_unpaid?()})
     |> Multi.insert(:membership, fn %{user: user, account: account} ->
       Membership.changeset(%Membership{user_id: user.id, account_id: account.id})
     end)
@@ -212,6 +214,12 @@ defmodule Dirmoon.Accounts do
   def delete_user_session_token(token) do
     token |> UserToken.session_token_query() |> Repo.delete_all()
     :ok
+  end
+
+  defp new_accounts_unpaid? do
+    :dirmoon
+    |> Application.fetch_env!(__MODULE__)
+    |> Keyword.fetch!(:new_accounts_unpaid)
   end
 
   defp log_in_found_user(%User{confirmed_at: nil} = user, _user_token) do

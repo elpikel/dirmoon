@@ -14,11 +14,20 @@ defmodule DirmoonWeb.PageHTML do
   report's order, what the Site Scan tells them. It quotes no figure: there
   is no real scan to quote.
 
+  The pricing section shows the two ways to pay, one research and the
+  monthly plan, and what a research includes. Every price and number in it
+  comes from `Dirmoon.Billing.offer/0` (the `Dirmoon.Billing` config) and
+  its words from `DirmoonWeb.OfferDisplay`, as on the plan screen; its
+  buttons lead to the closing sign-up
+  form, and paying happens later, on Stripe, once signed in.
+
   See the `page_html` directory for all templates available.
   """
   use DirmoonWeb, :html
 
+  alias Dirmoon.Billing
   alias Dirmoon.SiteScans
+  alias DirmoonWeb.OfferDisplay
 
   embed_templates "page_html/*"
 
@@ -178,7 +187,6 @@ defmodule DirmoonWeb.PageHTML do
           Create account
         </.button>
       </.prompt_box>
-      <p class="text-[13px] text-body-muted">We'll email you a sign-in link. No password.</p>
     </.form>
     """
   end
@@ -369,6 +377,101 @@ defmodule DirmoonWeb.PageHTML do
         A topic with no page? Ask for its brief: the plan and the text for that page. dirmoon also sets your page beside your competitors' pages.
       </p>
     </div>
+    """
+  end
+
+  attr :id, :string, required: true
+
+  defp pricing_section(assigns) do
+    offer = Billing.offer()
+
+    assigns =
+      assign(assigns,
+        single_research: OfferDisplay.single_research(offer),
+        monthly_plan: OfferDisplay.monthly_plan(offer),
+        research_includes: OfferDisplay.research_includes(offer)
+      )
+
+    ~H"""
+    <div class="flex w-full flex-col items-center gap-8">
+      <div
+        id={"#{@id}-options"}
+        class="grid w-full max-w-[880px] gap-4 text-left min-[720px]:grid-cols-2"
+      >
+        <.pricing_option
+          id={"#{@id}-single-research"}
+          option={@single_research}
+          research_includes={@research_includes}
+        />
+        <.pricing_option
+          id={"#{@id}-monthly-plan"}
+          option={@monthly_plan}
+          research_includes={@research_includes}
+        />
+      </div>
+      <p
+        id={"#{@id}-how-to-pay"}
+        class="m-0 max-w-[680px] text-[15px] leading-normal text-pretty text-body-muted"
+      >
+        You create an account with your email, then pay on Stripe's secure page.
+      </p>
+    </div>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :option, :map, required: true, doc: "a way to pay from `DirmoonWeb.OfferDisplay`"
+  attr :research_includes, :list, required: true
+
+  defp pricing_option(assigns) do
+    ~H"""
+    <article
+      id={@id}
+      class="flex flex-col gap-5 rounded-tile border border-line bg-white px-6 py-6"
+    >
+      <div class="flex flex-col gap-2">
+        <h3 class="m-0 text-[19px] leading-snug font-bold tracking-[-0.01em] text-ink">
+          {@option.name}
+        </h3>
+        <p class="m-0 flex items-baseline gap-2">
+          <span
+            id={"#{@id}-price"}
+            class="text-[44px] leading-none font-extrabold tracking-[-0.04em] text-ink"
+          >
+            {@option.price}
+          </span>
+          <span data-part="price-note" class="text-[15px] text-body-muted">{@option.price_note}</span>
+        </p>
+        <p data-part="details" class="m-0 text-[16px] leading-normal text-body">
+          {@option.details}
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <span
+          data-part="includes-lead"
+          class="font-mono text-xs uppercase tracking-[0.1em] text-body-muted"
+        >
+          Each research includes:
+        </span>
+        <ul id={"#{@id}-includes"} class="m-0 flex list-none flex-col gap-2.5 p-0">
+          <li :for={included <- @research_includes} class="flex items-start gap-3">
+            <.icon name="hero-check-circle" class="mt-0.5 size-5 shrink-0 text-ink" />
+            <span class="text-[16px] leading-snug text-ink">{included}</span>
+          </li>
+        </ul>
+      </div>
+
+      <.button
+        id={"#{@id}-sign-up"}
+        variant="dark"
+        size="large"
+        href="#closing"
+        class="mt-auto w-full"
+      >
+        Create account
+      </.button>
+    </article>
     """
   end
 

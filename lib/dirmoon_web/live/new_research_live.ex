@@ -11,6 +11,11 @@ defmodule DirmoonWeb.NewResearchLive do
   for the chosen Mode (`Dirmoon.Research.NewRunStatusLine`). See
   `docs/design/README.md` section 8.3.
 
+  The status row's note says how many researches the Account has left
+  (`Dirmoon.Billing.researches_left/1`), and nothing for an Account with
+  Unpaid Access. With none left the screen says so, with a link to the plan
+  screen, and starting a research shows the same instead of a run.
+
   In Existing Site mode the site's address comes first, with "Read my site":
   an async task drafts the description from the home page
   (`Dirmoon.SiteScans.Description.draft/1`) while the screen stays
@@ -25,6 +30,7 @@ defmodule DirmoonWeb.NewResearchLive do
   """
   use DirmoonWeb, :live_view
 
+  alias Dirmoon.Billing
   alias Dirmoon.Format
   alias Dirmoon.Markets
   alias Dirmoon.Research
@@ -66,6 +72,7 @@ defmodule DirmoonWeb.NewResearchLive do
       current_scope={@current_scope}
       active={:new_research}
       context="new research"
+      note={researches_left_note(@researches_left)}
     >
       <:status><span id="new-research-status-line">{@status_line}</span></:status>
       <div id="new-research" class="flex grow flex-col min-[1080px]:flex-row">
@@ -290,6 +297,22 @@ defmodule DirmoonWeb.NewResearchLive do
                 <.icon name="hero-exclamation-circle" class="mt-0.5 size-5 shrink-0 text-warn" />
                 {@markets_problem}
               </p>
+              <p
+                :if={@researches_left == 0}
+                id="no-researches-left"
+                role="alert"
+                class="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-app-line px-[26px] py-3.5 text-sm leading-normal text-on-app max-sm:px-5"
+              >
+                <.icon name="hero-exclamation-circle" class="size-5 shrink-0 text-warn" />
+                <span>You have no research left.</span>
+                <.link
+                  id="plan-link"
+                  href={~p"/app/billing"}
+                  class="inline-flex min-h-target-min items-center font-semibold text-on-app underline underline-offset-4"
+                >
+                  Buy a research or a monthly plan
+                </.link>
+              </p>
             </.prompt_box>
           </.form>
 
@@ -395,6 +418,7 @@ defmodule DirmoonWeb.NewResearchLive do
        domain_open?: false,
        services_open?: false,
        params: initial_params,
+       researches_left: Billing.researches_left(scope),
        reading_site: nil,
        read_site_error: nil,
        drafts_left: @drafts_per_screen,
@@ -467,6 +491,9 @@ defmodule DirmoonWeb.NewResearchLive do
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, socket |> assign(:params, params) |> assign_form(changeset)}
+
+      {:error, :no_researches_left} ->
+        {:noreply, socket |> assign(:params, params) |> assign(:researches_left, 0)}
     end
   end
 
@@ -656,6 +683,10 @@ defmodule DirmoonWeb.NewResearchLive do
       status_line: NewRunStatusLine.sentence(%{mode: mode})
     )
   end
+
+  defp researches_left_note(1), do: "1 research left"
+  defp researches_left_note(count) when is_integer(count) and count > 1, do: "#{count} researches left"
+  defp researches_left_note(_none_or_unlimited), do: nil
 
   defp recent_run_row(%Run{} = run) do
     %{

@@ -1,5 +1,8 @@
 import Config
 
+# Every Account signed up in dev starts research without paying.
+config :dirmoon, Dirmoon.Accounts, new_accounts_unpaid: true
+
 # Configure your database
 config :dirmoon, Dirmoon.Repo,
   username: "postgres",
